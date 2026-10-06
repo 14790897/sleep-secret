@@ -76,8 +76,19 @@ class FakeForegroundServiceController implements ForegroundServiceController {
   /// 置为 true 时 start 抛异常，用于验证启动失败时的回滚。
   bool failOnStart = false;
 
+  /// 通知权限是否已授予。默认授予——大多数测试不关心这件事，
+  /// 要验证「被拒之后的提示」时把它置为 false。
+  bool notificationPermissionGranted = true;
+  int notificationPermissionRequests = 0;
+
   @override
   void initialize() => initializeCount++;
+
+  @override
+  Future<bool> ensureNotificationPermission() async {
+    notificationPermissionRequests++;
+    return notificationPermissionGranted;
+  }
 
   @override
   Future<void> start({required String title, required String text}) async {

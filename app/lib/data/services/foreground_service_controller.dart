@@ -10,6 +10,18 @@ abstract interface class ForegroundServiceController {
   /// 初始化插件配置。必须在 [start] 之前调用一次。
   void initialize();
 
+  /// 确保能显示常驻通知，返回 false 表示用户拒绝了通知权限。
+  ///
+  /// 必须在 [start] 之前调用。**被拒绝也不该阻断录音**——
+  /// 可见的常驻通知是保活手段，不是录音的前提——但要说清楚代价：
+  /// Android 13 起，没有这个权限通知会被系统静默丢弃，
+  /// 于是「前台服务在运行」这件事对用户和系统都不可见，
+  /// 国产 ROM（小米/华为/OPPO 等）在后台清理时更容易把它扫掉。
+  ///
+  /// 权限本身在插件自带的清单里已经声明（清单合并会带进来），
+  /// 这里补的是**运行时申请**那一步——缺了它 granted 会一直是 false。
+  Future<bool> ensureNotificationPermission();
+
   /// 启动麦克风型前台服务。
   Future<void> start({required String title, required String text});
 
@@ -88,6 +100,21 @@ class FlutterForegroundServiceController implements ForegroundServiceController 
       _unsupported = true;
       debugPrint('当前平台不支持前台服务，录音将在没有保活服务的情况下运行');
     }
+  }
+
+  @override
+  Future<bool> ensureNotificationPermission() async {
+    final granted = await _guarded(() async {
+      if (await FlutterForegroundTask.checkNotificationPermission() ==
+          NotificationPermission.granted) {
+        return true;
+      }
+      final asked = await FlutterForegroundTask.requestNotificationPermission();
+      return asked == NotificationPermission.granted;
+    });
+    // 桌面端没有前台服务也没有通知权限这回事，_guarded 返回 null——
+    // 那种情况下不该报「通知被拒」，视作通过。
+    return granted ?? true;
   }
 
   @override

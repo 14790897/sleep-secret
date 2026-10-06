@@ -34,6 +34,10 @@ class RecordingView extends StatelessWidget {
               const SizedBox(height: 16),
               _ErrorBanner(message: viewModel.state.error!),
             ],
+            if (viewModel.state.warning != null) ...[
+              const SizedBox(height: 16),
+              _WarningBanner(message: viewModel.state.warning!),
+            ],
             if (viewModel.state.isRecording) ...[
               const SizedBox(height: 16),
               _LiveStatsCard(viewModel: viewModel),
@@ -431,6 +435,40 @@ class _ErrorBanner extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(message, style: theme.textTheme.bodySmall),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 非致命的提醒：录音在正常跑，但有件事用户该知道。
+///
+/// 和 [_ErrorBanner] 用同一套版式、不同的颜色和图标——用户扫一眼就能
+/// 分辨「出事了」和「有事要提醒你」，不必读完文字。
+class _WarningBanner extends StatelessWidget {
+  const _WarningBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.notifications_off_outlined,
+                color: AppColors.statusWarning),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: theme.textTheme.bodySmall?.copyWith(height: 1.5),
+              ),
             ),
           ],
         ),
