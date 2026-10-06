@@ -11,7 +11,7 @@ class RecordingState {
     this.inferenceErrors = 0,
     this.inputLevel = 0,
     this.peakLevel = 0,
-    this.vadThreshold = 0.01,
+    this.vadThreshold,
     this.error,
     this.warning,
   });
@@ -39,12 +39,12 @@ class RecordingState {
   /// 本次录音以来的最高电平。
   final double peakLevel;
 
-  /// **当前生效的**能量门控阈值。
+  /// **当前生效的**能量门控阈值。**能量门控关掉时为 null。**
   ///
   /// 阈值会随房间噪声底自适应，所以界面上的电平条必须画在这个位置，
-  /// 不能画在配置的固定值上——两者不一样时，画错了就是在骗用户：
-  /// 他会以为电平过线了，实际没有（或者反过来）。
-  final double vadThreshold;
+  /// 不能画在配置的固定值上——两者不一样时，画错了就是在骗用户。
+  /// 而门控关掉时根本没有"门槛"这回事，界面不该再画那条线。
+  final double? vadThreshold;
 
   /// 出错信息。非 null 表示录音异常结束或无法开始。
   final String? error;

@@ -239,11 +239,13 @@ class _ArcRingPainter extends CustomPainter {
 /// 电平条不到那条线，就说明这段声音不会被识别。
 /// 整夜录音最怕的就是手机被挡住、录了一晚静音而自己不知道。
 class _LevelMeter extends StatelessWidget {
-  const _LevelMeter({required this.level, required this.peak, required this.threshold});
+  const _LevelMeter({required this.level, required this.peak, this.threshold});
 
   final double level;
   final double peak;
-  final double threshold;
+  /// 识别门槛。**为 null 表示能量门控关着**，这时不存在门槛这回事，
+  /// 不画线也不给「有声音/太安静」的判断——没有参照物。
+  final double? threshold;
 
   /// 用对数刻度。声音的 RMS 跨好几个数量级，线性刻度下阈值会挤在最左边看不见。
   static const double _floor = 0.0001;
@@ -262,8 +264,9 @@ class _LevelMeter extends StatelessWidget {
     final theme = Theme.of(context);
     final levelPos = _pos(level);
     final peakPos = _pos(peak);
-    final thresholdPos = _pos(threshold);
-    final above = level >= threshold;
+    final t = threshold;
+    final thresholdPos = t == null ? null : _pos(t);
+    final above = t == null ? null : level >= t;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,12 +275,13 @@ class _LevelMeter extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('输入电平', style: theme.textTheme.bodySmall),
-            Text(
-              above ? '有声音' : '太安静',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: above ? AppColors.statusGood : AppColors.textDim,
+            if (above != null)
+              Text(
+                above ? '有声音' : '太安静',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: above ? AppColors.statusGood : AppColors.textDim,
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -309,9 +313,13 @@ class _LevelMeter extends StatelessWidget {
                       height: 8,
                       width: w * levelPos,
                       decoration: BoxDecoration(
-                        color: above
-                            ? AppColors.statusGood
-                            : AppColors.textDim.withValues(alpha: 0.6),
+                        color: above == null
+                            // 没有门槛就没有"过没过"这回事，用中性色——
+                            // 拿绿色会暗示"这条被识别了"，那是假的
+                            ? AppColors.accent
+                            : above
+                                ? AppColors.statusGood
+                                : AppColors.textDim.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -327,20 +335,22 @@ class _LevelMeter extends StatelessWidget {
                         color: AppColors.accent,
                       ),
                     ),
-                  // 阈值线——不到这里就不会被识别
-                  Positioned(
-                    top: 0,
-                    left: (w * thresholdPos - 1).clamp(0.0, w - 2),
-                    child: Column(
-                      children: [
-                        Container(
-                            width: 2,
-                            height: 22,
-                            color: AppColors.statusCritical
-                                .withValues(alpha: 0.85)),
-                      ],
+                  // 阈值线——不到这里就不会被识别。
+                  // 能量门控关着的时候没有门槛，这条线不该出现。
+                  if (thresholdPos != null)
+                    Positioned(
+                      top: 0,
+                      left: (w * thresholdPos - 1).clamp(0.0, w - 2),
+                      child: Column(
+                        children: [
+                          Container(
+                              width: 2,
+                              height: 22,
+                              color: AppColors.statusCritical
+                                  .withValues(alpha: 0.85)),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             );
@@ -348,9 +358,13 @@ class _LevelMeter extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '红线是识别门槛（现在 ${threshold.toStringAsFixed(4)}，'
-          '会随环境噪声自动调整）。电平要越过去才会被分析。'
-          '当前 ${level.toStringAsFixed(4)}，峰值 ${peak.toStringAsFixed(4)}',
+          t == null
+              // 门控关着的时候电平条只剩一个作用：看麦克风有没有在工作
+              ? '所有声音都会送进模型分析。'
+                  '当前 ${level.toStringAsFixed(4)}，峰值 ${peak.toStringAsFixed(4)}'
+              : '红线是识别门槛（现在 ${t.toStringAsFixed(4)}，'
+                  '会随环境噪声自动调整）。电平要越过去才会被分析。'
+                  '当前 ${level.toStringAsFixed(4)}，峰值 ${peak.toStringAsFixed(4)}',
           style: theme.textTheme.labelSmall
               ?.copyWith(color: AppColors.textDim, height: 1.5),
         ),

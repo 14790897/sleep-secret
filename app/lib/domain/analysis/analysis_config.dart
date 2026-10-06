@@ -8,6 +8,7 @@ class AnalysisConfig {
     this.sampleRate = 16000,
     this.windowSeconds = 3.0,
     this.hopSeconds = 3.0,
+    this.vadEnabled = false,
     this.vadRms = 0.01,
     this.vadAdaptive = true,
     this.vadNoisePercentile = 0.2,
@@ -32,9 +33,38 @@ class AnalysisConfig {
   /// 窗口滑动步长（秒）。等于 [windowSeconds] 即不重叠。
   final double hopSeconds;
 
+  /// 能量门控（VAD）是否启用。**默认关闭。**
+  ///
+  /// ## 为什么默认关
+  ///
+  /// 它做的事只有一件：**跳过安静段，不做推理**（省算力）。实测它并没有在
+  /// 挡住误报——关掉之后雨声、公鸡叫、白噪声照样 0 个鼾声段，那些是模型
+  /// 自己在做。它唯一可观察到的行为差异是「纯静音素材从 0 个事件变成
+  /// 1 个环境噪音事件」，而那是个**呈现**问题，不是判定问题。
+  ///
+  /// 也就是说：一道阈值 + 一套自适应估计 + 上下界 + 测试，换来的只是算力，
+  /// 而算力账是「整夜 8 小时里省约 11 分钟 CPU」。复杂度不划算。
+  ///
+  /// ## 但为什么没有直接删掉
+  ///
+  /// 那个算力账是**按 PC 速度估算的**，手机上慢多少没有实测过。
+  /// 整夜录音是插电还是电池、推理占比多高，都要等真实一晚的数据。
+  /// 所以先关掉而不是删掉——明早拿真实数字决定留还是删。
+  ///
+  /// ⚠️ **别让它一直是个永远为 false 的开关。** 这个项目最贵的几次教训
+  /// 都是「代码路径从没被执行过」。要么用数据证明该开，要么删干净。
+  ///
+  /// ## 关掉会失去什么
+  ///
+  /// 1. 「整晚几乎没有触发分析 → 手机可能被挡住」这条诊断失效
+  ///    （判据是跳过窗口数，没有 VAD 就恒为 0）
+  /// 2. 录音页电平条上的识别门槛线没有意义了
+  /// 3. 报告会变成整晚一条「环境噪音」事件（房间底噪被判成环境噪音 0.287）
+  final bool vadEnabled;
+
   /// 能量门控阈值：窗口 RMS 低于它就判静音，**不做推理**。
   ///
-  /// 这是省算力的关键——实测能跳过约 60% 的窗口。
+  /// 只在 [vadEnabled] 为 true 时生效。
   ///
   /// ⚠️ [vadAdaptive] 打开时，这个值不再直接生效，而是变成自适应的**基准**：
   /// 实际阈值在 `vadRms/4` 到 `vadRms*2` 之间按房间的噪声底浮动。
@@ -147,6 +177,7 @@ class AnalysisConfig {
   int get clipBufferSamples => (clipBufferSeconds * sampleRate).round();
 
   AnalysisConfig copyWith({
+    bool? vadEnabled,
     double? vadRms,
     bool? vadAdaptive,
     double? vadNoisePercentile,
@@ -162,6 +193,7 @@ class AnalysisConfig {
         sampleRate: sampleRate,
         windowSeconds: windowSeconds,
         hopSeconds: hopSeconds,
+        vadEnabled: vadEnabled ?? this.vadEnabled,
         vadRms: vadRms ?? this.vadRms,
         vadAdaptive: vadAdaptive ?? this.vadAdaptive,
         vadNoisePercentile: vadNoisePercentile ?? this.vadNoisePercentile,

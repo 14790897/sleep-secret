@@ -10,6 +10,9 @@ import '../helpers/fake_sleep_analyzer.dart';
 const testConfig = AnalysisConfig(
   windowSeconds: 1.0,
   hopSeconds: 1.0,
+  // 这些测试测的就是能量门控的行为，显式打开
+  // （生产默认是关的，见 AnalysisConfig.vadEnabled）
+  vadEnabled: true,
   vadRms: 0.01,
   lowConfidenceThreshold: 0.15,
   minEventSeconds: 2.0,

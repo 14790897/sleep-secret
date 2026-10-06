@@ -10,6 +10,9 @@ import '../helpers/fake_sleep_analyzer.dart';
 const testConfig = AnalysisConfig(
   windowSeconds: 1.0,
   hopSeconds: 1.0,
+  // 这些测试测的就是能量门控的行为，显式打开
+  // （生产默认是关的，见 AnalysisConfig.vadEnabled）
+  vadEnabled: true,
   vadRms: 0.01,
   lowConfidenceThreshold: 0.15,
   minEventSeconds: 2.0,
@@ -240,6 +243,8 @@ void main() {
     const adaptiveConfig = AnalysisConfig(
       windowSeconds: 1.0,
       hopSeconds: 1.0,
+      // 这个组测的就是能量门控本身，必须打开
+      vadEnabled: true,
       vadRms: 0.01,
       lowConfidenceThreshold: 0.15,
       minEventSeconds: 2.0,
@@ -295,6 +300,44 @@ void main() {
       expect(engine.vadThreshold, closeTo(0.01, 1e-9),
           reason: '下一次录音会换一个房间，不该沿用上一次算出来的阈值');
       expect(engine.noiseFloor, isNull);
+    });
+  });
+
+  group('能量门控默认关闭', () {
+    // 生产默认 vadEnabled = false：每一段都送进模型。
+    //
+    // 依据是实测——门控**没在挡误报**（关掉之后雨声、公鸡叫、白噪声照样
+    // 0 个鼾声段，那些是模型自己在做），它换来的只有算力。
+    // 而那个算力账是按 PC 速度估的，真机还没量过，所以是先关掉不是删掉。
+    const noVadConfig = AnalysisConfig(
+      windowSeconds: 1.0,
+      hopSeconds: 1.0,
+      minEventSeconds: 2.0,
+      mergeGapSeconds: 1.5,
+    );
+
+    test('AnalysisConfig 的默认值就是关的', () {
+      expect(const AnalysisConfig().vadEnabled, isFalse,
+          reason: '这是生产默认值。要改成 true 得先有真机的算力/耗电数据。');
+    });
+
+    test('安静段也会送进模型', () async {
+      final analyzer = FakeSleepAnalyzer();
+      final engine = NightAnalysisEngine(analyzer: analyzer, config: noVadConfig);
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 4));
+      final outcome = await engine.finish();
+
+      expect(analyzer.classifyCount, 4, reason: '安静段照样推理');
+      expect(outcome.stats.windowsVadSkipped, 0);
+      expect(outcome.stats.windowsInferred, 4);
+    });
+
+    test('没有阈值可以画，界面就不该画那条线', () {
+      final engine =
+          NightAnalysisEngine(analyzer: FakeSleepAnalyzer(), config: noVadConfig);
+      expect(engine.vadThreshold, isNull);
     });
   });
 }
