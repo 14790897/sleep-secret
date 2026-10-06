@@ -11,7 +11,7 @@ const testConfig = AnalysisConfig(
   windowSeconds: 1.0,
   hopSeconds: 1.0,
   vadRms: 0.01,
-  minConfidence: 0.15,
+  lowConfidenceThreshold: 0.15,
   minEventSeconds: 2.0,
   mergeGapSeconds: 1.5,
 );
@@ -65,10 +65,16 @@ void main() {
     });
   });
 
-  group('NightAnalysisEngine 置信度门控', () {
-    test('模型没把握时不产生事件', () async {
-      // 两道闸门都过了（响亮），但预测接近均匀 -> 置信度不足
-      final analyzer = FakeSleepAnalyzer(responder: (_) => FakeSleepAnalyzer.uniform());
+  group('NightAnalysisEngine 把握不大时仍然产生事件', () {
+    // 这里原本叫「置信度门控」，测的是「模型没把握就不产生事件」。
+    // 那道门去掉了——实测它在真实音频上什么也不做，而它声称要防的问题
+    // 本来就不会发生（详见 night_analysis_engine.dart 里那段说明）。
+    //
+    // 现在把握程度只影响**展示**，不影响判定。
+    test('模型没把握时照样产生事件，并如实记下把握程度', () async {
+      // 能量门控过了（响亮），但预测接近均匀 -> 最高分也很低
+      final analyzer =
+          FakeSleepAnalyzer(responder: (_) => FakeSleepAnalyzer.uniform());
       final engine = NightAnalysisEngine(analyzer: analyzer, config: testConfig);
       engine.start(DateTime(2026, 10, 6, 23));
 
@@ -77,7 +83,32 @@ void main() {
 
       expect(analyzer.classifyCount, 4, reason: '能量门控放行了，确实推理了');
       expect(outcome.stats.windowsLowConfidence, 4);
-      expect(outcome.events, isEmpty, reason: '置信度不足不该产生假事件');
+      expect(outcome.events, isNotEmpty,
+          reason: '不再按置信度丢弃——把握多大交给界面展示，由用户判断');
+      expect(outcome.events.first.confidence, lessThan(0.25),
+          reason: '把握程度要如实记进事件里，否则界面上标不出来');
+    });
+
+    test('判定为静音时不产生事件', () async {
+      // 静音在这套类别里被定义成**背景状态而不是声音事件**
+      // （SleepCategory.isRecessive），所以不给它建事件。
+      // 这是语义规则，不是置信度门槛——去掉门槛不影响它。
+      final analyzer = FakeSleepAnalyzer(
+        responder: (_) => FakeSleepAnalyzer.prediction(categories: const {
+          SleepCategory.silence: 0.9,
+          SleepCategory.ambient: 0.05,
+        }),
+      );
+      final engine = NightAnalysisEngine(analyzer: analyzer, config: testConfig);
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: loud, length: 16000 * 4));
+      final outcome = await engine.finish();
+
+      expect(outcome.stats.windowsInferred, 4, reason: '推理是发生了的');
+      expect(outcome.events, isEmpty);
+      expect(outcome.stats.windowsLowConfidence, 0,
+          reason: '置信度 0.9，只是判成静音了——这不是「把握不大」');
     });
 
     test('模型有把握时产生事件', () async {
@@ -92,6 +123,7 @@ void main() {
       expect(outcome.events.single.label, SleepCategory.snore);
       expect(outcome.events.single.durationSeconds, 4);
       expect(outcome.stats.snoreEventCount, 1);
+      expect(outcome.stats.windowsLowConfidence, 0);
     });
   });
 
@@ -209,7 +241,7 @@ void main() {
       windowSeconds: 1.0,
       hopSeconds: 1.0,
       vadRms: 0.01,
-      minConfidence: 0.15,
+      lowConfidenceThreshold: 0.15,
       minEventSeconds: 2.0,
       mergeGapSeconds: 1.5,
       vadMinSamples: 3,

@@ -91,24 +91,28 @@ List<Diagnosis> diagnoseSession(RecordingSession session) {
     ));
   }
 
-  // ---- 整晚都有声音，但模型基本认不出来 ----
+  // ---- 整晚都有声音，但模型对绝大多数窗口都没把握 ----
   //
   // 光看低置信度比例会误报：**安静的一夜比例也很高**——VAD 只放行零星几声，
   // 模型对这零星几声自然没什么把握。实测在安静房间里就是 10/11 = 91%。
   // 那是正常结果，不该报警。
   //
-  // 真正异常的是「整晚大部分时间都有声音，而模型几乎什么都认不出」——
+  // 真正异常的是「整晚大部分时间都有声音，而模型几乎都认不出」——
   // 那说明有持续的低频噪声（风扇、空调、雨声）占满了整晚。
+  //
+  // ⚠️ 去掉置信度门控之后这条比以前**更重要**：那些窗口现在也会产生事件，
+  // 于是报告里会出现大量类别不可靠的条目。
   if (isFullNight && inferredRatio > 0.5 && s.windowsInferred > 20) {
     final lowConfRatio = s.windowsLowConfidence / s.windowsInferred;
     if (lowConfRatio > 0.9) {
       out.add(Diagnosis(
         level: DiagnosisLevel.warning,
-        title: '整晚都有声音，但模型几乎都认不出来',
+        title: '整晚都有声音，但模型对大多数窗口都没把握',
         detail: '${(inferredRatio * 100).toStringAsFixed(0)}% 的窗口都有声音'
             '（越过了能量门控），其中 ${(lowConfRatio * 100).toStringAsFixed(0)}% '
-            '模型没有把握。通常是持续的背景噪声——风扇、空调、雨声、电视。'
-            '这类声音会被算进分析但归不了类。',
+            '的最高大类得分不到 0.25。通常是持续的背景噪声——'
+            '风扇、空调、雨声、电视。这些窗口的类别仍然会出现在下面的报告里，'
+            '但别太当真。',
       ));
     }
   }

@@ -2,7 +2,7 @@
 ///
 /// 默认值与 PC 端参考实现 `ml/infer.py` 的 `analyze_session` 保持一致，
 /// 这样两端的行为可以互相印证。用真实录音核对检出率时，主要调
-/// [vadRms] 和 [minConfidence] 这两个门限。
+/// [vadRms] 这个门限和 [lowConfidenceThreshold] 这条参考线。
 class AnalysisConfig {
   const AnalysisConfig({
     this.sampleRate = 16000,
@@ -14,7 +14,7 @@ class AnalysisConfig {
     this.vadNoiseMultiplier = 3.0,
     this.vadHistoryWindows = 400,
     this.vadMinSamples = 60,
-    this.minConfidence = 0.25,
+    this.lowConfidenceThreshold = 0.25,
     this.minEventSeconds = 6.0,
     this.mergeGapSeconds = 9.0,
     this.recordClips = true,
@@ -71,15 +71,17 @@ class AnalysisConfig {
   /// 自适应阈值的上界——最多比 [vadRms] 收紧 2 倍。
   double get vadUpperBound => vadRms * 2;
 
-  /// 置信度门控：主导大类的得分低于它就判「未识别」，不产生事件。
+  /// 低于它就认为**把握不大**——仍然产生事件，只是界面上会标出来。
   ///
-  /// 没有这道闸，底噪会被强行归类——模型总要有输出，必有某个类"最高"。
+  /// ⚠️ 这**不是门槛**，曾经是：低于它就判「未识别」、不产生事件。
+  /// 去掉了，因为实测它没在做它声称的事（见 [NightAnalysisEngine] 里那段说明）。
   ///
-  /// 0.25 是按**真实鼾声样本**校准的：6 段 ESC-50 真实鼾声里
-  /// 5 段的 Snoring 得分在 0.74–0.96，第 6 段是 0.22（勉强算近失）；
-  /// 6 个对照声音（钟声/拍手/狗叫/雨/公鸡/婴儿哭）的 Snoring 全是 0.000。
-  /// 真实整夜录音的底噪分布可能不同，上线后应按实际数据再调。
-  final double minConfidence;
+  /// 数值仍然留着当"把握不大"的参考线，但要清楚它原本是按**鼾声那一维**
+  /// 标定的（6 段 ESC-50 真实鼾声里 5 段在 0.74–0.96，第 6 段 0.22；
+  /// 6 个对照声音全是 0.000），而实际比的是**七大类得分的最大值**——
+  /// 标定的依据和用法对不上，所以这个数本身也还没有可靠依据。
+  /// 拿真实整夜数据再定。
+  final double lowConfidenceThreshold;
 
   /// 事件最短时长：短于此的碎片会被丢弃。
   ///
@@ -151,7 +153,7 @@ class AnalysisConfig {
     double? vadNoiseMultiplier,
     int? vadHistoryWindows,
     int? vadMinSamples,
-    double? minConfidence,
+    double? lowConfidenceThreshold,
     double? minEventSeconds,
     double? mergeGapSeconds,
     bool? recordClips,
@@ -166,7 +168,8 @@ class AnalysisConfig {
         vadNoiseMultiplier: vadNoiseMultiplier ?? this.vadNoiseMultiplier,
         vadHistoryWindows: vadHistoryWindows ?? this.vadHistoryWindows,
         vadMinSamples: vadMinSamples ?? this.vadMinSamples,
-        minConfidence: minConfidence ?? this.minConfidence,
+        lowConfidenceThreshold:
+            lowConfidenceThreshold ?? this.lowConfidenceThreshold,
         minEventSeconds: minEventSeconds ?? this.minEventSeconds,
         mergeGapSeconds: mergeGapSeconds ?? this.mergeGapSeconds,
         recordClips: recordClips ?? this.recordClips,

@@ -134,7 +134,10 @@ void main() {
     expect(find.text('6000'), findsOneWidget); // 跳过
     // 33% 在两处出现：指标块的小字提示，和进度条右侧的标签
     expect(find.text('33%'), findsWidgets); // 3200/9600
-    expect(find.textContaining('2900 个窗口模型没把握'), findsOneWidget);
+    // 去掉置信度门控之后，这些窗口**也会产生事件**，所以文案必须说清楚，
+    // 不能再写"不计入事件"
+    expect(find.textContaining('2900 个窗口模型把握不大'), findsOneWidget);
+    expect(find.textContaining('照常计入事件'), findsOneWidget);
   });
 
   testWidgets('事件明细列出每个事件', (tester) async {
@@ -144,6 +147,39 @@ void main() {
     expect(find.text('共 5 条'), findsOneWidget);
     // 睡眠开始 23:30，事件在 3600s 后 -> 00:30
     expect(find.text('00:30'), findsOneWidget);
+  });
+
+  testWidgets('事件明细露出把握程度，而不是只写类别', (tester) async {
+    // 去掉置信度门控之后，「0.93 的鼾声」和「0.21 的鼾声」会同时出现在列表里。
+    // 不显示把握程度的话两者长得一模一样——而后者其实是模型在两个
+    // 几乎相同的分数里挑了一个。这正是"把门槛换成展示"的核心。
+    //
+    // 标记线（0.25）刻意等于旧门槛，所以**被标出来的条目，
+    // 正好就是旧门槛当年会直接丢掉的那些**——一眼能看出它藏掉了什么。
+    await pumpReport(tester, buildSession(events: [
+      event(
+          label: SleepCategory.snore,
+          start: 3600,
+          duration: 180,
+          confidence: 0.93,
+          snore: 0.93),
+      event(
+          label: SleepCategory.snore,
+          start: 9000,
+          duration: 60,
+          confidence: 0.21,
+          snore: 0.21),
+    ]));
+
+    expect(find.text('93%'), findsOneWidget);
+    expect(find.text('21%'), findsOneWidget);
+
+    // 把握不大的那个要用警示色标出来，不能和确定的长得一样
+    final low = tester.widget<Text>(find.text('21%'));
+    final high = tester.widget<Text>(find.text('93%'));
+    expect(low.style?.color, isNot(high.style?.color),
+        reason: '「没把握」和「确定」必须在视觉上分得开，'
+            '否则用户没法判断哪条能信');
   });
 
   testWidgets('没有事件时给出空态而不是崩掉', (tester) async {

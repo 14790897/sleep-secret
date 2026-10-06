@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../domain/analysis/analysis_config.dart';
 import '../../../../domain/analysis/recording_diagnosis.dart';
 import '../../../../domain/analysis/session_insights.dart';
 import '../../../../domain/analysis/sleep_score.dart';
@@ -12,6 +13,16 @@ import '../../../core/widgets/score_gauge.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/sound_timeline.dart';
 import '../view_models/report_view_model.dart';
+
+/// 低于它就认为**把握不大**，界面上标成警示色。
+///
+/// 直接引用配置值而不是写死 0.25——这是个**展示用的参考线**，
+/// 不参与任何判定（判定里已经没有置信度门槛了），
+/// 但显示和配置必须一致，否则标记会自相矛盾。
+///
+/// 顺带一个好性质：这个值正好等于**旧置信度门槛**。所以被标出来的条目，
+/// 正好就是那道门槛当年会直接丢掉的那些——一眼能看出它藏掉了什么。
+final double _lowConfidenceMark = const AnalysisConfig().lowConfidenceThreshold;
 
 /// 单晚睡眠报告。
 ///
@@ -652,7 +663,9 @@ class _PipelineCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Text(
-                '另有 ${s.windowsLowConfidence} 个窗口模型没把握，判为未识别，不计入事件。',
+                '其中 ${s.windowsLowConfidence} 个窗口模型把握不大'
+                '（最高的大类才刚到 ${AnalysisConfig().lowConfidenceThreshold}）——'
+                '它们照常计入事件，但类别未必可靠。',
                 style: theme.textTheme.labelSmall
                     ?.copyWith(color: AppColors.textDim),
               ),
@@ -785,8 +798,28 @@ class _EventRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(event.label.label,
-                style: theme.textTheme.bodyMedium),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(event.label.label,
+                      style: theme.textTheme.bodyMedium),
+                ),
+                const SizedBox(width: 6),
+                // 把把握程度露出来。
+                //
+                // 以前这里只有类别，「0.93 的鼾声」和「0.33 的鼾声」长得一模一样，
+                // 而后者其实是模型在两个几乎相同的分数里挑了一个。
+                // 与其用一条门槛把它藏掉，不如标出来让用户自己判断。
+                Text(
+                  '${(event.confidence * 100).round()}%',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: event.confidence < _lowConfidenceMark
+                        ? AppColors.statusWarning
+                        : AppColors.textDim,
+                  ),
+                ),
+              ],
+            ),
           ),
           Text('${event.durationSeconds.round()}s',
               style: theme.textTheme.bodySmall
