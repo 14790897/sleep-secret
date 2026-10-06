@@ -13,19 +13,22 @@ import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/main.dart';
 import 'package:sleep_secret/ui/core/widgets/charts.dart';
 import 'package:sleep_secret/ui/core/widgets/sound_timeline.dart';
+import 'package:sleep_secret/ui/features/recording/views/recording_view.dart';
 
-/// 真机上的完整用户路径。
+/// 真机上的界面外壳与报告渲染。
 ///
 ///   flutter test integration_test/full_flow_test.dart -d <设备>
 ///
 /// **这个测试测不到什么**（写清楚，免得把它当成"整夜录音已验证"）：
 ///
-/// - **麦克风内容**。测试环境拿不到有意义的音频输入，所以录音只能验证
-///   "点得起来、停得下来、数据落得进库"，验证不了识别结果对不对。
+/// - **麦克风与录音起停**。测试环境拿不到有意义的音频输入。真实的
+///   「点开始 → 录音中 → 点停止」在 `integration_test_hardware/`
+///   `real_recorder_flow_test.dart` —— 它需要已授予的录音权限，CI 给不了。
+///   CI 里的等价覆盖由 `recording_to_report_test.dart` 提供（注入采集器，
+///   确定性地走完 开始→喂数据→停止→落库→报告页显示）。
 /// - **整夜保活**。前台服务能不能撑过 8 小时、息屏后会不会被杀、
 ///   国产 ROM 会不会清理后台——这些只有真的睡一晚才知道。
 /// - **推理速度与耗电**。测试跑几分钟，说明不了整夜的表现。
-/// - **真实鼾声的检出率**。依然只有合成音频验证过链路。
 ///
 /// 它**能**测到：界面在真机上渲染正常、跨页面导航通畅、数据真落进
 /// SQLite 又真读得出来、图表不崩、音频片段能解出可播放的文件。
@@ -54,7 +57,7 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('录音页 → 起停 → 落库 → 报告列表 → 报告详情', (tester) async {
+  testWidgets('界面外壳：录音页渲染 + 底部导航切换', (tester) async {
     await tester.pumpWidget(const SleepSecretApp());
     await settle(tester, 1500);
 
@@ -62,6 +65,14 @@ void main() {
     expect(find.text('睡眠录音'), findsWidgets);
     expect(find.text('点一下开始'), findsOneWidget);
     expect(find.text('使用说明'), findsOneWidget);
+
+    // 开始按钮在，且只可能有一个。
+    // 底部导航的「睡眠」tab 选中时的图标也是 Icons.mic，不限定范围会匹配到两个。
+    final micButton = find.descendant(
+      of: find.byType(RecordingView),
+      matching: find.byIcon(Icons.mic),
+    );
+    expect(micButton, findsOneWidget);
 
     // ---- 2. 底部导航可切换 ----
     await tester.tap(find.text('关于'));
@@ -74,40 +85,7 @@ void main() {
 
     await tester.tap(find.text('睡眠'));
     await settle(tester);
-
-    // ---- 3. 开始录音 ----
-    await tester.tap(find.byIcon(Icons.mic));
-    await settle(tester, 2500);
-
-    // 权限可能没给（系统弹窗测试点不到），两种情况都要能自洽
-    final startedRecording = find.text('录音中').evaluate().isNotEmpty;
-    final permissionDenied =
-        find.textContaining('未获得麦克风权限').evaluate().isNotEmpty;
-
-    expect(startedRecording || permissionDenied, isTrue,
-        reason: '要么进录音态，要么明确提示没权限，不能点了没反应');
-
-    if (startedRecording) {
-      // 录音中：计时与实时统计要出现
-      expect(find.text('实时分析'), findsOneWidget);
-
-      // 注意：这里**不能**用 pumpAndSettle——录音时外圈是无限循环动画，
-      // 永远等不到静止。
-      await settle(tester, 2000);
-
-      expect(find.text('录音中'), findsOneWidget,
-          reason: '过了两秒还应当在录，不该自己停掉');
-
-      // ---- 4. 停止并保存 ----
-      await tester.tap(find.byIcon(Icons.stop));
-    } else {
-      // 没权限时按钮不该卡在加载态
-      expect(find.byIcon(Icons.mic), findsOneWidget);
-    }
-    await settle(tester, 2000);
-
-    expect(find.text('点一下开始'), findsOneWidget,
-        reason: '停止后要回到待机态');
+    expect(find.text('点一下开始'), findsOneWidget, reason: '切回来应当还是待机态');
   });
 
   testWidgets('写入的一晚会出现在报告里，各分区都能渲染', (tester) async {

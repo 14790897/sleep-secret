@@ -89,6 +89,14 @@ jobs:
           arch: x86_64
           working-directory: app
           disable-animations: true
+          # 这里**不需要**预先授予录音权限，因为 integration_test/ 里的测试
+          # 都不碰真实麦克风——音频由 assets 的 fixture 回放。
+          #
+          # 别试图用 `adb shell pm grant` 来解决权限问题：`flutter test`
+          # 每跑完一个测试文件就卸载一次应用，权限跟着清空，而 pm grant
+          # 插不进手（安装发生在 flutter test 内部）。实测同一个目录里
+          # 跑多个文件时，第一个能过、第二个必然卡在系统权限对话框上。
+          # 需要真麦克风和已授权限的测试都在 integration_test_hardware/。
           script: flutter test integration_test -d emulator-5554
 
   # ---------------------------------------------------------------- 发布构建
@@ -128,10 +136,13 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-# 需要真实麦克风的两个测试不在上面任何一步里，手动跑：
+# 需要真实麦克风（以及已授予的录音权限）的三个测试不在上面任何一步里，
+# 在真机/本地手动跑：
 #
 #   flutter test integration_test_hardware/microphone_diagnostic_test.dart -d <设备>
+#   flutter test integration_test_hardware/real_recorder_flow_test.dart -d <设备>
 #   flutter test integration_test_hardware/capture_mic_fixture_test.dart -d windows \
 #     --dart-define=OUT=<路径> --dart-define=SECONDS=30
 #
-# 前者只测采集电平、不判对错；后者是录 fixture 的工具，会外放声音。
+# 前两个需要设备上已授予录音权限；
+# 第三个是录 fixture 的工具，会外放声音。
