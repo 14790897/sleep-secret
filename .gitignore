@@ -43,8 +43,10 @@ node_modules/
 spike/out/
 # 外放用的放大音频，随时能用 ml/ 的脚本重新生成
 testdata/loud/
-# 排查过程中的截图
-screenshots/
+# 排查过程中的截图。
+# 开头的斜杠是必需的：不加的话这个模式会匹配**任意层级**的同名目录，
+# 把 docs/screenshots/（README 用的图，要入库）也一起忽略掉。
+/screenshots/
 
 # ---- 杂项 ----
 .DS_Store
