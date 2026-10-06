@@ -89,15 +89,22 @@ jobs:
           arch: x86_64
           working-directory: app
           disable-animations: true
-          # 这里**不需要**预先授予录音权限，因为 integration_test/ 里的测试
-          # 都不碰真实麦克风——音频由 assets 的 fixture 回放。
+          # 跑聚合入口 `all_tests.dart`，而不是整个目录。
           #
-          # 别试图用 `adb shell pm grant` 来解决权限问题：`flutter test`
-          # 每跑完一个测试文件就卸载一次应用，权限跟着清空，而 pm grant
-          # 插不进手（安装发生在 flutter test 内部）。实测同一个目录里
-          # 跑多个文件时，第一个能过、第二个必然卡在系统权限对话框上。
+          # `flutter test integration_test`（目录形式）会为**每个测试文件**
+          # 单独构建并安装一次 APK（集成测试的入口就是测试文件本身），
+          # 5 个文件就是 5 轮「Gradle 构建 → adb 安装 → 启动 → 卸载」。
+          # 实测在 GitHub 托管的模拟器上，第 2 轮构建时模拟器就挂了
+          # （adb: device 'emulator-5554' not found），后面全部失败，
+          # 而且整个 job 拖到 13 分钟以上。
+          #
+          # 聚合入口是**一次构建、一次安装、一次启动**：
+          # 本地实测 44 秒跑完 24 个测试，目录形式要 2.5 分钟。
+          #
+          # 这里也不需要预先授予录音权限，因为 integration_test/ 里的测试
+          # 都不碰真实麦克风——音频由 assets 的 fixture 回放。
           # 需要真麦克风和已授权限的测试都在 integration_test_hardware/。
-          script: flutter test integration_test -d emulator-5554
+          script: flutter test integration_test/all_tests.dart -d emulator-5554
 
   # ---------------------------------------------------------------- 发布构建
   #
