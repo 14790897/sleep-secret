@@ -1,0 +1,31 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "bash scripts/set_version.sh ${nextRelease.version} && cd app && flutter build apk --release"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["app/pubspec.yaml"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "app/build/app/outputs/flutter-apk/app-release.apk",
+            "label": "APK（通用包，直接装）"
+          }
+        ]
+      }
+    ]
+  ]
+}

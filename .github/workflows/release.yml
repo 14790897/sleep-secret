@@ -1,0 +1,80 @@
+name: Release
+
+# 每次推到 main 都会跑，但**只有**当提交里出现了该发版的类型时才会真的发：
+#
+#   fix:      -> patch（1.0.0 -> 1.0.1）
+#   feat:     -> minor（1.0.0 -> 1.1.0）
+#   BREAKING CHANGE: -> major（1.0.0 -> 2.0.0）
+#
+# 其余提交（chore/docs/refactor/test/style 等）不会触发发版，直接退出。
+# 也就是说：**提交信息必须遵守 Conventional Commits**，否则这个 workflow
+# 永远不会有任何动作——而且不会报错，只是静默地什么都不做。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# semantic-release 要创建 tag、GitHub Release、往 main 推版本提交
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  # 发版不能并行，也不能被打断——中途取消会留下只有 tag 没有产物的半成品
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.6'
+  JAVA_VERSION: '17'
+  # 用 24 而不是钉死小版本：@semantic-release/git 要求 >=24.15
+  NODE_VERSION: '24'
+
+jobs:
+  release:
+    name: 语义化发版 + 构建 APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # semantic-release 要读**完整的**提交历史和所有 tag 才能算版本，
+          # 默认的浅克隆会让它算错或者直接不发版
+          fetch-depth: 0
+          # 让 @semantic-release/git 用 GITHUB_TOKEN 自己推，
+          # 而不是用 checkout 留下的凭据
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 装 semantic-release
+        run: npm ci
+
+      - name: 装 Flutter 依赖
+        working-directory: app
+        run: flutter pub get
+
+      # 这一步会依次做：
+      #   1. 分析提交，算出下一个版本号
+      #   2. 生成 release notes
+      #   3. prepareCmd：把版本写进 app/pubspec.yaml，然后 flutter build apk --release
+      #   4. 把 pubspec.yaml 的改动作为 chore(release): x.y.z [skip ci] 推回 main
+      #   5. 创建 GitHub Release，把 APK 挂上去
+      - name: 发版
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release

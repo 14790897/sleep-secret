@@ -22,6 +22,8 @@ app/ios/Flutter/ephemeral/
 .packages
 .pub-cache/
 .pub/
+# semantic-release 的依赖，只用于发版流程，不入库
+node_modules/
 
 # ---- IDE ----
 .idea/
