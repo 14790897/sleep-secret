@@ -102,13 +102,41 @@ jobs:
           } > key.properties
           echo "keystore 已还原（$(wc -c < sleep-secret-release.jks) 字节）"
 
+      # ⚠️ 发版跑着的时候**不要再推 main**。
+      #
+      # semantic-release 会在最后把版本提交（改过的 pubspec.yaml）推回 main。
+      # 如果这中间 main 前进了，推送会被拒（`! [rejected] HEAD -> main (fetch first)`），
+      # 而那时 tag 可能已经建了——留下一个只有 tag 没有产物的半成品。
+      #
+      # 下面这道检查能挡掉「排队中的 run」这种常见情况（连推两次 → 两个 run 排队）：
+      # 如果本地 HEAD 已经不是 main 的最新提交，说明有更新的 push 在等着，
+      # 那次 push 触发的 run 会负责发版，这次跳过。
+      #
+      # 挡不住的是「run 已经开始、构建途中 main 又前进」——那只能靠重跑。
+      - name: 检查 main 有没有前进
+        id: freshness
+        run: |
+          set -euo pipefail
+          git fetch -q origin main
+          LOCAL=$(git rev-parse HEAD)
+          REMOTE=$(git rev-parse origin/main)
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "main 已经前进到 $(git rev-parse --short origin/main)（本次 run 基于 $(git rev-parse --short HEAD)）"
+            echo "跳过本次发版——那次 push 触发的 run 会处理"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "main 没有前进，继续发版"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # 这一步会依次做：
       #   1. 分析提交，算出下一个版本号
       #   2. 生成 release notes
-      #   3. prepareCmd：把版本写进 app/pubspec.yaml，然后 flutter build apk --release
+      #   3. prepareCmd：把版本写进 app/pubspec.yaml，构建 APK 并校验签名
       #   4. 把 pubspec.yaml 的改动作为 chore(release): x.y.z [skip ci] 推回 main
       #   5. 创建 GitHub Release，把 APK 挂上去
       - name: 发版
+        if: steps.freshness.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
