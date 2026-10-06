@@ -11,7 +11,7 @@ const testConfig = AnalysisConfig(
   windowSeconds: 1.0,
   hopSeconds: 1.0,
   vadRms: 0.01,
-  minConfidence: 0.15,
+  lowConfidenceThreshold: 0.15,
   minEventSeconds: 2.0,
   mergeGapSeconds: 1.5,
 );

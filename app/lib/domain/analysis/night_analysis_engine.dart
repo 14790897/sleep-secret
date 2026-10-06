@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../models/recording_session.dart';
+import '../models/sleep_category.dart';
 import '../models/sound_event.dart';
 import '../repositories/audio_clip_store.dart';
 import '../repositories/sleep_analyzer.dart';
@@ -16,13 +17,15 @@ import 'pcm_window_buffer.dart';
 ///
 /// 数据流：
 ///   PCM 块 -> [PcmWindowBuffer] 切成定长窗口
-///         -> [EnergyVad] 能量门控（不过就跳过，省掉一次推理）
+///         -> 能量门控（RMS 不过阈值就跳过，省掉一次推理）
 ///         -> [SleepAnalyzer] 端侧推理
-///         -> 置信度门控（不够就判未识别）
 ///         -> [EventAccumulator] 合并成事件 + 累计统计
 ///
-/// 两道闸门缺一不可：只有能量门控会漏掉底噪被强行归类的问题；
-/// 只有置信度门控则会把大量算力浪费在安静段上。
+/// 只有**一道**闸门：能量。过了它就一定产生事件，取 argmax。
+///
+/// 这里曾经还有第二道「置信度门控」（得分太低就判未识别、不产生事件），
+/// 后来去掉了——实测它在真实音频上什么也不做，而它声称要防的问题
+/// 本来就不会发生。详细证据见 [_processWindow] 里的说明。
 class NightAnalysisEngine {
   NightAnalysisEngine({
     required this._analyzer,
@@ -241,10 +244,32 @@ class NightAnalysisEngine {
       _inferredCount++;
       final confidence = prediction.confidence;
 
-      // 闸门 2：置信度。太低就判未识别，不产生事件。
-      // 合成/陌生音频下各类概率接近均匀，这一步能挡掉大量假事件。
+      // 不再按置信度丢弃窗口。
+      //
+      // 这里原本有一道「置信度门控」，注释写着「没有它底噪会被强行归类」。
+      // 实测下来它没有在做这件事：
+      //
+      //   · 雨声 / 公鸡叫 / 真实鼾声 / 白噪声四份素材上，它拦截的窗口数是 **0**
+      //   · 真实房间底噪上也是 0 —— 底噪被稳定地认成「环境噪音 0.359」，
+      //     而这个归类本来就是对的（房间底噪就是环境噪音）
+      //
+      // 它最初的依据是 PLAN.md 里「39 个假事件 → 0 个」那个实验，而那个实验的
+      // 底噪是**合成白噪声**（standard_normal × 0.002）——合成白噪声和真实房间
+      // 底噪的行为完全不同，那批假事件是合成信号的产物，不是真实场景。
+      //
+      // 改成：过了能量门控就产生事件，取 argmax。
+      //
+      // 把握程度照旧记进事件里，由界面展示出来，而不是在这里用一条门槛
+      // 替用户丢掉——「没把握」和「确定」在报告上应当长得不一样，
+      // 但两者都不该被藏起来。
+      //
+      // ⚠️ 唯一的例外是「静音」：它在这套类别里被明确定义为
+      // **背景状态而不是声音事件**（见 SleepCategory.isRecessive），
+      // 所以不给它建事件。这不是置信度门槛，是语义规则——
+      // 去掉置信度门控这件事不影响它。
+      final dominant = prediction.dominant;
       final label =
-          confidence >= config.minConfidence ? prediction.dominant : null;
+          dominant == SleepCategory.silence ? null : dominant;
 
       _accumulator.add(WindowObservation(
         startSeconds: window.startSeconds,

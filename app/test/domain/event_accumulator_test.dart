@@ -79,18 +79,21 @@ void main() {
       expect(outcome.events[1].label, SleepCategory.cough);
     });
 
-    test('静音窗口不产生事件', () {
+    test('没有类别的窗口不产生事件', () {
+      // label 为 null 有两种来源：被能量门控跳过，和判定为「静音」
+      // （静音是背景状态不是声音事件）。两种都不产生事件。
       final acc = EventAccumulator(
         config: const AnalysisConfig(minEventSeconds: 3),
       );
       acc.add(obs(start: 0, label: null, inferred: false));
-      acc.add(obs(start: 3, label: null, inferred: true));
+      acc.add(obs(start: 3, label: null, inferred: true, confidence: 0.9));
 
       final outcome = acc.build();
 
       expect(outcome.events, isEmpty);
       expect(outcome.stats.windowsVadSkipped, 1);
-      expect(outcome.stats.windowsLowConfidence, 1);
+      expect(outcome.stats.windowsLowConfidence, 0,
+          reason: '置信度 0.9，只是被判成静音了——这不是「把握不大」');
     });
 
     test('静音只让合并的间隔变大，间隔够小仍会跨越静音合并', () {
@@ -160,7 +163,8 @@ void main() {
     test('统计各类窗口数', () {
       final acc = EventAccumulator();
       acc.add(obs(start: 0, label: SleepCategory.snore));
-      acc.add(obs(start: 3, label: null, inferred: true)); // 低置信度
+      // 把握不大，但**仍然有类别**——去掉置信度门控之后它照常产生事件
+      acc.add(obs(start: 3, label: SleepCategory.breathing, confidence: 0.1));
       acc.add(obs(start: 6, label: null, inferred: false)); // 被 VAD 跳过
 
       final stats = acc.build().stats;
@@ -168,7 +172,8 @@ void main() {
       expect(stats.windowsTotal, 3);
       expect(stats.windowsInferred, 2);
       expect(stats.windowsVadSkipped, 1);
-      expect(stats.windowsLowConfidence, 1);
+      expect(stats.windowsLowConfidence, 1,
+          reason: '「把握不大」现在看的是置信度，不是有没有类别');
     });
 
     test('推理比例正确', () {

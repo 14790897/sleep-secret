@@ -102,7 +102,7 @@ void main() {
         windowsInferred: 8000, // 83% 的窗口越过门控 —— 整晚很吵
         windowsLowConfidence: 7600,
       ));
-      final d = find(out, '认不出来');
+      final d = find(out, '没把握');
       expect(d?.level, DiagnosisLevel.warning);
       expect(d!.detail, contains('风扇'),
           reason: '要给出最可能的原因，不能只说"认不出"');
@@ -117,7 +117,7 @@ void main() {
         windowsLowConfidence: 290, // 但其中 97% 没把握
         eventCount: 1,
       ));
-      expect(find(out, '认不出来'), isNull,
+      expect(find(out, '没把握'), isNull,
           reason: '低置信度比例高本身不是问题——只有"整晚都吵"才是');
     });
 
@@ -128,7 +128,7 @@ void main() {
         windowsLowConfidence: 200,
         analyzedSeconds: 10 * 60,
       ));
-      expect(find(out, '认不出来'), isNull,
+      expect(find(out, '没把握'), isNull,
           reason: '样本不足时下结论比不下更糟');
     });
   });

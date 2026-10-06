@@ -18,7 +18,8 @@ class WindowObservation {
   final double startSeconds;
   final double durationSeconds;
 
-  /// null 表示判为静音或未识别——两种都不产生事件。
+  /// 该窗口的类别。null 只出现在被能量门控跳过的窗口上——
+  /// 送进模型的窗口一定会有类别（不再按置信度丢弃）。
   final SleepCategory? label;
 
   final double confidence;
@@ -153,8 +154,12 @@ class EventAccumulator {
         windowsInferred: inferred.length,
         windowsVadSkipped:
             _observations.where((o) => !o.wasInferred).length,
-        windowsLowConfidence:
-            inferred.where((o) => o.label == null).length,
+        // 含义变了：以前是「被判为未识别、不产生事件的窗口数」，
+        // 现在是「把握不大的窗口数」——它们照常产生事件，只是会被标出来。
+        // 这个名字在数据库列里已经固定，就没再改。
+        windowsLowConfidence: inferred
+            .where((o) => o.confidence < config.lowConfidenceThreshold)
+            .length,
         eventCount: kept.length,
         snoreEventCount: snoreEvents.length,
         snoreSeconds: snoreSeconds,
