@@ -1,30 +1,44 @@
 #!/usr/bin/env bash
 #
-# 构建 release APK，**并校验签名**。
+# 构建 release APK（按 ABI 分包），**并校验签名**。
 #
 #   scripts/build_release_apk.sh
 #
 # 由 semantic-release 的 prepareCmd 调用，跑在发布之前——
 # 这样签名不对时能在 publish 之前就失败，不会发出一个装不上的包。
 #
-# 为什么非要校验：
-#   签名配置在 key.properties 缺失时会**静默退回 debug 签名**
-#   （见 app/android/app/build.gradle.kts）。那是个有意的降级——
-#   保证 clone 下来就能构建——但对发版来说是灾难：
-#   debug 签名每个 CI runner 都不一样，用户装过 release 版之后
-#   就再也覆盖安装不了新版，只能卸载重装，那会清掉所有睡眠历史。
-#   Gradle 不会为此报错，所以必须自己查。
+# ## 为什么按 ABI 分包
+#
+# 通用包含全部三种 ABI，约 140MB；分包后每个约 50MB。走流量下载差别很大。
+# 代价是安装的人要选对架构——现代手机基本都是 arm64-v8a。
+#
+# ## 为什么非要校验签名
+#
+# 签名配置在 key.properties 缺失时会**静默退回 debug 签名**
+# （见 app/android/app/build.gradle.kts）。那是个有意的降级——
+# 保证 clone 下来就能构建——但对发版来说是灾难：
+# debug 签名每个 CI runner 都不一样，用户装过 release 版之后
+# 就再也覆盖安装不了新版，只能卸载重装，那会清掉所有睡眠历史。
+# Gradle 不会为此报错，所以必须自己查。
 set -euo pipefail
 
-APK="app/build/app/outputs/flutter-apk/app-release.apk"
+APK_DIR="app/build/app/outputs/flutter-apk"
 
-echo "构建 release APK…"
-(cd app && flutter build apk --release)
+echo "构建 release APK（按 ABI 分包）…"
+(cd app && flutter build apk --release --split-per-abi)
 
-if [[ ! -f "$APK" ]]; then
-  echo "构建结束了却没有 $APK" >&2
-  exit 1
-fi
+# 三种 ABI 都要在。缺一个说明 Gradle 配置被动过。
+EXPECTED=(
+  "app-armeabi-v7a-release.apk"
+  "app-arm64-v8a-release.apk"
+  "app-x86_64-release.apk"
+)
+for f in "${EXPECTED[@]}"; do
+  if [[ ! -f "$APK_DIR/$f" ]]; then
+    echo "缺少 $APK_DIR/$f —— --split-per-abi 没生效？" >&2
+    exit 1
+  fi
+done
 
 if [[ -z "${EXPECTED_CERT_SHA256:-}" ]]; then
   echo "⚠️ 没有设置 EXPECTED_CERT_SHA256，跳过签名校验。" >&2
@@ -70,16 +84,17 @@ if [[ -z "$SIGNER" ]]; then
   exit 1
 fi
 
-ACTUAL=$("$SIGNER" verify --print-certs "$APK" 2>/dev/null \
-  | grep -i "SHA-256 digest" | head -1 | awk '{print $NF}')
+echo
+echo "签名校验（期望 $EXPECTED_CERT_SHA256）"
+for f in "${EXPECTED[@]}"; do
+  actual=$("$SIGNER" verify --print-certs "$APK_DIR/$f" 2>/dev/null \
+    | grep -i "SHA-256 digest" | head -1 | awk '{print $NF}')
 
-echo "APK  签名: ${ACTUAL:-（读不出来）}"
-echo "期望签名: $EXPECTED_CERT_SHA256"
+  if [[ "$actual" != "$EXPECTED_CERT_SHA256" ]]; then
+    cat >&2 <<EOF
 
-if [[ "$ACTUAL" != "$EXPECTED_CERT_SHA256" ]]; then
-  cat >&2 <<'EOF'
-
-✗ APK 的签名和预期不一致，发版中止。
+✗ $f 的签名和预期不一致，发版中止。
+  实际: ${actual:-（读不出来）}
 
   如果实际值是 debug 签名，多半是 key.properties 没还原成功——
   检查 workflow 里「还原签名用的 keystore」那一步，以及
@@ -90,7 +105,15 @@ if [[ "$ACTUAL" != "$EXPECTED_CERT_SHA256" ]]; then
   确认要换，再用新的指纹更新 workflow 里的 EXPECTED_CERT_SHA256。
 
 EOF
-  exit 1
-fi
+    exit 1
+  fi
+  echo "  ✓ $f"
+done
 
-echo "✓ 签名校验通过"
+echo
+echo "产物："
+for f in "${EXPECTED[@]}"; do
+  # 用 awk 而不是 bc：git bash 里默认没有 bc，本地就跑不了这个脚本
+  size=$(stat -c%s "$APK_DIR/$f" | awk '{printf "%.1f", $1/1048576}')
+  printf '  %-32s %s MB\n' "$f" "$size"
+done

@@ -44,6 +44,10 @@ jobs:
   release:
     name: 语义化发版 + 构建 APK
     runs-on: ubuntu-latest
+    # 给下面的 Windows job 用：这次到底发版了没有、发的是哪个 tag。
+    # 空字符串表示没发版（提交里没有该发版的类型），Windows job 会跳过。
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -148,7 +152,91 @@ jobs:
       #   4. 把 pubspec.yaml 的改动作为 chore(release): x.y.z [skip ci] 推回 main
       #   5. 创建 GitHub Release，把 APK 挂上去
       - name: 发版
+        id: publish
         if: steps.freshness.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: |
+          set -euo pipefail
+          # 发版前后各取一次最新 tag，比出这次到底发没发、发的是哪个。
+          # 不能用「有没有新 tag」直接判断——没发版时 get describe 会返回上一个 tag。
+          BEFORE=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          npx semantic-release
+
+          AFTER=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$AFTER" ] && [ "$AFTER" != "$BEFORE" ]; then
+            echo "本次发布了 $AFTER"
+            echo "tag=$AFTER" >> "$GITHUB_OUTPUT"
+          else
+            echo "本次没有发版（提交里没有 feat/fix/BREAKING CHANGE 这类）"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------- Windows 桌面版
+  #
+  # 单独一个 job，因为 **Flutter 的 Windows 桌面版没法在 Linux 上构建**，
+  # 而发版 job 跑在 ubuntu 上。
+  #
+  # 排在发版**之后**、并认准刚创建的那个 tag，是为了让包里的版本号是对的——
+  # 发版会把新版本写进 pubspec.yaml，tag 就指向那个提交。
+  # 如果和发版并行跑，构建时拿到的还是旧版本号。
+  #
+  # ⚠️ 这个包是**开发/测试用途**，不是日常使用的客户端：
+  # flutter_foreground_task 不支持 Windows（代码里降级处理了），
+  # 所以它没有「前台服务保活」这回事，只适合短时试用。
+  # 这一点在包里附的 README.txt 里也写了。
+  windows:
+    name: Windows 桌面版（测试用途）
+    runs-on: windows-latest
+    needs: release
+    # 没发版就没什么可挂的，跳过
+    if: needs.release.outputs.tag != ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 装 Flutter 依赖
+        working-directory: app
+        run: flutter pub get
+
+      - name: 构建 Windows 桌面版
+        working-directory: app
+        run: flutter build windows --release
+
+      - name: 打包并附上说明
+        shell: pwsh
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          $src = "app/build/windows/x64/runner/Release"
+          $zip = "sleep-secret-windows-$env:TAG.zip"
+
+          $note = @"
+          这个包是「开发 / 测试用途」，不是日常使用的客户端。
+
+          已知限制：flutter_foreground_task 不支持 Windows（代码里做了降级处理），
+          所以它没有「前台服务保活」这回事，只适合短时试用，
+          不适合整夜录音 —— 整夜录音请用 Android 版。
+
+          构建自 $env:TAG
+          "@
+          Set-Content -Path "$src\README.txt" -Value $note -Encoding UTF8
+
+          Compress-Archive -Path "$src\*" -DestinationPath $zip
+          $mb = [math]::Round((Get-Item $zip).Length / 1MB, 1)
+          Write-Output "已打包 $zip （$mb MB）"
+
+      - name: 挂到 Release 上
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: gh release upload "$env:TAG" "sleep-secret-windows-$env:TAG.zip" --clobber
