@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../domain/analysis/recording_diagnosis.dart';
 import '../../../../domain/analysis/session_insights.dart';
 import '../../../../domain/analysis/sleep_score.dart';
 import '../../../../domain/models/recording_session.dart';
@@ -30,6 +31,7 @@ class ReportView extends StatelessWidget {
         final session = viewModel.session;
         final theme = Theme.of(context);
         final started = session.startedAt;
+        final diagnoses = diagnoseSession(session);
 
         return Scaffold(
           appBar: AppBar(
@@ -55,6 +57,12 @@ class ReportView extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
               _OverviewCard(session: session),
+              // 放在概览之后、图表之前：有问题时用户应当**在按错误的理解
+              // 读完一整页图表之前**就看到它。没有问题时整张卡不出现。
+              if (diagnoses.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _DiagnosisCard(diagnoses: diagnoses),
+              ],
               const SizedBox(height: 12),
               _ScoreBreakdownCard(session: session),
               const SizedBox(height: 12),
@@ -147,6 +155,80 @@ class _OverviewCard extends StatelessWidget {
 }
 
 /// 评分构成。把扣分逐项摊开，用户能自己验算，也看得出分是怎么来的。
+/// 录音质量诊断。
+///
+/// 存在的理由是：**报告为空有两种原因，而在界面上长得一模一样**——
+/// 你昨晚确实没打鼾，还是麦克风被挡住了。用户分不清，
+/// 于是要么白高兴一场，要么把能用的功能当成坏的。
+///
+/// 包里已经有全部需要的数字（都来自 [SessionStats]），这里只是把它翻译成人话。
+class _DiagnosisCard extends StatelessWidget {
+  const _DiagnosisCard({required this.diagnoses});
+
+  final List<Diagnosis> diagnoses;
+
+  @override
+  Widget build(BuildContext context) {
+    final warn = hasWarnings(diagnoses);
+
+    return SectionCard(
+      title: '录音质量',
+      subtitle: warn ? '有几处可能影响这次结果的判断' : '几个说明',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < diagnoses.length; i++) ...[
+            if (i > 0) const SizedBox(height: 16),
+            _DiagnosisRow(diagnosis: diagnoses[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagnosisRow extends StatelessWidget {
+  const _DiagnosisRow({required this.diagnosis});
+
+  final Diagnosis diagnosis;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isWarning = diagnosis.level == DiagnosisLevel.warning;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          isWarning ? Icons.warning_amber : Icons.info_outline,
+          size: 18,
+          color: isWarning ? AppColors.statusWarning : AppColors.textDim,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                diagnosis.title,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                diagnosis.detail,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: AppColors.textDim, height: 1.6),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ScoreBreakdownCard extends StatelessWidget {
   const _ScoreBreakdownCard({required this.session});
 

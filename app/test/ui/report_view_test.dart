@@ -364,6 +364,60 @@ void main() {
     });
   });
 
+  group('录音质量诊断', () {
+    testWidgets('一切正常时不出这张卡，免得凭空制造焦虑', (tester) async {
+      await pumpReport(tester, buildSession());
+      expect(find.text('录音质量'), findsNothing);
+    });
+
+    testWidgets('整晚没触发分析时，明确说这不是"我没打鼾"', (tester) async {
+      await pumpReport(
+        tester,
+        buildSession(
+          events: const [],
+          stats: const SessionStats(
+            analyzedSeconds: 28800,
+            windowsTotal: 9600,
+            windowsInferred: 0,
+            windowsVadSkipped: 9600,
+            windowsLowConfidence: 0,
+            eventCount: 0,
+            snoreEventCount: 0,
+            snoreSeconds: 0,
+            categoryDistribution: {},
+          ),
+        ),
+      );
+
+      expect(find.text('录音质量'), findsOneWidget);
+      expect(find.text('整晚几乎没有触发分析'), findsOneWidget);
+      // 光说"没触发"没用，得告诉用户去查什么
+      expect(find.textContaining('挡住'), findsWidgets);
+    });
+
+    testWidgets('鼾声占比异常高时给出最可能的原因', (tester) async {
+      await pumpReport(
+        tester,
+        buildSession(
+          stats: const SessionStats(
+            analyzedSeconds: 28800,
+            windowsTotal: 9600,
+            windowsInferred: 9000,
+            windowsVadSkipped: 600,
+            windowsLowConfidence: 200,
+            eventCount: 3,
+            snoreEventCount: 3,
+            snoreSeconds: 18720, // 65%
+            categoryDistribution: {},
+          ),
+        ),
+      );
+
+      expect(find.textContaining('鼾声占比异常高'), findsOneWidget);
+      expect(find.textContaining('风扇'), findsWidgets);
+    });
+  });
+
   group('formatSpan', () {
     test('小于一小时只显示分钟', () {
       expect(formatSpan(0), '0m');
