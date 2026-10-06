@@ -231,9 +231,10 @@ void main() {
           reason: '单个窗口推理失败会被吞掉，累积起来就说明有问题');
       expect(session.stats.windowsTotal, greaterThan(0));
 
-      // VAD 要在这段录音里正常起作用（它有明显的安静段）
-      expect(session.stats.windowsVadSkipped, greaterThan(0),
-          reason: '这段录音里有安静段，能量门控应当跳过一部分窗口');
+      // 能量门控**默认关着**，所以每一段都会送进模型，不该有窗口被跳过。
+      // （门控开着时它确实会跳掉这段录音里的大部分安静窗口——
+      // 那条行为覆盖在单元测试 night_analysis_engine_test 里。）
+      expect(session.stats.windowsVadSkipped, 0);
 
       // 事件与统计自洽
       expect(session.stats.eventCount, session.events.length);

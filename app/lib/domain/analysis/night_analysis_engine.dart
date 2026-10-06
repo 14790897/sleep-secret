@@ -31,7 +31,7 @@ class NightAnalysisEngine {
     required this._analyzer,
     this.config = const AnalysisConfig(),
     this._clipStore,
-  })  : _noiseFloor = config.vadAdaptive
+  })  : _noiseFloor = config.vadEnabled && config.vadAdaptive
             ? AdaptiveNoiseFloor(
                 historyWindows: config.vadHistoryWindows,
                 percentile: config.vadNoisePercentile,
@@ -70,11 +70,15 @@ class NightAnalysisEngine {
 
   final PcmWindowBuffer _buffer;
 
-  /// 当前生效的能量门控阈值。
+  /// 当前生效的能量门控阈值。**能量门控关掉时返回 null**——
+  /// 那时候不存在"门槛"这回事，界面不该再画一条线。
   ///
   /// 界面上的电平条要画在**这个**位置，不能画在配置里的固定值上——
   /// 阈值自适应之后两者会不一样，画错了就是在骗用户。
-  double get vadThreshold => _noiseFloor?.threshold ?? config.vadRms;
+  double? get vadThreshold {
+    if (!config.vadEnabled) return null;
+    return _noiseFloor?.threshold ?? config.vadRms;
+  }
 
   /// 估计出来的噪声底。样本不足时为 null。
   double? get noiseFloor => _noiseFloor?.floor;
@@ -225,8 +229,13 @@ class NightAnalysisEngine {
     // 两种都会让自适应变成自我实现的预言。
     _noiseFloor?.add(rms);
 
-    // 闸门 1：能量。安静就直接跳过，这次推理省下了。
-    if (rms < vadThreshold) {
+    // 能量门控。跳过安静段，省掉一次推理。
+    //
+    // 默认**关着**（AnalysisConfig.vadEnabled = false）：实测它没在挡误报——
+    // 挡误报的是模型自己（关掉之后雨声/公鸡/白噪声照样 0 个鼾声段）。
+    // 它换来的只有算力，而那个账还没在真机上量过。
+    final threshold = vadThreshold;
+    if (threshold != null && rms < threshold) {
       _accumulator.add(WindowObservation(
         startSeconds: window.startSeconds,
         durationSeconds: window.durationSeconds,

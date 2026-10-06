@@ -143,7 +143,7 @@ void main() {
     }
   });
 
-  testWidgets('静音段不产生事件，也不送进模型', (tester) async {
+  testWidgets('整段安静不产生事件', (tester) async {
     final audio = buildNight(
       Float32List(16000 * 5), // 空的"鼾声"，实际全是 0
       episodes: 0,
@@ -152,9 +152,33 @@ void main() {
     final r = await runPipeline(audio);
 
     expect(r.events, isEmpty, reason: '整段安静不该产生任何事件');
-    expect(r.stats.windowsInferred, 0,
-        reason: '安静段应当在能量门控就被拦下，根本不该送进模型');
-    expect(r.stats.windowsVadSkipped, greaterThan(0));
+
+    // ⚠️ 能量门控**默认关着**，所以安静段也会送进模型。
+    // 不给它建事件靠的是**模型的判断**（判成「静音」时不给它建事件），
+    // 不是靠门控拦下来。这条要验的正是模型真的会判静音——
+    // 如果它把数字静音判成了别的类别，这里就会冒出事件。
+    expect(r.stats.windowsInferred, greaterThan(0),
+        reason: '门控关着，安静段也应当送进模型');
+    expect(r.stats.windowsVadSkipped, 0);
+  });
+
+  testWidgets('能量门控默认关着——每一段都送进模型', (tester) async {
+    final snore = stretch(
+        await loadWave('assets/testdata/real/snore_02.wav'), 15);
+    final audio = buildNight(snore);
+
+    final r = await runPipeline(audio);
+
+    expect(r.stats.inferenceRatio, 1.0,
+        reason: '门控关着就应当全部送进模型，实际 ${r.stats.inferenceRatio}');
+    expect(r.stats.windowsVadSkipped, 0);
+
+    // 门控关掉不等于失去检出能力——鼾声段照样要出事件
+    expect(
+      r.events.where((e) => e.label == SleepCategory.snore),
+      isNotEmpty,
+      reason: '关掉门控的代价不能是漏掉鼾声',
+    );
   });
 
   testWidgets('对照声音（公鸡叫）不会被当成鼾声事件', (tester) async {
@@ -209,17 +233,4 @@ void main() {
         reason: '合并后应当是覆盖三段的总跨度，而不是只剩一段的时长');
   });
 
-  testWidgets('推理比例合理——大部分安静窗口不该进模型', (tester) async {
-    final snore = stretch(
-        await loadWave('assets/testdata/real/snore_02.wav'), 15);
-    final audio = buildNight(snore);
-
-    final r = await runPipeline(audio);
-
-    // 三段 5 秒鼾声夹在约 30 秒安静里，推理比例应当在 20%~70% 之间
-    expect(r.stats.inferenceRatio, lessThan(0.8),
-        reason: '推理比例 ${r.stats.inferenceRatio}——能量门控没有起作用');
-    expect(r.stats.inferenceRatio, greaterThan(0.1),
-        reason: '推理比例 ${r.stats.inferenceRatio}——鼾声段也没送进模型');
-  });
 }
