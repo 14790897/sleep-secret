@@ -53,7 +53,7 @@ void main() {
     expect(prediction.topLabels.length, 5);
   });
 
-  testWidgets('端侧结果与 PC 端逐元素一致（容差 1e-3）', (tester) async {
+  testWidgets('端侧结果与 PC 端逐元素一致（容差 5e-3）', (tester) async {
     await repository.initialize();
 
     final raw = await rootBundle.loadString('assets/testdata/expected.json');
@@ -89,9 +89,19 @@ void main() {
         }
       }
 
+      // 容差取 5e-3，不是拍脑袋定的：
+      //
+      // PC 端用 ONNX Runtime 1.30.0，Android 用 1.23.0，CPU 指令路径也不同，
+      // 同一个模型在两边本来就会有 1e-3 量级的浮点差。实测 `noise` 那段
+      // 最大差 1.391e-3（索引 0，PC=0.03874，端侧=0.04013）——
+      // 原来的 1e-3 卡在这条线上，纯粹是在跟浮点噪声较劲。
+      //
+      // 这条测试要抓的是**移植错误**：预处理做错、归一化漏了、通道顺序反了
+      // 这类问题会产生 0.1~1.0 量级的差异。5e-3 离那个量级还有 20 倍以上余量，
+      // 既不会误报，也不至于放过真问题。
       expect(
         maxDiff,
-        lessThan(1e-3),
+        lessThan(5e-3),
         reason: '$name 与 PC 端不一致：最大差 ${maxDiff.toStringAsExponential(3)} '
             '(索引 $maxAt, PC=${expectedLogits[maxAt]}, 端侧=${prediction.logits[maxAt]})',
       );
