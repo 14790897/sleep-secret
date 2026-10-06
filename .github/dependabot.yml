@@ -1,0 +1,34 @@
+version: 2
+
+# 加了 package.json 之后 Dependabot 会自动启用。默认行为对一个小项目来说
+# 太吵——它会为每个有更新的传递依赖各开一个 PR，每个 PR 又各触发一次 CI。
+# 这里收敛成：每月一次、按生态分组、限制同时打开的 PR 数。
+updates:
+  # 只用于 semantic-release 的依赖，不参与应用运行时
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      semantic-release:
+        patterns: ["*"]
+    commit-message:
+      prefix: chore
+
+  # 应用真正的依赖在这里
+  - package-ecosystem: pub
+    directory: /app
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: chore
