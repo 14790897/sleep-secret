@@ -1,0 +1,128 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:sleep_secret/data/repositories/sleep_analysis_repository.dart';
+import 'package:sleep_secret/data/services/onnx_classifier_service.dart';
+
+/// 端到端验证：Flutter 端跑 ONNX 推理，结果必须与 PC 端（ml/make_testdata.py）一致。
+///
+/// 这个测试必须跑在真实平台（windows / android）上——`flutter test` 的
+/// 宿主环境没有原生插件，ONNX Runtime 无法初始化。
+///
+///   flutter test integration_test -d windows
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  late OnnxClassifierService classifier;
+  late SleepAnalysisRepository repository;
+
+  setUpAll(() {
+    classifier = OnnxClassifierService(
+      assetKey: 'assets/models/ced-tiny.onnx',
+    );
+    repository = SleepAnalysisRepository(classifier: classifier);
+  });
+
+  tearDownAll(() async => classifier.dispose());
+
+  testWidgets('模型与类别映射表能加载', (tester) async {
+    await repository.initialize();
+
+    expect(classifier.isReady, isTrue);
+    final map = repository.classMap!;
+    expect(map.numClasses, 527);
+    expect(map.labels.length, 527);
+    expect(classifier.assetKey, endsWith('ced-tiny.onnx'));
+  });
+
+  testWidgets('单段音频推理输出 527 维 logits', (tester) async {
+    await repository.initialize();
+
+    final prediction = await repository.classifyAsset('assets/testdata/quiet.wav');
+
+    expect(prediction.logits.length, 527);
+    expect(prediction.probabilities.length, 7);
+    // softmax 后 7 大类概率之和应为 1（各类别划分覆盖部分标签，
+    // 这里只检查落在合理区间内，不做严格等于 1 的断言）
+    final total = prediction.probabilities.values.reduce((a, b) => a + b);
+    expect(total, greaterThan(0.0));
+    expect(total, lessThanOrEqualTo(1.0 + 1e-6));
+    expect(prediction.topLabels.length, 5);
+  });
+
+  testWidgets('端侧结果与 PC 端逐元素一致（容差 1e-3）', (tester) async {
+    await repository.initialize();
+
+    final raw = await rootBundle.loadString('assets/testdata/expected.json');
+    final expected = (jsonDecode(raw) as Map<String, dynamic>)['clips']
+        as Map<String, dynamic>;
+
+    const clips = ['quiet', 'noise', 'tone', 'pulse'];
+    var checked = 0;
+
+    for (final name in clips) {
+      final fixture = expected[name] as Map<String, dynamic>?;
+      expect(fixture, isNotNull, reason: 'expected.json 缺少 $name');
+
+      final expectedLogits = (fixture!['logits'] as List)
+          .map((e) => (e as num).toDouble())
+          .toList(growable: false);
+
+      final prediction =
+          await repository.classifyAsset('assets/testdata/$name.wav');
+      expect(
+        prediction.logits.length,
+        expectedLogits.length,
+        reason: '$name 的 logits 维度与 PC 端不一致',
+      );
+
+      var maxDiff = 0.0;
+      var maxAt = 0;
+      for (var i = 0; i < expectedLogits.length; i++) {
+        final d = (expectedLogits[i] - prediction.logits[i]).abs();
+        if (d > maxDiff) {
+          maxDiff = d;
+          maxAt = i;
+        }
+      }
+
+      expect(
+        maxDiff,
+        lessThan(1e-3),
+        reason: '$name 与 PC 端不一致：最大差 ${maxDiff.toStringAsExponential(3)} '
+            '(索引 $maxAt, PC=${expectedLogits[maxAt]}, 端侧=${prediction.logits[maxAt]})',
+      );
+      checked++;
+    }
+
+    expect(checked, clips.length);
+  });
+
+  testWidgets('重复推理结果稳定（无状态泄漏）', (tester) async {
+    await repository.initialize();
+
+    final first = await repository.classifyAsset('assets/testdata/pulse.wav');
+    final second = await repository.classifyAsset('assets/testdata/pulse.wav');
+
+    expect(first.logits.length, second.logits.length);
+    for (var i = 0; i < first.logits.length; i++) {
+      expect(second.logits[i], closeTo(first.logits[i], 1e-6));
+    }
+  });
+
+  testWidgets('不同长度输入都能推理（模型支持动态长度）', (tester) async {
+    await repository.initialize();
+
+    for (final length in [8000, 16000, 80000]) {
+      final samples = Float32List(length);
+      for (var i = 0; i < length; i++) {
+        samples[i] = 0.02 * (i % 100 - 50) / 50.0;
+      }
+      final prediction = await repository.classifySamples(samples);
+      expect(prediction.logits.length, 527, reason: '长度 $length 推理失败');
+    }
+  });
+}
