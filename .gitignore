@@ -1,0 +1,50 @@
+# ---- Flutter / Dart ----
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/pubspec.lock.bak
+build/
+
+# 平台构建产物（flutter 自动生成，不入库）
+app/android/.gradle/
+app/android/local.properties
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
+app/windows/flutter/ephemeral/
+app/linux/flutter/ephemeral/
+app/macos/Flutter/ephemeral/
+app/ios/Flutter/ephemeral/
+
+# ---- 依赖管理 ----
+.packages
+.pub-cache/
+.pub/
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+
+# ---- 本机配置 ----
+.claude/settings.local.json
+
+# ---- 生成物 / 排查产物 ----
+# spike/out 里是废弃的 AST 尝试导出的 ONNX，单个 300MB 上下，
+# 加起来 1.4GB。推导脚本 spike/*.py 留着，产物不进库。
+spike/out/
+# 外放用的放大音频，随时能用 ml/ 的脚本重新生成
+testdata/loud/
+# 排查过程中的截图
+screenshots/
+
+# ---- 杂项 ----
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,219 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sleep_secret/data/services/session_database.dart';
+import 'package:sleep_secret/domain/models/recording_session.dart';
+import 'package:sleep_secret/domain/models/sleep_category.dart';
+import 'package:sleep_secret/domain/models/sound_event.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+/// v1 的建表语句，复制自加音频片段之前的版本。
+///
+/// 刻意**不**从生产代码里引用——迁移测试要构造的是"老用户手里那个库"，
+/// 引用当前代码就测不出迁移了。
+const String _v1Sessions = '''
+CREATE TABLE sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at INTEGER NOT NULL,
+  ended_at INTEGER,
+  analyzed_seconds REAL NOT NULL DEFAULT 0,
+  windows_total INTEGER NOT NULL DEFAULT 0,
+  windows_inferred INTEGER NOT NULL DEFAULT 0,
+  windows_vad_skipped INTEGER NOT NULL DEFAULT 0,
+  windows_low_confidence INTEGER NOT NULL DEFAULT 0,
+  event_count INTEGER NOT NULL DEFAULT 0,
+  snore_event_count INTEGER NOT NULL DEFAULT 0,
+  snore_seconds REAL NOT NULL DEFAULT 0
+)''';
+
+const String _v1Events = '''
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  label TEXT NOT NULL,
+  start_seconds REAL NOT NULL,
+  duration_seconds REAL NOT NULL,
+  confidence REAL NOT NULL,
+  snore_probability REAL NOT NULL,
+  window_count INTEGER NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
+)''';
+
+void main() {
+  setUpAll(sqfliteFfiInit);
+
+  late Directory tempDir;
+  late String dbPath;
+
+  setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('sleep_secret_migration');
+    dbPath = '${tempDir.path}/sleep_secret.db';
+  });
+
+  tearDown(() async {
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  /// 造一个 v1 的库，里面放一条真实记录。
+  Future<void> createV1Database() async {
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, _) async {
+          await db.execute(_v1Sessions);
+          await db.execute(_v1Events);
+        },
+      ),
+    );
+    await db.insert('sessions', {
+      'started_at': DateTime(2026, 10, 5, 23).millisecondsSinceEpoch,
+      'ended_at': DateTime(2026, 10, 6, 7).millisecondsSinceEpoch,
+      'analyzed_seconds': 28800.0,
+      'windows_total': 9600,
+      'windows_inferred': 3200,
+      'windows_vad_skipped': 6400,
+      'windows_low_confidence': 0,
+      'event_count': 2,
+      'snore_event_count': 1,
+      'snore_seconds': 240.0,
+    });
+    await db.insert('events', {
+      'session_id': 1,
+      'label': 'snore',
+      'start_seconds': 3600.0,
+      'duration_seconds': 240.0,
+      'confidence': 0.82,
+      'snore_probability': 0.77,
+      'window_count': 80,
+    });
+    await db.insert('events', {
+      'session_id': 1,
+      'label': 'cough',
+      'start_seconds': 7200.0,
+      'duration_seconds': 12.0,
+      'confidence': 0.5,
+      'snore_probability': 0.1,
+      'window_count': 4,
+    });
+    await db.close();
+  }
+
+  group('v1 -> v2 迁移', () {
+    test('老库能打开，原有记录一条不丢', () async {
+      await createV1Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final list = await db.listSessions();
+
+      expect(list.length, 1);
+      expect(list.single.stats.analyzedSeconds, 28800);
+      expect(list.single.stats.snoreSeconds, 240);
+      expect(list.single.stats.snoreEventCount, 1);
+    });
+
+    test('老事件全部保留，clip_path 为空', () async {
+      await createV1Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final session = await db.loadSession(1);
+
+      expect(session!.events.length, 2);
+      expect(session.events.every((e) => e.clipPath == null), isTrue,
+          reason: 'v1 没有片段，迁移后应当是"无片段"而不是报错或丢事件');
+      expect(session.events.first.label, SleepCategory.snore);
+      expect(session.events.first.durationSeconds, 240);
+    });
+
+    test('迁移后新写入的会话能带片段', () async {
+      await createV1Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final id = await db.insertSession(RecordingSession(
+        id: null,
+        startedAt: DateTime(2026, 10, 6, 23),
+        endedAt: DateTime(2026, 10, 7, 7),
+        events: [
+          SoundEvent(
+            label: SleepCategory.snore,
+            startSeconds: 100,
+            durationSeconds: 60,
+            confidence: 0.8,
+            snoreProbability: 0.75,
+            windowCount: 20,
+            clipPath: 'sess/100000.wav',
+          ),
+        ],
+        stats: const SessionStats.empty(),
+      ));
+
+      final loaded = await db.loadSession(id);
+      expect(loaded!.events.single.clipPath, 'sess/100000.wav');
+    });
+
+    test('迁移后设置表可用', () async {
+      await createV1Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      // 设置表是 v2 才有的，老库升级后必须也建出来
+      expect(await db.readBoolSetting('record_clips', fallback: true), isTrue);
+      await db.writeBoolSetting('record_clips', false);
+      expect(await db.readBoolSetting('record_clips', fallback: true), isFalse);
+    });
+
+    test('重复打开不会重复迁移', () async {
+      await createV1Database();
+
+      final first = SessionDatabase(
+          factory: databaseFactoryFfi, databasePath: dbPath);
+      await first.listSessions();
+      await first.close();
+
+      // 再开一次：版本已经是 2，onUpgrade 不该再跑（再跑会因列已存在而报错）
+      final second = SessionDatabase(
+          factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(second.close);
+
+      expect((await second.listSessions()).length, 1);
+      expect(await second.readBoolSetting('record_clips', fallback: true), isTrue);
+    });
+  });
+
+  group('全新安装（v2 直接建库）', () {
+    test('新库结构与迁移后的库一致：能存能读片段', () async {
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final id = await db.insertSession(RecordingSession(
+        id: null,
+        startedAt: DateTime(2026, 10, 6, 23),
+        endedAt: null,
+        events: [
+          SoundEvent(
+            label: SleepCategory.snore,
+            startSeconds: 10,
+            durationSeconds: 30,
+            confidence: 0.9,
+            snoreProbability: 0.9,
+            windowCount: 10,
+            clipPath: 'a/b.wav',
+          ),
+        ],
+        stats: const SessionStats.empty(),
+      ));
+
+      expect((await db.loadSession(id))!.events.single.clipPath, 'a/b.wav');
+      expect(await db.readBoolSetting('record_clips', fallback: false), isFalse);
+    });
+  });
+}

@@ -1,0 +1,25 @@
+# 跨平台仓库必须钉死换行符。
+#
+# 默认情况下 Git 在 Windows 检出时会转成 CRLF，而 CI 跑在 Linux 上。
+# 一旦某个文件以 CRLF 入库，Linux 上的 shell 脚本会直接报
+# `bad interpreter: /bin/sh^M`——这类问题排查起来很费时间，不如从源头堵住。
+* text=auto eol=lf
+
+# Windows 专有的脚本保持 CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制，别做任何转换
+*.onnx binary
+*.wav binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.jks binary
+*.keystore binary
