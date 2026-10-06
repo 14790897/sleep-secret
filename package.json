@@ -1,0 +1,17 @@
+{
+  "name": "sleep-secret-release",
+  "version": "0.0.0",
+  "private": true,
+  "description": "只用于 semantic-release 的发布流程，不是应用运行时依赖。应用本身是 Flutter 写的，跟 Node 无关。",
+  "scripts": {
+    "release": "semantic-release"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/exec": "^7.1.0",
+    "@semantic-release/git": "^11.0.1",
+    "@semantic-release/github": "^12.0.10",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "semantic-release": "^25.0.9"
+  }
+}
