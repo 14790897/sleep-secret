@@ -71,16 +71,30 @@ extension SleepCategoryStyle on SleepCategory {
       };
 
   /// 时间线上的柱高权重。同色类内靠它区分细类——这是颜色之外的第二编码通道。
+  ///
+  /// ⚠️ **环境的权重不能压到 0.10 以下**：时间线上还画了一条 `maxBar * 0.10`
+  /// 的底纹轨道当"安静"底色，柱子比轨道还矮就跟背景分不开了。
+  /// 0.2 大约是能看清的下限（108px 的柱区里约 22px）。
+  ///
+  /// 呼吸（0.45）和环境（0.2）**同为背景绿色**，柱高是时间线上唯一区分它们的通道，
+  /// 所以两者之间要留出明显的落差。
   double get timelineWeight => switch (this) {
         SleepCategory.snore => 1.0,
         SleepCategory.vocal => 0.82,
         SleepCategory.cough => 0.68,
         SleepCategory.movement => 0.55,
         SleepCategory.breathing => 0.45,
-        SleepCategory.ambient => 0.3,
+        SleepCategory.ambient => 0.2,
         SleepCategory.silence => 0.10,
       };
 }
+
+/// 时间线上那条「安静」底纹轨道的柱高权重。
+///
+/// 和 [SleepCategory.timelineWeight] 是**耦合的**：任何一类的柱高都不能低于它，
+/// 否则那个类会和背景轨道分不开。两个值放在同一个文件里就是为了让这个约束看得见，
+/// 改一个的时候别忘了另一个。`test/ui/timeline_encoding_test.dart` 会拦住写错的情况。
+const double kTimelineTrackWeight = 0.10;
 
 ThemeData buildAppTheme() {
   final base = ThemeData(
