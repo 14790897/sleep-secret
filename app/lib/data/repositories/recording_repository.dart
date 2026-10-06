@@ -183,6 +183,7 @@ class RecordingRepository implements RecordingController {
       inferenceErrors: _engine.inferenceErrors,
       inputLevel: _engine.lastRms,
       peakLevel: _engine.peakRms,
+      vadThreshold: _engine.vadThreshold,
     ));
   }
 

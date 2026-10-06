@@ -5,6 +5,7 @@ import '../models/recording_session.dart';
 import '../models/sound_event.dart';
 import '../repositories/audio_clip_store.dart';
 import '../repositories/sleep_analyzer.dart';
+import 'adaptive_noise_floor.dart';
 import 'analysis_config.dart';
 import 'energy_vad.dart';
 import 'event_accumulator.dart';
@@ -27,7 +28,17 @@ class NightAnalysisEngine {
     required this._analyzer,
     this.config = const AnalysisConfig(),
     this._clipStore,
-  })  : _vad = EnergyVad(rmsThreshold: config.vadRms),
+  })  : _noiseFloor = config.vadAdaptive
+            ? AdaptiveNoiseFloor(
+                historyWindows: config.vadHistoryWindows,
+                percentile: config.vadNoisePercentile,
+                minSamples: config.vadMinSamples,
+                multiplier: config.vadNoiseMultiplier,
+                lowerBound: config.vadLowerBound,
+                upperBound: config.vadUpperBound,
+                fallbackThreshold: config.vadRms,
+              )
+            : null,
         _buffer = PcmWindowBuffer(
           windowSamples: config.windowSamples,
           hopSamples: config.hopSamples,
@@ -50,8 +61,20 @@ class NightAnalysisEngine {
   final SleepAnalyzer _analyzer;
   final AnalysisConfig config;
   final AudioClipStore? _clipStore;
-  final EnergyVad _vad;
+
+  /// 噪声底估计器。`config.vadAdaptive` 关掉时为 null，退回固定阈值。
+  final AdaptiveNoiseFloor? _noiseFloor;
+
   final PcmWindowBuffer _buffer;
+
+  /// 当前生效的能量门控阈值。
+  ///
+  /// 界面上的电平条要画在**这个**位置，不能画在配置里的固定值上——
+  /// 阈值自适应之后两者会不一样，画错了就是在骗用户。
+  double get vadThreshold => _noiseFloor?.threshold ?? config.vadRms;
+
+  /// 估计出来的噪声底。样本不足时为 null。
+  double? get noiseFloor => _noiseFloor?.floor;
 
   /// 最近的原始音频。事件是回溯确认的，等定案时那段声音早就流过去了，
   /// 所以必须留一份缓冲回头切。
@@ -194,8 +217,13 @@ class NightAnalysisEngine {
     _lastRms = rms;
     if (rms > _peakRms) _peakRms = rms;
 
+    // 噪声底要在**判定之前**更新，而且**每个窗口都要喂**——
+    // 只喂被跳过的会让估计偏低，只喂通过的会让它越推越高，
+    // 两种都会让自适应变成自我实现的预言。
+    _noiseFloor?.add(rms);
+
     // 闸门 1：能量。安静就直接跳过，这次推理省下了。
-    if (!_vad.shouldInfer(window.samples)) {
+    if (rms < vadThreshold) {
       _accumulator.add(WindowObservation(
         startSeconds: window.startSeconds,
         durationSeconds: window.durationSeconds,
@@ -260,6 +288,7 @@ class NightAnalysisEngine {
     _buffer.reset();
     _ring.clear();
     _accumulator.reset();
+    _noiseFloor?.reset();
     _pendingClips.clear();
     _inferenceErrors = 0;
     _inferredCount = 0;

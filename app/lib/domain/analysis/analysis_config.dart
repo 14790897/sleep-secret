@@ -9,6 +9,11 @@ class AnalysisConfig {
     this.windowSeconds = 3.0,
     this.hopSeconds = 3.0,
     this.vadRms = 0.01,
+    this.vadAdaptive = true,
+    this.vadNoisePercentile = 0.2,
+    this.vadNoiseMultiplier = 3.0,
+    this.vadHistoryWindows = 400,
+    this.vadMinSamples = 60,
     this.minConfidence = 0.25,
     this.minEventSeconds = 6.0,
     this.mergeGapSeconds = 9.0,
@@ -30,7 +35,41 @@ class AnalysisConfig {
   /// 能量门控阈值：窗口 RMS 低于它就判静音，**不做推理**。
   ///
   /// 这是省算力的关键——实测能跳过约 60% 的窗口。
+  ///
+  /// ⚠️ [vadAdaptive] 打开时，这个值不再直接生效，而是变成自适应的**基准**：
+  /// 实际阈值在 `vadRms/4` 到 `vadRms*2` 之间按房间的噪声底浮动。
+  /// 它仍然是那个"我们相信的量级"，只是不再假设房间长什么样。
   final double vadRms;
+
+  /// 能量门控阈值是否随房间的噪声底自适应。
+  ///
+  /// 关掉就退回固定阈值——出问题时可以一键还原到已验证的行为。
+  final bool vadAdaptive;
+
+  /// 拿哪个分位数当噪声底。见 [AdaptiveNoiseFloor] 里对分位数的讨论。
+  final double vadNoisePercentile;
+
+  /// 噪声底乘多少倍才算"有声音"。
+  final double vadNoiseMultiplier;
+
+  /// 用多少个窗口的 RMS 估计噪声底。3 秒窗口下 400 个约 20 分钟。
+  final int vadHistoryWindows;
+
+  /// 至少积累多少个窗口才开始自适应，不够时用 [vadRms]。
+  ///
+  /// 60 个窗口（3 秒窗口约 3 分钟）：太短会把刚躺下时的翻身、说话声
+  /// 当成噪声底；太长则前半夜用的还是那个没根据的固定值。
+  final int vadMinSamples;
+
+  /// 自适应阈值的下界——最多比 [vadRms] 放宽 4 倍。
+  ///
+  /// 上下界的存在是为了限定这次改动的口径：**原来那个值可能不对，
+  /// 但不会错到 4 倍以上**。没有边界的话，一个整晚打鼾的录音会把噪声底
+  /// 估成鼾声电平，阈值被推到很高，越打鼾越检测不到——那种失效很难看出来。
+  double get vadLowerBound => vadRms / 4;
+
+  /// 自适应阈值的上界——最多比 [vadRms] 收紧 2 倍。
+  double get vadUpperBound => vadRms * 2;
 
   /// 置信度门控：主导大类的得分低于它就判「未识别」，不产生事件。
   ///
@@ -107,6 +146,11 @@ class AnalysisConfig {
 
   AnalysisConfig copyWith({
     double? vadRms,
+    bool? vadAdaptive,
+    double? vadNoisePercentile,
+    double? vadNoiseMultiplier,
+    int? vadHistoryWindows,
+    int? vadMinSamples,
     double? minConfidence,
     double? minEventSeconds,
     double? mergeGapSeconds,
@@ -117,6 +161,11 @@ class AnalysisConfig {
         windowSeconds: windowSeconds,
         hopSeconds: hopSeconds,
         vadRms: vadRms ?? this.vadRms,
+        vadAdaptive: vadAdaptive ?? this.vadAdaptive,
+        vadNoisePercentile: vadNoisePercentile ?? this.vadNoisePercentile,
+        vadNoiseMultiplier: vadNoiseMultiplier ?? this.vadNoiseMultiplier,
+        vadHistoryWindows: vadHistoryWindows ?? this.vadHistoryWindows,
+        vadMinSamples: vadMinSamples ?? this.vadMinSamples,
         minConfidence: minConfidence ?? this.minConfidence,
         minEventSeconds: minEventSeconds ?? this.minEventSeconds,
         mergeGapSeconds: mergeGapSeconds ?? this.mergeGapSeconds,
