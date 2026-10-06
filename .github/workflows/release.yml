@@ -113,15 +113,27 @@ jobs:
       # 那次 push 触发的 run 会负责发版，这次跳过。
       #
       # 挡不住的是「run 已经开始、构建途中 main 又前进」——那只能靠重跑。
+      #
+      # ⚠️ 两个坑，都踩过：
+      #   1. 不能用 `git fetch` 查——checkout 设了 persist-credentials: false，
+      #      没有凭据，会以 `could not read Username` 失败，
+      #      而这步失败会**直接跳过发版**（安全网反而卡死了发版）。
+      #   2. 这是优化不是安全闸，所以任何异常都要**放行**，
+      #      不能因为查不到就把该发的版挡掉。
       - name: 检查 main 有没有前进
         id: freshness
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          git fetch -q origin main
+          set -uo pipefail
           LOCAL=$(git rev-parse HEAD)
-          REMOTE=$(git rev-parse origin/main)
+          REMOTE=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null) || {
+            echo "查不到 main 的最新提交，跳过这项检查继续发版"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
           if [ "$LOCAL" != "$REMOTE" ]; then
-            echo "main 已经前进到 $(git rev-parse --short origin/main)（本次 run 基于 $(git rev-parse --short HEAD)）"
+            echo "main 已经前进到 ${REMOTE:0:7}（本次 run 基于 ${LOCAL:0:7}）"
             echo "跳过本次发版——那次 push 触发的 run 会处理"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
