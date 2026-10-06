@@ -121,7 +121,26 @@ python infer.py     # 跑一段合成的整夜音频，验证整条链路
 ## 发版
 
 用 [semantic-release](https://semantic-release.gitbook.io/) 自动化：推到 `main`
-之后按提交信息定版本、生成 release notes、构建 release APK，挂到 GitHub Release 上。
+之后按提交信息定版本、生成 release notes、构建产物，挂到 GitHub Release 上。
+
+### Release 里有什么
+
+| 产物 | 大小 | 说明 |
+|---|---|---|
+| `app-arm64-v8a-release.apk` | ~53MB | **现代手机装这个** |
+| `app-armeabi-v7a-release.apk` | ~43MB | 较老的 32 位设备 |
+| `app-x86_64-release.apk` | ~60MB | 模拟器 |
+| `sleep-secret-windows-<版本>.zip` | ~30MB | **测试用途**，见下 |
+
+APK **按 ABI 分包**而不是打一个通用包：通用包约 140MB，分包后每个约 50MB。
+代价是要选对架构——不确定的话，`arm64-v8a` 覆盖绝大多数现代手机。
+
+⚠️ **Windows 包是开发/测试用途，不是日常使用的客户端。** `flutter_foreground_task`
+不支持 Windows（代码里做了降级处理），所以它**没有「前台服务保活」这回事**，
+只适合短时试用，不适合整夜录音。整夜录音要用 Android 版。
+
+Windows 产物由单独一个 job 构建（Flutter 的桌面版没法在 Linux 上交叉编译），
+排在发版之后并认准刚创建的 tag——这样包里的版本号才对得上。
 
 ```
 fix:              → patch（1.0.1 → 1.0.2）

@@ -21,8 +21,16 @@
       {
         "assets": [
           {
-            "path": "app/build/app/outputs/flutter-apk/app-release.apk",
-            "label": "APK（通用包，直接装）"
+            "path": "app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk",
+            "label": "Android · arm64-v8a（现代手机装这个）"
+          },
+          {
+            "path": "app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk",
+            "label": "Android · armeabi-v7a（较老的 32 位设备）"
+          },
+          {
+            "path": "app/build/app/outputs/flutter-apk/app-x86_64-release.apk",
+            "label": "Android · x86_64（模拟器用）"
           }
         ]
       }
