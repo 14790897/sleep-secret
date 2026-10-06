@@ -12,6 +12,7 @@ class RecordingState {
     this.inputLevel = 0,
     this.peakLevel = 0,
     this.error,
+    this.warning,
   });
 
   final bool isRecording;
@@ -40,6 +41,13 @@ class RecordingState {
   /// 出错信息。非 null 表示录音异常结束或无法开始。
   final String? error;
 
+  /// 需要提醒、但**不影响录音继续**的事情。
+  ///
+  /// 和 [error] 的区别是严重的程度：error 意味着录音没在跑，
+  /// warning 意味着在跑、但用户该知道某件事（比如通知权限被拒，
+  /// 于是后台被系统清掉的风险变高了）。
+  final String? warning;
+
   /// 实际推理比例。能量门控跳过的窗口不计入。
   double get inferenceRatio =>
       windowsProcessed == 0 ? 0.0 : windowsInferred / windowsProcessed;
@@ -57,6 +65,8 @@ class RecordingState {
     double? peakLevel,
     String? error,
     bool clearError = false,
+    String? warning,
+    bool clearWarning = false,
   }) =>
       RecordingState(
         isRecording: isRecording ?? this.isRecording,
@@ -70,5 +80,6 @@ class RecordingState {
         inputLevel: inputLevel ?? this.inputLevel,
         peakLevel: peakLevel ?? this.peakLevel,
         error: clearError ? null : (error ?? this.error),
+        warning: clearWarning ? null : (warning ?? this.warning),
       );
 }

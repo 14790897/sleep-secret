@@ -86,6 +86,40 @@ void main() {
       expect(foreground.startCount, 0, reason: '也不该起前台服务');
     });
 
+    test('通知权限被拒时照常开录，但明确告知后果', () async {
+      foreground.notificationPermissionGranted = false;
+
+      await repository.start();
+
+      expect(foreground.notificationPermissionRequests, 1,
+          reason: '必须主动申请一次——权限虽然由插件的清单声明，'
+              '但没申请过的话 Android 13+ 上 granted 会一直是 false，'
+              '通知会被系统静默丢弃');
+      expect(repository.state.isRecording, isTrue,
+          reason: '可见的常驻通知是保活手段，不是录音的前提，不该因为它被拒就不录');
+      expect(repository.state.warning, contains('通知'));
+      expect(repository.state.error, isNull,
+          reason: '这是提醒不是错误——录音在正常跑');
+    });
+
+    test('通知权限正常时不留警告', () async {
+      await repository.start();
+
+      expect(foreground.notificationPermissionRequests, 1);
+      expect(repository.state.warning, isNull);
+    });
+
+    test('录音结束后通知权限警告就不再挂着', () async {
+      foreground.notificationPermissionGranted = false;
+      await repository.start();
+      expect(repository.state.warning, isNotNull);
+
+      await repository.stop();
+
+      expect(repository.state.warning, isNull,
+          reason: '录音都结束了，这条提醒已经过期');
+    });
+
     test('正常启动：起前台服务 + 开采集 + 模型初始化', () async {
       await repository.start();
 

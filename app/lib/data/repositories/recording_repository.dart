@@ -61,6 +61,17 @@ class RecordingRepository implements RecordingController {
 
   static const String _kRecordClips = 'record_clips';
 
+  /// 通知权限被拒时给用户看的话。
+  ///
+  /// 说清楚两件事：**录音没断**，以及**代价是什么**。
+  /// 「关于」页写着「录音期间会有一条常驻通知」——那句话在权限被拒时是假的，
+  /// 所以这里必须明确纠正，不能装作无事发生。
+  static const String _notificationWarning =
+      '通知权限被拒绝，录音期间不会显示常驻通知。录音本身不受影响，'
+      '但系统在后台清理时更容易把它一并杀掉。'
+      '建议到「设置 → 应用 → 睡眠录音 → 通知」里允许通知，'
+      '并把省电策略改成「无限制」。';
+
   bool _recordClips = true;
   bool _settingsLoaded = false;
 
@@ -95,6 +106,13 @@ class RecordingRepository implements RecordingController {
       return;
     }
 
+    // 通知权限要在录音开始前申请：权限弹窗会打断流程，放在开始之后
+    // 会让会话起始时间和音频真正开始的时刻对不上。
+    //
+    // 被拒也照常往下走——可见的常驻通知是保活手段，不是录音的前提。
+    final notificationsOk =
+        await _foregroundService.ensureNotificationPermission();
+
     await _analyzer.initialize();
     await _ensureSettingsLoaded();
 
@@ -128,6 +146,8 @@ class RecordingRepository implements RecordingController {
         isRecording: true,
         startedAt: actualStart,
         clearError: true,
+        warning: notificationsOk ? null : _notificationWarning,
+        clearWarning: notificationsOk,
       ));
     } catch (e) {
       await _teardown();
@@ -187,6 +207,8 @@ class RecordingRepository implements RecordingController {
       eventCount: outcome.stats.eventCount,
       snoreEventCount: outcome.stats.snoreEventCount,
       inferenceErrors: _engine.inferenceErrors,
+      // 录音已经结束，这次的通知权限提醒就过期了
+      clearWarning: true,
     ));
 
     return session.copyWith(id: id);
