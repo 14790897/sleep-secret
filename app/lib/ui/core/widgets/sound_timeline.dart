@@ -164,7 +164,8 @@ class _TimelinePainter extends CustomPainter {
     final track = Paint()..color = trackColor.withValues(alpha: 0.55);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, baseline - maxBar * 0.10, size.width, maxBar * 0.10),
+        Rect.fromLTWH(0, baseline - maxBar * kTimelineTrackWeight, size.width,
+            maxBar * kTimelineTrackWeight),
         const Radius.circular(2),
       ),
       track,
