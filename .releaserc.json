@@ -6,7 +6,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "bash scripts/set_version.sh ${nextRelease.version} && cd app && flutter build apk --release"
+        "prepareCmd": "bash scripts/set_version.sh ${nextRelease.version} && bash scripts/build_release_apk.sh"
       }
     ],
     [

@@ -30,6 +30,15 @@ env:
   JAVA_VERSION: '17'
   # 用 24 而不是钉死小版本：@semantic-release/git 要求 >=24.15
   NODE_VERSION: '24'
+  # release keystore 的证书指纹。scripts/build_release_apk.sh 会拿它校验
+  # 构建出来的 APK，不一致就让发版失败。
+  #
+  # 这不是密钥，是公钥指纹，写在这里没有安全问题。它防的是：
+  # 万一 key.properties 没还原成功，Gradle 会**静默退回 debug 签名**
+  # 照常出包——那种包用户装不上，而且要靠卸载重装才能恢复。
+  #
+  # 换密钥时记得同步改这里，并想清楚代价（见 scripts/build_release_apk.sh）。
+  EXPECTED_CERT_SHA256: '8b8a54d2dbd72a6ee94202e790e48c1bf1a817e10d2e13b3e8a347b6a2519521'
 
 jobs:
   release:
@@ -67,6 +76,31 @@ jobs:
       - name: 装 Flutter 依赖
         working-directory: app
         run: flutter pub get
+
+      # ⚠️ 这把钥匙就是**这个应用的身份**。换掉它，已经装过旧版的用户
+      # 就无法覆盖安装，只能卸载重装——那会清掉全部睡眠历史。
+      # Secrets 里存了一份，本机 app/android/ 下也留了一份，两边都要保管好。
+      - name: 还原签名用的 keystore
+        working-directory: app/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 没配置，无法给 release 包签名"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > sleep-secret-release.jks
+          {
+            echo "storeFile=sleep-secret-release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > key.properties
+          echo "keystore 已还原（$(wc -c < sleep-secret-release.jks) 字节）"
 
       # 这一步会依次做：
       #   1. 分析提交，算出下一个版本号
