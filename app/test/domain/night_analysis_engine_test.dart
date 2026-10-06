@@ -202,4 +202,67 @@ void main() {
       expect(session.events, isNotEmpty);
     });
   });
+
+  group('自适应能量门控', () {
+    // 小样本量，好在短测试里触发自适应。生产默认是 60 个窗口（约 3 分钟）。
+    const adaptiveConfig = AnalysisConfig(
+      windowSeconds: 1.0,
+      hopSeconds: 1.0,
+      vadRms: 0.01,
+      minConfidence: 0.15,
+      minEventSeconds: 2.0,
+      mergeGapSeconds: 1.5,
+      vadMinSamples: 3,
+      vadHistoryWindows: 100,
+    );
+
+    test('没有样本时用固定阈值', () {
+      final engine =
+          NightAnalysisEngine(analyzer: FakeSleepAnalyzer(), config: adaptiveConfig);
+      expect(engine.vadThreshold, closeTo(0.01, 1e-9));
+      expect(engine.noiseFloor, isNull);
+    });
+
+    test('安静的房间会把阈值降到固定值以下', () async {
+      final engine =
+          NightAnalysisEngine(analyzer: FakeSleepAnalyzer(), config: adaptiveConfig);
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      // tone 的 RMS ≈ amplitude/√2，所以 0.002 对应 RMS ≈ 0.0014，
+      // 估计出的阈值 ≈ 0.0014 × 3 = 0.0042，低于固定的 0.01。
+      await engine.feedSamples(tone(amplitude: 0.002, length: 16000 * 10));
+
+      expect(engine.vadThreshold, lessThan(0.01),
+          reason: '房间本身就在 0.001 这个量级，阈值还钉在 0.01 的话，'
+              '比这更轻的声音永远进不了模型——固定阈值的毛病正在于此');
+    });
+
+    test('被跳过的窗口也喂给了噪声底', () async {
+      final engine =
+          NightAnalysisEngine(analyzer: FakeSleepAnalyzer(), config: adaptiveConfig);
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      // 全是会被跳过的安静窗口
+      await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 10));
+
+      expect(engine.noiseFloor, isNotNull,
+          reason: '如果只把"通过门控的窗口"喂给噪声底，历史里就只剩响的那部分，'
+              '噪声底被高估、阈值一路推高，自适应会变成自我实现的预言。'
+              '噪声底估得出来，说明被跳过的窗口也喂进去了。');
+    });
+
+    test('reset 之后回到固定阈值，不带着上一次的房间', () async {
+      final engine =
+          NightAnalysisEngine(analyzer: FakeSleepAnalyzer(), config: adaptiveConfig);
+      engine.start(DateTime(2026, 10, 6, 23));
+      await engine.feedSamples(tone(amplitude: 0.001, length: 16000 * 10));
+      expect(engine.vadThreshold, lessThan(0.01));
+
+      engine.reset();
+
+      expect(engine.vadThreshold, closeTo(0.01, 1e-9),
+          reason: '下一次录音会换一个房间，不该沿用上一次算出来的阈值');
+      expect(engine.noiseFloor, isNull);
+    });
+  });
 }

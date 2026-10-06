@@ -80,13 +80,25 @@ def analyze_session(waveform: np.ndarray, sr: int = SR, clf: SleepSoundClassifie
                     window_sec: float = 3.0, hop_sec: float = 3.0,
                     vad_rms: float = 0.01,
                     min_confidence: float = 0.15,
-                    snore_threshold: float = 0.35,
                     min_event_sec: float = 6.0, merge_gap_sec: float = 9.0) -> dict:
     """把整夜音频切成窗口，逐窗分类，再把同类的相邻窗口合并成事件。
 
     两道闸门（缺一不可，否则底噪会被强行归类成"环境噪音"）：
       1. 能量门控 vad_rms  —— 窗口 RMS 低于阈值直接判静音，**不做推理**，省算力
       2. 置信度门控 min_confidence —— top1 概率太低的窗口判为"未识别"，不产生事件
+
+    ⚠️ **和端侧实现已经不一致了，注意。**
+    端侧（`app/lib/domain/analysis/adaptive_noise_floor.dart`）的能量阈值会随
+    房间噪声底自适应，在 `vadRms/4` 到 `vadRms*2` 之间浮动；这里还是固定值。
+    原因是端侧要在线判定（不能等整夜录完再回头算），而这里是离线批处理，
+    两者的算法本来就不该一样。
+
+    所以：**用这个脚本核对端侧结果时，只在两道闸门都把窗口放行的情况下
+    才应当逐元素一致**——被门控挡掉的窗口，两边的判定可能不同。
+
+    另外 `snore_threshold` 参数已经删掉了：它从加进来那天起就没被用过，
+    是个死参数。真正决定鼾声判定的是 527 维里 Snoring 组的得分，
+    聚合逻辑见 `sleep_classes.py`。
 
     返回: {windows: [...], events: [...], stats: {...}}
     """

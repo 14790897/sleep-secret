@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../domain/analysis/analysis_config.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/section_card.dart';
 import '../view_models/recording_view_model.dart';
@@ -349,7 +348,8 @@ class _LevelMeter extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '红线是识别门槛，电平要越过去才会被分析。'
+          '红线是识别门槛（现在 ${threshold.toStringAsFixed(4)}，'
+          '会随环境噪声自动调整）。电平要越过去才会被分析。'
           '当前 ${level.toStringAsFixed(4)}，峰值 ${peak.toStringAsFixed(4)}',
           style: theme.textTheme.labelSmall
               ?.copyWith(color: AppColors.textDim, height: 1.5),
@@ -380,7 +380,9 @@ class _LiveStatsCard extends StatelessWidget {
           _LevelMeter(
             level: s.inputLevel,
             peak: s.peakLevel,
-            threshold: AnalysisConfig().vadRms,
+            // 用**当前生效的**阈值，不是配置里的固定值——阈值会随房间
+            // 噪声底浮动，画错了这条线就是在骗用户
+            threshold: s.vadThreshold,
           ),
           const SizedBox(height: 18),
           MetricRow(
