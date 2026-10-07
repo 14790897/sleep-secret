@@ -23,6 +23,7 @@
 library;
 
 import 'analysis_pipeline_test.dart' as analysis_pipeline;
+import 'archive_roundtrip_test.dart' as archive_roundtrip;
 import 'full_flow_test.dart' as full_flow;
 import 'onnx_inference_test.dart' as onnx_inference;
 import 'real_audio_detection_test.dart' as real_audio_detection;
@@ -37,6 +38,7 @@ void main() {
   // 目前这几个 setUpAll 建的都是各自独立的东西（模型句柄、临时目录），
   // 互不干扰；将来新增的 setUpAll 要保持这个性质。
   analysis_pipeline.main();
+  archive_roundtrip.main();
   full_flow.main();
   onnx_inference.main();
   real_audio_detection.main();
