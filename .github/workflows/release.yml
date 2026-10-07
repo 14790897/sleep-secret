@@ -49,7 +49,7 @@ jobs:
     outputs:
       tag: ${{ steps.publish.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # semantic-release 要读**完整的**提交历史和所有 tag 才能算版本，
           # 默认的浅克隆会让它算错或者直接不发版
@@ -193,7 +193,7 @@ jobs:
     # 没发版就没什么可挂的，跳过
     if: needs.release.outputs.tag != ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.tag }}
 
