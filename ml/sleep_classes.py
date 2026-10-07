@@ -6,7 +6,13 @@ CED 与 AST 用的是同一套 AudioSet 527 类标签，因此映射表通用。
 import json
 import pathlib
 
-MODELS = pathlib.Path(__file__).resolve().parent.parent / "models"
+# ⚠️ **产物目录必须是 App 真正读的那个。**
+#
+# 原来这里是 `<仓库根>/models/`，而 App 读 `app/assets/models/`——
+# 于是这个脚本一直把映射表写在**没人读的地方**，而跑的人会以为更新生效了。
+# 结果就是仓库里有**两份分叉的映射表**：`models/` 那份停在 7 大类 31 个标签，
+# 而 App 用的是 9 大类 47 个。**「跑了但没生效」比报错难发现得多。**
+MODELS = pathlib.Path(__file__).resolve().parent.parent / "app" / "assets" / "models"
 
 # 标签名必须与 AudioSet id2label 完全一致（注意逗号后的完整描述）
 SLEEP_MAP = {
@@ -82,7 +88,10 @@ def main():
         "model": "mispeech/ced-tiny",
         "num_classes": len(id2label),
         "categories": res["categories"],
-        "aggregation": "sum",       # 大类概率 = 该类下所有标签概率之和
+        # 大类分数取组内**最大值**，不是求和。求和会溢出 1，
+        # 而且「鼾声」组里只要 Snoring 或 Snort 有一个高就说明是鼾声。
+        # 端侧实现在 `app/lib/data/repositories/sleep_analysis_repository.dart`。
+        "aggregation": "max",
         "core_snore": [int(k) for k, v in id2label.items() if v in CORE_SNORE],
         "id2label": id2label,
     }

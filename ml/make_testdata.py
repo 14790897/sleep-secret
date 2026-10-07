@@ -1,7 +1,12 @@
 """生成阶段 2 验收用的测试夹具。
 
-PC 端和 Android 端必须对同一段音频给出同样的 7 大类概率，
+PC 端和 Android 端必须对同一段音频给出同样的 527 维输出，
 所以固定一份音频 + 一份 PC 端期望输出。
+
+⚠️ **输出目录必须是 App 真正读的那个**（`app/assets/testdata/`）。
+这里原本写的是 `<仓库根>/testdata/`，而那个目录**根本不存在**——
+于是跑完脚本什么都不生效、文件写到了没人读的地方，
+而跑的人会以为自己重新生成了夹具。**「跑了但没生效」比报错更难发现。**
 """
 import json
 import pathlib
@@ -10,7 +15,7 @@ import numpy as np
 import soundfile as sf
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TESTDATA = ROOT / "testdata"
+TESTDATA = ROOT / "app" / "assets" / "testdata"
 TESTDATA.mkdir(exist_ok=True)
 SR = 16000
 
@@ -67,14 +72,16 @@ def main():
             "duration_sec": len(x) / SR,
             "categories": {c: round(r["categories"][c], 6) for c in CATEGORY_ORDER},
             "dominant": r["dominant"],
-            "top3": [[name, round(v, 6)] for name, v in r["top3"]],
+            # 模型原话的前 5 名。名字沿用 top3 → top5：原来只留 3 个，
+            # 但排查时最常要看的是第 4、5 名（大类跑偏往往就藏在那儿）。
+            "top5": [[name, round(v, 6)] for name, v in r["top"]],
             "rms": round(float(np.sqrt(np.mean(x.astype(np.float64) ** 2))), 6),
             # 完整 527 维 logits：合成音频下概率接近均匀，比对单一标签不可靠，
             # 必须比 logits 向量本身（容差 1e-3）
             "logits": [round(float(v), 5) for v in logits],
         }
         print(f"  {kind:6s} dominant={r['dominant']:8s} "
-              f"top3={[(n, round(v, 4)) for n, v in r['top3']]} "
+              f"top3={[(n, round(v, 4)) for n, v in r['top'][:3]]} "
               f"logits范围[{logits.min():.2f},{logits.max():.2f}]")
 
     out = TESTDATA / "expected.json"

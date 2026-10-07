@@ -1,31 +1,35 @@
 {
-  "model": "ced-tiny-int8.onnx",
+  "model": "ced-tiny.onnx",
   "sample_rate": 16000,
   "category_order": [
-    "鼾声",
-    "呼吸声",
-    "咳嗽清嗓",
-    "人声梦话",
-    "体动床响",
-    "环境噪音",
-    "静音"
+    "snore",
+    "breathing",
+    "cough",
+    "sneeze",
+    "vocal",
+    "movement",
+    "ambient",
+    "deviceNoise",
+    "silence"
   ],
   "tolerance": 0.001,
-  "note": "Flutter 端对同一 wav 的 logits 应与这里逐元素一致（容差 1e-3）。这些片段是合成音频，概率接近均匀，不要用 dominant 标签做判定。",
+  "note": "Flutter 端对同一 wav 的 527 维输出应与这里逐元素一致（容差 1e-3）。注意输出是**多标签 sigmoid 概率**，不要做 softmax。这些片段是合成音频，dominant 标签只反映链路是否通，不代表真实场景的识别效果。",
   "clips": {
     "quiet": {
       "duration_sec": 5.0,
       "categories": {
-        "鼾声": 4e-05,
-        "呼吸声": 2.7e-05,
-        "咳嗽清嗓": 2e-06,
-        "人声梦话": 0.001923,
-        "体动床响": 0.090765,
-        "环境噪音": 0.287461,
-        "静音": 0.216794
+        "snore": 4e-05,
+        "breathing": 2.7e-05,
+        "cough": 0.0,
+        "sneeze": 2e-06,
+        "vocal": 0.001923,
+        "movement": 0.090765,
+        "ambient": 0.287461,
+        "deviceNoise": 0.044285,
+        "silence": 0.216794
       },
-      "dominant": "环境噪音",
-      "top3": [
+      "dominant": "ambient",
+      "top5": [
         [
           "White noise",
           0.287461
@@ -37,6 +41,14 @@
         [
           "Rustle",
           0.090765
+        ],
+        [
+          "Static",
+          0.082089
+        ],
+        [
+          "Pink noise",
+          0.050185
         ]
       ],
       "rms": 0.002,
@@ -573,16 +585,18 @@
     "noise": {
       "duration_sec": 5.0,
       "categories": {
-        "鼾声": 3e-06,
-        "呼吸声": 1e-06,
-        "咳嗽清嗓": 1e-06,
-        "人声梦话": 0.038736,
-        "体动床响": 0.000482,
-        "环境噪音": 0.477678,
-        "静音": 5.6e-05
+        "snore": 3e-06,
+        "breathing": 1e-06,
+        "cough": 1e-06,
+        "sneeze": 1e-06,
+        "vocal": 0.038736,
+        "movement": 0.000482,
+        "ambient": 0.477678,
+        "deviceNoise": 0.014779,
+        "silence": 5.6e-05
       },
-      "dominant": "环境噪音",
-      "top3": [
+      "dominant": "ambient",
+      "top5": [
         [
           "White noise",
           0.477678
@@ -594,6 +608,14 @@
         [
           "Noise",
           0.205549
+        ],
+        [
+          "Pink noise",
+          0.076439
+        ],
+        [
+          "Speech",
+          0.038736
         ]
       ],
       "rms": 0.149955,
@@ -1130,16 +1152,18 @@
     "tone": {
       "duration_sec": 5.0,
       "categories": {
-        "鼾声": 0.0,
-        "呼吸声": 0.0,
-        "咳嗽清嗓": 1e-06,
-        "人声梦话": 0.00095,
-        "体动床响": 4e-06,
-        "环境噪音": 0.004225,
-        "静音": 0.002983
+        "snore": 0.0,
+        "breathing": 0.0,
+        "cough": 1e-06,
+        "sneeze": 0.0,
+        "vocal": 0.00095,
+        "movement": 4e-06,
+        "ambient": 0.004225,
+        "deviceNoise": 6.7e-05,
+        "silence": 0.002983
       },
-      "dominant": "环境噪音",
-      "top3": [
+      "dominant": "ambient",
+      "top5": [
         [
           "Sine wave",
           0.947333
@@ -1151,6 +1175,14 @@
         [
           "Dial tone",
           0.028696
+        ],
+        [
+          "Busy signal",
+          0.01763
+        ],
+        [
+          "Beep, bleep",
+          0.005517
         ]
       ],
       "rms": 0.212132,
@@ -1687,16 +1719,18 @@
     "pulse": {
       "duration_sec": 5.0,
       "categories": {
-        "鼾声": 9e-06,
-        "呼吸声": 1.7e-05,
-        "咳嗽清嗓": 1.2e-05,
-        "人声梦话": 0.008799,
-        "体动床响": 0.00185,
-        "环境噪音": 0.131422,
-        "静音": 5.7e-05
+        "snore": 1.2e-05,
+        "breathing": 1.7e-05,
+        "cough": 2e-06,
+        "sneeze": 3e-06,
+        "vocal": 0.008799,
+        "movement": 0.00185,
+        "ambient": 0.131422,
+        "deviceNoise": 0.15529,
+        "silence": 5.7e-05
       },
-      "dominant": "环境噪音",
-      "top3": [
+      "dominant": "deviceNoise",
+      "top5": [
         [
           "Static",
           0.533893
@@ -1708,6 +1742,14 @@
         [
           "White noise",
           0.131422
+        ],
+        [
+          "Mains hum",
+          0.040492
+        ],
+        [
+          "Noise",
+          0.034299
         ]
       ],
       "rms": 0.154007,

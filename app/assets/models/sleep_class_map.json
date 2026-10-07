@@ -68,7 +68,7 @@
       500
     ]
   },
-  "aggregation": "sum",
+  "aggregation": "max",
   "core_snore": [
     43
   ],

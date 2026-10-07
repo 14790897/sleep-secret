@@ -9,13 +9,28 @@ import numpy as np
 import onnx
 import torch
 
+# 上游模型（要自己下载的那个）放这儿
 MODELS = pathlib.Path(__file__).resolve().parent.parent / "models"
+# 而**产物要写到 App 真正读的地方**，见 sleep_classes.py 里的说明
+APP_MODELS = pathlib.Path(__file__).resolve().parent.parent / "app" / "assets" / "models"
 CED_TINY = "mispeech/ced-tiny"
 
 
 def main():
+    # 这个目录只放**要自己下载的上游模型**，不进版本库。
+    # 它曾经还存着 app/assets/models/ 的两份副本（模型 + 映射表），
+    # 而那份映射表悄悄停在了 7 大类 31 个标签——PC 端一直照着旧的算。
+    # 现在只剩这一个用途，缺文件时给一句能照着做的提示，别只抛 No such file。
+    upstream = MODELS / "ced-tiny.upstream.onnx"
+    if not upstream.exists():
+        raise SystemExit(
+            f"缺少上游模型 {upstream}\n"
+            f"先下载：从 https://huggingface.co/{CED_TINY} 取 onnx 文件存成这个路径。\n"
+            f"（App 实际用的模型在 app/assets/models/ced-tiny.onnx，"
+            f"那个不用动。）")
+
     print("=== 1. 上游 ONNX 结构 ===", flush=True)
-    m = onnx.load(str(MODELS / "ced-tiny.upstream.onnx"))
+    m = onnx.load(str(upstream))
     g = m.graph
 
     from collections import Counter
@@ -94,11 +109,11 @@ def main():
             print("   ", n, "-> 候选:", [v for v in id2label.values()
                                           if n.split()[0].lower() in v.lower()][:4])
 
-    (MODELS / "sleep_class_map.json").write_text(
+    (APP_MODELS / "sleep_class_map.json").write_text(
         json.dumps({"model": CED_TINY, "categories": mapping,
                     "id2label": id2label}, ensure_ascii=False, indent=2),
         encoding="utf-8")
-    print(f"\n已写入 {MODELS / 'sleep_class_map.json'}")
+    print(f"\n已写入 {APP_MODELS / 'sleep_class_map.json'}")
 
 
 if __name__ == "__main__":
