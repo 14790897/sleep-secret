@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自适应图标的背景层。
+
+  颜色和 `scripts/make_app_icon.py` 里的 BG_TOP / BG_BOTTOM 一致——
+  传统图标（mipmap-*/ic_launcher.png）用的是同一组渐变，
+  两边不一样的话，同一台手机上换 API 版本会看到图标变色。
+
+  angle=270 是「从上到下」。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="linear"
+        android:angle="270"
+        android:startColor="#FF1A2958"
+        android:endColor="#FF090D1E" />
+</shape>

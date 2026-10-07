@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API 26+ 的自适应图标。
+
+  图层拆成背景/前景两块，系统按厂商的蒙版（圆、方、水滴……）裁剪并加动效。
+  前景图里**必须没有背景**——两层会一起被缩放和裁剪，前景自带背景的话
+  会看到一圈对不齐的边。图形也必须在正中 72dp 的安全区内：
+  108dp 里外侧那 18dp 是会被裁掉的。
+
+  背景用渐变而不是纯色，是为了和传统图标（mipmap-*/ic_launcher.png）看起来一致。
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>
