@@ -9,6 +9,16 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/section_card.dart';
 import '../view_models/recording_view_model.dart';
 
+/// 测试锚点。和 `ReportKeys` / `HomeKeys` 一个规矩：**定位用 key，文案用 text**。
+abstract final class RecordingKeys {
+  /// 那颗月亮——开始 / 结束录音的大按钮。
+  ///
+  /// 存在的理由很具体：按钮原来是 `Icons.mic` / `Icons.stop` 两个图标，
+  /// 测试按图标定位。换成自绘的月亮之后**那套 finder 全断了**——
+  /// 而这只是换了个长相，不该让测试跟着改。按 key 找就不会。
+  static const ValueKey<String> heroButton = ValueKey('recording-hero-button');
+}
+
 /// 录音页。
 ///
 /// 处于底部导航内（[embedded] 为 true）时不自带 Scaffold 与 AppBar，
@@ -65,14 +75,53 @@ class RecordingView extends StatelessWidget {
 }
 
 /// 中间的大圆按钮。整夜录音只有一个主动作，就该做得足够大、足够明确。
-class _HeroButton extends StatelessWidget {
+/// 开始 / 结束录音的大按钮。
+///
+/// ## 为什么是一轮月亮
+///
+/// 这是整个 App 的意象（图标就是弯月 + 声波），而「睡前点一下开始」
+/// 这个动作本来就该有个跟睡眠有关的形状，而不是一个通用的麦克风。
+///
+/// 它是一只**犯困的月亮**：待机时闭着眼、缓慢呼吸；一按下去就睁眼，
+/// 旁边开始飘 Z——那意思是"它在听着你睡"，比一个红点更贴切。
+///
+/// ## 动效为什么不停
+///
+/// 两态都在动，只是节奏不同（待机 3.6 秒一个呼吸周期，录音时 Z 飘得更快）。
+/// **停下来的动画会让人以为卡住了**——尤其是这个按钮，用户按下去之后
+/// 要盯着它确认"到底开始录了没有"。
+class _HeroButton extends StatefulWidget {
   const _HeroButton({required this.viewModel});
 
   final RecordingViewModel viewModel;
 
   @override
+  State<_HeroButton> createState() => _HeroButtonState();
+}
+
+class _HeroButtonState extends State<_HeroButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _loop;
+
+  @override
+  void initState() {
+    super.initState();
+    _loop = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _loop.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final viewModel = widget.viewModel;
     final state = viewModel.state;
     final recording = state.isRecording;
 
@@ -82,54 +131,33 @@ class _HeroButton extends StatelessWidget {
         child: Column(
           children: [
             GestureDetector(
+              key: RecordingKeys.heroButton,
               onTap: viewModel.busy ? null : viewModel.toggle,
               child: SizedBox(
-                width: 152,
-                height: 152,
+                width: 176,
+                height: 176,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // 录音时外圈缓慢转动，给一个"在跑"的低干扰反馈
-                    if (recording)
-                      const _RotatingRing()
-                    else
-                      Container(
-                        width: 148,
-                        height: 148,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.accent.withValues(alpha: 0.35),
-                            width: 2,
-                          ),
+                    AnimatedBuilder(
+                      animation: _loop,
+                      builder: (context, _) => CustomPaint(
+                        size: const Size(176, 176),
+                        painter: _MoonButtonPainter(
+                          t: _loop.value,
+                          recording: recording,
                         ),
                       ),
-                    Container(
-                      width: 116,
-                      height: 116,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: recording
-                            ? AppColors.statusCritical
-                            : AppColors.accent,
-                      ),
-                      child: viewModel.busy
-                          ? const Center(
-                              child: SizedBox(
-                                width: 26,
-                                height: 26,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            )
-                          : Icon(
-                              recording ? Icons.stop : Icons.mic,
-                              size: 48,
-                              color: Colors.white,
-                            ),
                     ),
+                    if (viewModel.busy)
+                      const SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -178,65 +206,6 @@ class _HeroButton extends StatelessWidget {
     );
   }
 }
-
-/// 录音时外圈的转动弧线。用动画而不是静态圆环，
-/// 是为了在息屏前那一眼就能确认"它还在跑"。
-class _RotatingRing extends StatefulWidget {
-  const _RotatingRing();
-
-  @override
-  State<_RotatingRing> createState() => _RotatingRingState();
-}
-
-class _RotatingRingState extends State<_RotatingRing>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 3),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RotationTransition(
-      turns: _controller,
-      child: CustomPaint(
-        size: const Size(148, 148),
-        painter: _ArcRingPainter(),
-      ),
-    );
-  }
-}
-
-class _ArcRingPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromCircle(
-      center: Offset(size.width / 2, size.height / 2),
-      radius: size.shortestSide / 2 - 1,
-    );
-    canvas.drawArc(
-      rect,
-      -1.5707963,
-      2.0,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round
-        ..color = AppColors.statusCritical.withValues(alpha: 0.85),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_ArcRingPainter old) => false;
-}
-
 
 /// 输入电平条。
 ///
@@ -538,4 +507,139 @@ class _HowItWorksCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 画那颗月亮。用 painter 而不是图标字体：弯月是两块圆相减，
+/// 图标库里没有这个形状，而且自绘不依赖任何字体。
+class _MoonButtonPainter extends CustomPainter {
+  _MoonButtonPainter({required this.t, required this.recording});
+
+  /// 0..1 的循环进度。
+  final double t;
+
+  final bool recording;
+
+  /// 录音中用暖橙而不是红：红读起来是"出事了"，这里是"它在工作"。
+  Color get _tint =>
+      recording ? AppColors.statusSerious : AppColors.accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+
+    // 待机时的呼吸：幅度刻意很小（3.5%）。这是"它还活着"，
+    // 不是"它想让你点"——催人的动效在睡前是最不合适的。
+    final breathe =
+        recording ? 1.0 : 1 + 0.035 * math.sin(t * 2 * math.pi);
+
+    // 环 + 光晕。录音时光晕稳定亮着（"在工作"），待机时跟着呼吸明暗。
+    final ringR = size.width * 0.5 - 3;
+    canvas.drawCircle(
+      center,
+      ringR,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = _tint.withValues(alpha: 0.35),
+    );
+    final haloAlpha = recording
+        ? 0.16
+        : 0.05 + 0.07 * (0.5 + 0.5 * math.sin(t * 2 * math.pi));
+    canvas.drawCircle(
+      center,
+      ringR - 4,
+      Paint()
+        ..color = _tint.withValues(alpha: haloAlpha)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
+    );
+
+    // 底圆
+    canvas.drawCircle(
+      center,
+      size.width * 0.385 * breathe,
+      Paint()..color = _tint,
+    );
+
+    // 弯月：大圆挖掉一个偏移的小圆。和生成 App 图标那套几何同一个思路，
+    // 所以桌面图标和这个按钮是同一个形状。
+    final r = size.width * 0.195 * breathe;
+    final moonCenter = center + Offset(-2, -4);
+    final moon = Path.combine(
+      PathOperation.difference,
+      Path()..addOval(Rect.fromCircle(center: moonCenter, radius: r)),
+      Path()
+        ..addOval(Rect.fromCircle(
+            center: moonCenter + Offset(r * 0.62, -r * 0.16),
+            radius: r * 0.88)),
+    );
+    canvas.drawPath(moon, Paint()..color = Colors.white);
+
+    // 脸画在月亮的厚的那一侧
+    final face = moonCenter + Offset(-r * 0.40, 0);
+    final stroke = Paint()
+      ..color = _tint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = r * 0.15
+      ..strokeCap = StrokeCap.round;
+
+    for (final dx in [-r * 0.28, r * 0.28]) {
+      final eye = face + Offset(dx, -r * 0.08);
+      if (recording) {
+        // 睁眼：两个点，表示"醒着在听"
+        canvas.drawCircle(eye, r * 0.11, Paint()..color = _tint);
+      } else {
+        // 闭眼：下半圆，像「︶」。睡觉的脸就是这么画的。
+        canvas.drawArc(
+          Rect.fromCircle(center: eye + Offset(0, -r * 0.12), radius: r * 0.22),
+          0,
+          math.pi,
+          false,
+          stroke,
+        );
+      }
+    }
+    // 嘴：一条小小的弧，跟着眼睛一起笑
+    canvas.drawArc(
+      Rect.fromCircle(center: face + Offset(0, r * 0.32), radius: r * 0.20),
+      0,
+      math.pi,
+      false,
+      stroke,
+    );
+
+    if (!recording) return;
+
+    // 录音时飘 Z：三颗错开相位，边升边淡。
+    // 两头淡、中间最深（sin 包络）——不然会像凭空出现又凭空消失。
+    for (var i = 0; i < 3; i++) {
+      final phase = (t + i / 3) % 1.0;
+      final fade = math.sin(phase * math.pi) * 0.9;
+      final zSize = r * (0.44 + 0.30 * phase);
+      final zCenter = center +
+          Offset(r * 1.35 + phase * r * 0.55, -r * (0.75 + phase * 2.0));
+      canvas.drawPath(
+        _zPath(zCenter, zSize),
+        Paint()
+          ..color = Colors.white.withValues(alpha: fade)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = zSize * 0.22
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+  }
+
+  /// 一个 Z：三笔。手画而不是排文字——不依赖字体，也省得管行高。
+  Path _zPath(Offset c, double s) {
+    final h = s / 2;
+    return Path()
+      ..moveTo(c.dx - h, c.dy - h)
+      ..lineTo(c.dx + h, c.dy - h)
+      ..lineTo(c.dx - h, c.dy + h)
+      ..lineTo(c.dx + h, c.dy + h);
+  }
+
+  @override
+  bool shouldRepaint(_MoonButtonPainter old) =>
+      old.t != t || old.recording != recording;
 }

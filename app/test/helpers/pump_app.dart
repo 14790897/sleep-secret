@@ -27,13 +27,24 @@ Widget localizedApp({
   required Widget home,
   Locale locale = const Locale('zh'),
   Map<String, WidgetBuilder>? routes,
+  bool animate = false,
 }) =>
     MaterialApp(
       theme: buildAppTheme(),
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: home,
+      // ⚠️ 默认**关掉 ticker**。
+      //
+      // 录音页那颗月亮是**无限循环**的动效（呼吸 / 飘 Z），而
+      // `pumpAndSettle` 等的是"没有待调度的帧"——只要它在动，就永远等不到，
+      // 于是**所有 pump 了录音页的测试都会超时**。这不是某个测试的问题，
+      // 而是"页面上有个永不停的动画"这件事本身和 pumpAndSettle 不兼容。
+      //
+      // 动画是装饰，测试管行为，所以默认关掉。
+      // 要验动效本身的那条测试传 `animate: true`（见
+      // `recording_view_test.dart` 的「月亮在动」）。
+      home: TickerMode(enabled: animate, child: home),
       routes: routes ?? const <String, WidgetBuilder>{},
     );
 

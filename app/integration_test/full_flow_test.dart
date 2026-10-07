@@ -79,10 +79,8 @@ void main() {
 
     // 开始按钮在，且只可能有一个。
     // 底部导航的「睡眠」tab 选中时的图标也是 Icons.mic，不限定范围会匹配到两个。
-    final micButton = find.descendant(
-      of: find.byType(RecordingView),
-      matching: find.byIcon(Icons.mic),
-    );
+    // 按 key 找，不按图标找：那颗月亮是自绘的，没有 Icons.mic 可找了
+    final micButton = find.byKey(RecordingKeys.heroButton);
     expect(micButton, findsOneWidget);
 
     // ---- 2. 底部导航可切换 ----

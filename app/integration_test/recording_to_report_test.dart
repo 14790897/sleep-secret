@@ -290,14 +290,11 @@ void main() {
       await settle(tester, 1200);
 
       // 底部导航的选中图标也是 Icons.mic，所以要限定在录音页内部找
-      final micButton = find.descendant(
-        of: find.byType(RecordingView),
-        matching: find.byIcon(Icons.mic),
-      );
-      final stopButton = find.descendant(
-        of: find.byType(RecordingView),
-        matching: find.byIcon(Icons.stop),
-      );
+      // 开始和结束是**同一个按钮**（那颗月亮），所以两个 finder 一样。
+      // 不按图标找：月亮是自绘的，Icons.mic / Icons.stop 都没有了。
+      final heroButton = find.byKey(RecordingKeys.heroButton);
+      final micButton = heroButton;
+      final stopButton = heroButton;
 
       // ---- 点开始录音 ----
       final startedAt = DateTime.now();
