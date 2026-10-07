@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:sleep_secret/main.dart';
+
 import 'package:sleep_secret/ui/features/recording/views/recording_view.dart';
 
 /// 用**真实麦克风**走一遍「点开始 → 录音中 → 点停止 → 回到待机态」。
@@ -48,7 +49,8 @@ void main() {
   }
 
   testWidgets('真实麦克风：开始 → 录音中 → 停止 → 待机', (tester) async {
-    await tester.pumpWidget(const SleepSecretApp());
+    // 钉死语言：CI 的模拟器是 en_US，而这里的断言是按中文写的
+    await tester.pumpWidget(const SleepSecretApp(localeOverride: Locale('zh')));
     await settle(tester, 1500);
 
     // 底部导航的「睡眠」tab 选中图标也是 Icons.mic，必须限定范围，
