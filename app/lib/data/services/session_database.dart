@@ -97,7 +97,11 @@ class SessionDatabase {
     }
   }
 
-  Future<bool> readBoolSetting(String key, {required bool fallback}) async {
+  /// 读一个字符串设置。没设过就返回 null。
+  ///
+  /// settings 表本来就是 `key TEXT PRIMARY KEY, value TEXT`——值一直是文本，
+  /// 所以加字符串类型的设置**不用改表、也不用升 schema 版本**。
+  Future<String?> readStringSetting(String key) async {
     final db = await open();
     final rows = await db.query(
       'settings',
@@ -106,19 +110,31 @@ class SessionDatabase {
       whereArgs: [key],
       limit: 1,
     );
-    if (rows.isEmpty) return fallback;
-    final raw = rows.first['value'] as String?;
-    return raw == 'true';
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
   }
 
-  Future<void> writeBoolSetting(String key, bool value) async {
+  /// 写一个字符串设置。传 null 表示**删掉这一项**（比如用户取消配置导出目录）。
+  Future<void> writeStringSetting(String key, String? value) async {
     final db = await open();
+    if (value == null) {
+      await db.delete('settings', where: 'key = ?', whereArgs: [key]);
+      return;
+    }
     await db.insert(
       'settings',
-      {'key': key, 'value': value ? 'true' : 'false'},
+      {'key': key, 'value': value},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+
+  Future<bool> readBoolSetting(String key, {required bool fallback}) async {
+    final raw = await readStringSetting(key);
+    return raw == null ? fallback : raw == 'true';
+  }
+
+  Future<void> writeBoolSetting(String key, bool value) =>
+      writeStringSetting(key, value ? 'true' : 'false');
 
   /// 写入一个会话及其全部事件，返回新会话 id。整个过程在一个事务里，
   /// 避免只写进一半导致会话与事件对不上。
