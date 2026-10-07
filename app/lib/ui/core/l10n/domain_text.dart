@@ -21,6 +21,7 @@ import 'package:flutter/widgets.dart';
 import '../../../domain/analysis/recording_diagnosis.dart';
 import '../../../domain/analysis/sleep_score.dart';
 import '../../../domain/analysis/session_insights.dart';
+import '../../../domain/models/recording_state.dart';
 import '../../../domain/models/sleep_category.dart';
 import 'l10n_context.dart';
 
@@ -118,5 +119,30 @@ extension DurationBinKindText on DurationBinKind {
         DurationBinKind.m1to2 => context.l10n.bin1to2m,
         DurationBinKind.m2to5 => context.l10n.bin2to5m,
         DurationBinKind.over5m => context.l10n.binOver5m,
+      };
+}
+
+// ---------------------------------------------------------------- 录音错误
+
+extension RecordingErrorText on RecordingError {
+  /// 给用户看的那句话。
+  ///
+  /// [detail] 是异常原文——**不翻译**，直接拼进去。它往往是报 bug 时唯一的
+  /// 线索，翻掉了就等于把线索也翻没了。
+  String message(BuildContext context) => switch (kind) {
+        RecordingErrorKind.micDenied => context.l10n.recordingErrorMicDenied,
+        RecordingErrorKind.streamFailed =>
+          context.l10n.recordingErrorStreamFailed(detail ?? ''),
+        RecordingErrorKind.startFailed =>
+          context.l10n.recordingErrorStartFailed(detail ?? ''),
+        RecordingErrorKind.analysisFailed =>
+          context.l10n.recordingErrorAnalysisFailed(detail ?? ''),
+      };
+}
+
+extension RecordingWarningText on RecordingWarningKind {
+  String message(BuildContext context) => switch (this) {
+        RecordingWarningKind.notificationsDenied =>
+          context.l10n.recordingWarningNotificationsDenied,
       };
 }

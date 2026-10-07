@@ -17,6 +17,7 @@ import 'data/services/saf_export_target.dart';
 import 'data/services/session_database.dart';
 import 'domain/models/recording_session.dart';
 import 'l10n/app_localizations.dart';
+import 'l10n/app_strings.dart';
 import 'ui/core/l10n/l10n_context.dart';
 import 'ui/core/theme.dart';
 import 'ui/features/archive/view_models/archive_view_model.dart';
@@ -27,10 +28,55 @@ import 'ui/features/home/views/home_view.dart';
 import 'ui/features/recording/view_models/recording_view_model.dart';
 import 'ui/features/report/view_models/report_view_model.dart';
 
-void main() {
+Future<void> main() async {
   // 必须在任何数据库操作之前——桌面平台要换成 ffi 实现。
   configureDatabaseFactory();
+
+  // 通知栏和后台代码**拿不到 BuildContext**，只能在启动时先按系统语言
+  // 加载一份给它们用。见 `ui/core/l10n/app_strings.dart`。
+  WidgetsFlutterBinding.ensureInitialized();
+  setAppStrings(await _loadAppStrings());
   runApp(const SleepSecretApp());
+}
+
+/// 按系统语言加载那份"给后台用的"文案。
+///
+/// 系统语言不在支持列表里时退回第一个支持的（中文）——和 `MaterialApp`
+/// 的解析规则保持一致，不然会出现「界面中文、通知栏英文」这种错位。
+Future<AppLocalizations> _loadAppStrings() {
+  final locale = WidgetsBinding.instance.platformDispatcher.locale;
+  final resolved = AppLocalizations.delegate.isSupported(locale)
+      ? locale
+      : AppLocalizations.supportedLocales.first;
+  return AppLocalizations.delegate.load(resolved);
+}
+
+/// 把当前语言的文案同步给 [appStrings]。
+///
+/// 必须挂在 `MaterialApp` **里面**——`_SleepSecretAppState` 在 `MaterialApp`
+/// 之上，那个 context 上取不到 `Localizations`。
+///
+/// 用 `didChangeDependencies` 而不是 `build`：它正好是"语言变了"会重新跑到的
+/// 那个钩子，而且不会在每次重建时都做一遍。
+class _SyncAppStrings extends StatefulWidget {
+  const _SyncAppStrings({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_SyncAppStrings> createState() => _SyncAppStringsState();
+}
+
+class _SyncAppStringsState extends State<_SyncAppStrings> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = AppLocalizations.of(context);
+    if (l10n != null) setAppStrings(l10n);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// 依赖装配。
@@ -138,6 +184,7 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
       theme: buildAppTheme(),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => _SyncAppStrings(child: child!),
       home: HomeView(
         recordingViewModel: _recordingViewModel,
         reportViewModelFactory: (session) => ReportViewModel(

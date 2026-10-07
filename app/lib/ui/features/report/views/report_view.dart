@@ -12,6 +12,7 @@ import '../../../core/widgets/charts.dart';
 import '../../../core/widgets/score_gauge.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/l10n/domain_text.dart';
+import '../../../core/l10n/ui_message_text.dart';
 import '../../../core/widgets/sound_timeline.dart';
 import '../view_models/report_view_model.dart';
 
@@ -426,7 +427,7 @@ class _ClipListCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (viewModel.error != null) ...[
-            _InlineError(message: viewModel.error!),
+            _InlineError(message: viewModel.error!.message(context)),
             const SizedBox(height: 10),
           ],
           for (final i in clipIndexes)
@@ -841,7 +842,7 @@ class _EventListCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (viewModel.error != null) ...[
-            _InlineError(message: viewModel.error!),
+            _InlineError(message: viewModel.error!.message(context)),
             const SizedBox(height: 10),
           ],
           for (var i = 0; i < events.length; i++)

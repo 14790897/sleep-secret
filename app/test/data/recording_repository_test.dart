@@ -6,10 +6,12 @@ import 'package:sleep_secret/data/repositories/recording_repository.dart';
 import 'package:sleep_secret/data/services/session_database.dart';
 import 'package:sleep_secret/domain/analysis/analysis_config.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
+import 'package:sleep_secret/domain/models/recording_state.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../helpers/fake_services.dart';
+import '../helpers/pump_app.dart';
 import '../helpers/fake_sleep_analyzer.dart';
 
 /// 1 秒窗口便于构造短测试。
@@ -56,7 +58,10 @@ void main() {
   /// 所以测试必须能控制它，否则断言不了具体时间。
   late DateTime fakeNow;
 
-  setUp(() {
+  setUp(() async {
+    // 通知栏标题/正文和录音错误都从 appStrings 取——那是给"拿不到 context
+    // 的地方"用的全局副本，纯 test() 里得自己初始化。
+    await initAppStringsForTest();
     fakeNow = DateTime(2026, 10, 6, 23, 30);
     capture = FakeAudioCapture();
     foreground = FakeForegroundServiceController();
@@ -86,7 +91,8 @@ void main() {
       await repository.start();
 
       expect(repository.state.isRecording, isFalse);
-      expect(repository.state.error, contains('权限'));
+      // 断言的是**哪种错**，不是那句话怎么写——措辞在 ARB 里
+      expect(repository.state.error?.kind, RecordingErrorKind.micDenied);
       expect(capture.startCount, 0, reason: '没权限不该去开麦克风');
       expect(foreground.startCount, 0, reason: '也不该起前台服务');
     });
@@ -102,7 +108,7 @@ void main() {
               '通知会被系统静默丢弃');
       expect(repository.state.isRecording, isTrue,
           reason: '可见的常驻通知是保活手段，不是录音的前提，不该因为它被拒就不录');
-      expect(repository.state.warning, contains('通知'));
+      expect(repository.state.warning, RecordingWarningKind.notificationsDenied);
       expect(repository.state.error, isNull,
           reason: '这是提醒不是错误——录音在正常跑');
     });
@@ -152,7 +158,7 @@ void main() {
       await repository.start();
 
       expect(repository.state.isRecording, isFalse);
-      expect(repository.state.error, contains('启动录音失败'));
+      expect(repository.state.error?.kind, RecordingErrorKind.startFailed);
       expect(capture.stopCount, greaterThanOrEqualTo(1),
           reason: '必须把已经开起来的采集关掉');
     });
@@ -219,7 +225,7 @@ void main() {
       await pumpEventQueue();
 
       expect(repository.state.isRecording, isTrue, reason: '不该因此中断整夜录音');
-      expect(repository.state.error, contains('录音流出错'));
+      expect(repository.state.error?.kind, RecordingErrorKind.streamFailed);
     });
   });
 

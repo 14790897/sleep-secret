@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/repositories/archive_controller.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../../core/l10n/ui_message_text.dart';
 import '../view_models/archive_view_model.dart';
 
 /// 数据导出/导入页。
@@ -159,7 +160,7 @@ class _ActionsCard extends StatelessWidget {
           if (viewModel.error != null) ...[
             const SizedBox(height: 12),
             Text(
-              viewModel.error!,
+              viewModel.error!.message(context),
               style: theme.textTheme.labelSmall
                   ?.copyWith(color: AppColors.statusCritical, height: 1.5),
             ),
@@ -212,7 +213,7 @@ class _OutcomeLine extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              '· $p',
+              '· ${p.message(context)}',
               style: theme.textTheme.labelSmall
                   ?.copyWith(color: AppColors.textDim, height: 1.5),
             ),

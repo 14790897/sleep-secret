@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../domain/models/recording_session.dart';
+import '../../domain/models/ui_message.dart';
 import '../../domain/repositories/archive_controller.dart';
 import '../../domain/repositories/export_target.dart';
 import '../services/archive_service.dart';
@@ -136,20 +137,20 @@ class ArchiveRepository implements ArchiveController {
     if (_busy) {
       // 并发点两次会让导入的去重判断失效（第二次读到的是第一次还没写完的状态），
       // 结果就是同一晚进来两份。
-      throw StateError('上一次导出/导入还没结束');
+      throw ArchiveException(UiMessageKind.archiveBusy);
     }
 
     await load();
     final s = _serialized;
     if (s == null) {
-      throw StateError('还没有配置导出目录');
+      throw ArchiveException(UiMessageKind.archiveNoTarget);
     }
 
     final target = await _picker.restore(s);
     if (target == null || !await target.isUsable()) {
       _usable = false;
       _emit();
-      throw StateError('配置的目录现在用不了（授权被撤销，或者目录不在了）');
+      throw ArchiveException(UiMessageKind.archiveTargetUnusable);
     }
 
     _busy = true;
@@ -170,4 +171,18 @@ class ArchiveRepository implements ArchiveController {
   void dispose() {
     _changes.close();
   }
+}
+
+/// 导出/导入流程里**用户能自己解决**的问题。
+///
+/// 用专门的类型而不是 `StateError`：这些是要显示给用户看的，
+/// 需要带上是"哪一种"（见 [UiMessage]），而 `StateError` 只有一条字符串。
+class ArchiveException implements Exception {
+  ArchiveException(UiMessageKind kind, [String? detail])
+      : message = UiMessage(kind, detail);
+
+  final UiMessage message;
+
+  @override
+  String toString() => 'ArchiveException(${message.kind.name})';
 }

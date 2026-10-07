@@ -2,6 +2,7 @@ import 'dart:io';
 
 import '../../domain/analysis/export_codec.dart';
 import '../../domain/models/recording_session.dart';
+import '../../domain/models/ui_message.dart';
 import '../../domain/repositories/archive_controller.dart' show ArchiveOutcome;
 import '../../domain/repositories/audio_clip_store.dart';
 import '../../domain/repositories/export_target.dart';
@@ -47,7 +48,7 @@ class ArchiveService {
     var written = 0;
     var clips = 0;
     var missing = 0;
-    final problems = <String>[];
+    final problems = <UiMessage>[];
 
     for (final session in list) {
       final key = session.startedAt.millisecondsSinceEpoch;
@@ -67,7 +68,8 @@ class ArchiveService {
           await target.copyIn(abs, '$_clipsDir/$rel');
           clips++;
         } catch (e) {
-          problems.add('片段 ${event.clipPath} 写入失败：$e');
+          problems.add(UiMessage(
+              UiMessageKind.archiveClipWriteFailed, '${event.clipPath}：$e'));
           missing++;
         }
       }
@@ -76,7 +78,7 @@ class ArchiveService {
         await target.writeText('$_sessionsDir/$key.json', encodeSession(session));
         written++;
       } catch (e) {
-        problems.add('会话 $key 写入失败：$e');
+        problems.add(UiMessage(UiMessageKind.archiveSessionWriteFailed, '$key：$e'));
       }
     }
 
@@ -107,7 +109,7 @@ class ArchiveService {
     var skipped = 0;
     var clips = 0;
     var missing = 0;
-    final problems = <String>[];
+    final problems = <UiMessage>[];
 
     try {
       for (final name in files) {
@@ -125,7 +127,8 @@ class ArchiveService {
         } on FormatException catch (e) {
           // 坏文件**跳过并记下来**，不要让一个文件挡住其余的
           skipped++;
-          problems.add('$name 读不了：${e.message}');
+          problems.add(UiMessage(UiMessageKind.archiveUnreadableFile,
+              '$name：${e.message}'));
           continue;
         }
 
@@ -151,7 +154,7 @@ class ArchiveService {
               missing++;
             }
           } catch (e) {
-            problems.add('片段 $rel 导入失败：$e');
+            problems.add(UiMessage(UiMessageKind.archiveClipImportFailed, '$rel：$e'));
             missing++;
           } finally {
             final f = File(tmp);

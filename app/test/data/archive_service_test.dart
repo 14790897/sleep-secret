@@ -9,6 +9,7 @@ import 'package:sleep_secret/data/services/file_audio_clip_store.dart';
 import 'package:sleep_secret/data/services/session_database.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
+import 'package:sleep_secret/domain/models/ui_message.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 
 import '../helpers/fake_export_target.dart';
@@ -239,7 +240,8 @@ void main() {
 
       expect(r.sessions, 1, reason: '好的那个照样导进来');
       expect(r.skipped, 1);
-      expect(r.problems.single, contains('读不了'));
+      // 存的是结构化的事实，不是拼好的句子——句子在 UI 层按语言渲染
+      expect(r.problems.single.kind, UiMessageKind.archiveUnreadableFile);
     });
 
     test('目标目录是空的 —— 不报错，什么都不导', () async {

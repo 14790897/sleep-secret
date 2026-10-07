@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../domain/repositories/archive_controller.dart';
+import '../../../../data/repositories/archive_repository.dart';
+import '../../../../domain/models/ui_message.dart';
 
 /// 导出/导入页的状态。
 class ArchiveViewModel extends ChangeNotifier {
@@ -17,8 +19,8 @@ class ArchiveViewModel extends ChangeNotifier {
   StreamSubscription<void>? _sub;
 
   /// 上一次操作给出的错误，给用户看。操作成功或重新选择目录后清掉。
-  String? _error;
-  String? get error => _error;
+  UiMessage? _error;
+  UiMessage? get error => _error;
 
   String? get targetDescription => _controller.exportTargetDescription;
   bool get hasTarget => _controller.exportTargetDescription != null;
@@ -35,7 +37,7 @@ class ArchiveViewModel extends ChangeNotifier {
     try {
       await _controller.chooseExportTarget();
     } catch (e) {
-      _error = '选择目录失败：$e';
+      _error = UiMessage(UiMessageKind.archivePickFailed, '$e');
     }
     notifyListeners();
   }
@@ -55,11 +57,11 @@ class ArchiveViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       await op();
-    } on StateError catch (e) {
-      // 这两条是"用户能自己解决"的，直接说清楚，不要把异常原文抛给用户
+    } on ArchiveException catch (e) {
+      // 这几条是"用户能自己解决"的，它们自己带着该说哪种话
       _error = e.message;
     } catch (e) {
-      _error = '操作失败：$e';
+      _error = UiMessage(UiMessageKind.archiveOperationFailed, '$e');
     }
     notifyListeners();
   }

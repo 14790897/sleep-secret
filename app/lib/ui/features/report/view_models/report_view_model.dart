@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../data/services/event_player.dart';
 import '../../../../domain/models/recording_session.dart';
+import '../../../../domain/models/ui_message.dart';
 import '../../../../domain/repositories/audio_clip_store.dart';
 
 /// 报告详情页的 ViewModel。
@@ -31,7 +32,7 @@ class ReportViewModel extends ChangeNotifier {
 
   int _playingIndex = -1;
   int _loadingIndex = -1;
-  String? _error;
+  UiMessage? _error;
 
   RecordingSession get session => _session;
 
@@ -41,7 +42,7 @@ class ReportViewModel extends ChangeNotifier {
   /// 正在解析文件路径的事件下标（点击到出声之间的短暂间隔）。
   int get loadingIndex => _loadingIndex;
 
-  String? get error => _error;
+  UiMessage? get error => _error;
 
   bool isPlaying(int index) => index == _playingIndex;
   bool isLoading(int index) => index == _loadingIndex;
@@ -73,7 +74,7 @@ class ReportViewModel extends ChangeNotifier {
       // 文件被清理掉了（用户删过、或系统清过缓存）。说清楚原因，
       // 不要只是"点了没反应"。
       _loadingIndex = -1;
-      _error = '这段音频已经不在了';
+      _error = const UiMessage(UiMessageKind.reportClipMissing);
       notifyListeners();
       return;
     }
