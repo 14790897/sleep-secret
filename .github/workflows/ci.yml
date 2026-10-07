@@ -106,6 +106,44 @@ jobs:
           # 需要真麦克风和已授权限的测试都在 integration_test_hardware/。
           script: flutter test integration_test/all_tests.dart -d emulator-5554
 
+  # ---------------------------------------------------------------- Windows 桌面版
+  #
+  # 桌面版是**跑得起来的**，所以这里让它真的跑一遍，而不是只构建。
+  #
+  # 为什么值得多花这几分钟：桌面这条路径和 Android 有几处**实质不同**——
+  #   - 数据库走 sqflite_common_ffi（不是 Android 的原生 SQLite）
+  #   - 导出目录走普通路径（不是 SAF）
+  #   - 前台服务降级成空实现（flutter_foreground_task 不支持 Windows）
+  # 只构建不运行的话，这三处都验证不到。
+  #
+  # 跑的是同一个聚合入口、同一批测试。音频仍然是 fixture 回放，
+  # 不碰真麦克风（那几个在 integration_test_hardware/）。
+  windows:
+    name: 集成测试（Windows 桌面）
+    runs-on: windows-latest
+    needs: static
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # ⚠️ 这条能不能在托管 runner 上跑起来，取决于**有没有可用的桌面会话**。
+      # 需要窗口才能建出来的东西会在这里失败——失败了看日志确认是环境问题
+      # 还是代码问题，别直接删掉这一步。
+      #
+      # 本机（Windows 11）实测整条 26 个测试约 40 秒跑完。
+      - name: 跑集成测试
+        run: flutter test integration_test/all_tests.dart -d windows
+
   # ---------------------------------------------------------------- 发布构建
   #
   # 这个项目在 release-only 的 R8 混淆上栽过（ONNX Runtime 的 JNI 按类名找类，
