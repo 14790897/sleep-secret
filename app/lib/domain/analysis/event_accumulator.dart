@@ -13,10 +13,16 @@ class WindowObservation {
     required this.snoreProbability,
     required this.categories,
     required this.wasInferred,
+    this.rms,
   });
 
   final double startSeconds;
   final double durationSeconds;
+
+  /// 这个窗口的 RMS。**可选**——只有引擎算得出电平时才有。
+  ///
+  /// 事件会取它里面最响的那个窗口，换算成分贝显示（见 `decibel.dart`）。
+  final double? rms;
 
   /// 该窗口的类别。null 只出现在被能量门控跳过的窗口上——
   /// 送进模型的窗口一定会有类别（不再按置信度丢弃）。
@@ -99,6 +105,7 @@ class EventAccumulator {
           confidence: obs.confidence,
           snoreProbability: obs.snoreProbability,
           windowCount: 1,
+          peakRms: obs.rms,
         ));
         return;
       }
@@ -114,6 +121,7 @@ class EventAccumulator {
       confidence: obs.confidence,
       snoreProbability: obs.snoreProbability,
       windowCount: 1,
+      peakRms: obs.rms,
     ));
   }
 

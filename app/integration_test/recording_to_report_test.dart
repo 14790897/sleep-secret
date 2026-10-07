@@ -15,6 +15,8 @@ import 'package:sleep_secret/data/services/file_audio_clip_store.dart';
 import 'package:sleep_secret/data/services/onnx_classifier_service.dart';
 import 'package:sleep_secret/data/services/session_database.dart';
 import 'package:sleep_secret/data/services/wav_decoder_service.dart';
+import 'package:sleep_secret/l10n/app_localizations.dart';
+import 'package:sleep_secret/l10n/app_strings.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
@@ -70,6 +72,17 @@ void main() {
   late FileAudioClipStore clipStore;
 
   setUpAll(() async {
+    // ⚠️ 必须**自己**初始化那份"给后台用的"文案。
+    //
+    // `RecordingRepository.start()` 要读通知栏标题（拿不到 BuildContext 的
+    // 地方走 `appStrings`），而 `appStrings` 平时是 `main.dart` 里的
+    // `_SyncAppStrings` 赋的值——这个测试自己拼 MaterialApp，轮不到它。
+    //
+    // 这曾经是个**顺序相关的测试**：单独跑必红，跟在 `full_flow_test`
+    // 后面跑就绿（那个泵了真 App，顺手把全局设上了）。聚合入口掩盖了它，
+    // 2026-10-07 单独跑才发现。
+    setAppStrings(await AppLocalizations.delegate.load(const Locale('zh')));
+
     classifier = OnnxClassifierService(assetKey: 'assets/models/ced-tiny.onnx');
     analyzer = SleepAnalysisRepository(classifier: classifier);
     supportDir = await Directory.systemTemp.createTemp('rec_to_report');
@@ -180,6 +193,14 @@ void main() {
           reason: '会话统计里的鼾声段数和实际事件对不上');
       expect(session.stats.eventCount, session.events.length);
       expect(session.stats.analyzedSeconds, greaterThan(0));
+
+      // 鼾声事件应当带电平——不然报告里那句「约 XX 分贝」永远不出现。
+      // 这条是**引擎 → 事件**那一段的证明：界面上的分贝不是凭空算的，
+      // 是引擎在跑窗口时记下来的。
+      expect(snoreEvents.every((e) => e.hasLevel), isTrue,
+          reason: '引擎没有把窗口电平记到事件上');
+      expect(snoreEvents.first.peakRms, greaterThan(0),
+          reason: '真实鼾声的电平不该是 0');
 
       // 鼾声事件应当带可回放的片段
       final withClip = snoreEvents.where((e) => e.clipPath != null).toList();
@@ -360,6 +381,10 @@ void main() {
       expect(full, isNotNull);
       final withClip = full!.events.where((e) => e.hasClip).toList();
       expect(withClip, isNotEmpty, reason: '这条测试的前提是录到了带片段的鼾声');
+
+      // 电平要**能落盘再读回来**——只有内存里有的话，重启 App 就没了
+      expect(full.events.where((e) => e.hasLevel), isNotEmpty,
+          reason: '电平没有写进数据库，或者读回来时丢了');
       expect(find.text('鼾声录音'), findsOneWidget);
       expect(find.textContaining('共 ${withClip.length} 段 ·'), findsOneWidget,
           reason: '鼾声录音卡应当列出全部 ${withClip.length} 段录音');

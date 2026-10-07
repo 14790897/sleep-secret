@@ -13,6 +13,7 @@ class SoundEvent {
     required this.snoreProbability,
     required this.windowCount,
     this.clipPath,
+    this.peakRms,
   });
 
   final SleepCategory label;
@@ -36,6 +37,21 @@ class SoundEvent {
   /// 存绝对路径的话历史记录里的片段会全部指向不存在的文件。
   final String? clipPath;
 
+  /// 这个事件里**最响的那一个窗口**的 RMS。
+  ///
+  /// ## 为什么存 RMS 而不是分贝
+  ///
+  /// 分贝要挑一个参考值，而那个参考值是个**假设**——
+  /// 见 `domain/analysis/decibel.dart` 里对 `kFullScaleDbSpl` 的说明。
+  /// 假设将来可能改（换设备、或者用户自己校准过），
+  /// **存原始量的话改参考值不用动数据库，也不用重算历史**。
+  ///
+  /// 老数据没有这一项（null）——那时候的引擎不记电平。
+  final double? peakRms;
+
+  /// 有没有电平数据。老记录没有，界面上要能区分「没记」和「很安静」。
+  bool get hasLevel => peakRms != null;
+
   double get endSeconds => startSeconds + durationSeconds;
 
   bool get isSnore => label == SleepCategory.snore;
@@ -51,6 +67,7 @@ class SoundEvent {
         snoreProbability: snoreProbability,
         windowCount: windowCount,
         clipPath: path,
+        peakRms: peakRms,
       );
 
   SoundEvent mergedWith(SoundEvent other) {
@@ -68,7 +85,17 @@ class SoundEvent {
       windowCount: windowCount + other.windowCount,
       // 合并保留已有的片段路径；通常此处两个都还没有（片段要等定案才写）。
       clipPath: clipPath ?? other.clipPath,
+      // 峰值取大的。两边都可能是 null（老数据），这时仍然是 null——
+      // 不能拿 0 当"没有"，那会在界面上显示成静音。
+      peakRms: _maxOrNull(peakRms, other.peakRms),
     );
+  }
+
+  /// 取两者中较大的，**null 表示没有数据**，不参与比较。
+  static double? _maxOrNull(double? a, double? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return a > b ? a : b;
   }
 
   @override

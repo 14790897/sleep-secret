@@ -98,6 +98,8 @@ Map<String, Object?> _encodeEvent(SoundEvent e) => {
       'windowCount': e.windowCount,
       // 相对片段根目录的路径，导入时原样用
       'clipPath': e.clipPath,
+      // 存原始 RMS 不存分贝——参考值是个假设，改它不该让历史文件读不出来
+      'peakRms': e.peakRms,
     };
 
 List<SoundEvent> _decodeEvents(Object? raw) {
@@ -114,6 +116,8 @@ List<SoundEvent> _decodeEvents(Object? raw) {
           snoreProbability: _double(item['snoreProbability'], 'snoreProbability'),
           windowCount: _int(item['windowCount'], 'windowCount'),
           clipPath: item['clipPath'] as String?,
+          // 老文件里没有这一项，读出来是 null——那是没记，不是 0
+          peakRms: (item['peakRms'] as num?)?.toDouble(),
         ),
   ];
 }
