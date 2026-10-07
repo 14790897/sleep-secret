@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/models/sound_event.dart';
 import '../theme.dart';
 import '../l10n/domain_text.dart';
+import '../l10n/l10n_context.dart';
 
 /// 整夜声音时间线。
 ///
@@ -49,7 +50,7 @@ class _SoundTimelineState extends State<SoundTimeline> {
       return SizedBox(
         height: widget.height,
         child: Center(
-          child: Text('这一晚没有检出声音事件',
+          child: Text(context.l10n.timelineEmpty,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: AppColors.textDim)),
         ),
@@ -312,9 +313,7 @@ class _EventTooltip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$clock  ${event.label.label(context)}  ·  '
-              '${event.durationSeconds.round()} 秒'
-              '${event.isSnore ? '  ·  鼾声概率 ${(event.snoreProbability * 100).toStringAsFixed(0)}%' : ''}',
+              _tooltipFor(context, event, clock),
               style: theme.textTheme.bodySmall,
             ),
           ),
@@ -328,4 +327,21 @@ class _EventTooltip extends StatelessWidget {
     return '${(t ~/ 60).toString().padLeft(2, '0')}:'
         '${(t % 60).toString().padLeft(2, '0')}';
   }
+}
+
+/// 事件块的提示文字。
+///
+/// 抽成函数是因为它有两段：基础信息人人都有，「鼾声概率」只有鼾声事件才有。
+/// 直接写成一行嵌套三元的话，中文和英文的标点习惯不一样，很难维护。
+String _tooltipFor(BuildContext context, SoundEvent event, String clock) {
+  final base = context.l10n.timelineTooltip(
+    clock,
+    event.label.label(context),
+    event.durationSeconds.round(),
+  );
+  if (!event.isSnore) return base;
+  // 分隔符在 ARB 里——`·` 在英文里也该是这个，但空格数不一样
+  return base +
+      context.l10n.timelineSnoreProbability(
+          (event.snoreProbability * 100).toStringAsFixed(0));
 }

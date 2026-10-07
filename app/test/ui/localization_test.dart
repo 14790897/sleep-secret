@@ -3,7 +3,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sleep_secret/domain/models/recording_session.dart';
+import 'package:sleep_secret/domain/models/sleep_category.dart';
+import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
+import 'package:sleep_secret/ui/features/report/views/report_view.dart';
 import 'package:sleep_secret/ui/features/recording/view_models/recording_view_model.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
 
@@ -163,4 +167,89 @@ void main() {
               '所以这类断言是唯一能发现它的地方）');
     });
   });
+
+  group('报告页整页渲染', () {
+    /// 一晚普通数据：有鼾声、有干扰、有环境噪音。
+    ///
+    /// 刻意凑齐这几类，是因为它们分别走诊断卡、评分构成、类别分布、
+    /// 片段卡几条不同的渲染路径——只放一条事件的话，漏掉的那几条
+    /// 在这条测试里看不见。
+    RecordingSession night() => _build(1791278973396);
+
+    testWidgets('英文渲染下，报告页不该残留任何中文', (tester) async {
+      tester.view.physicalSize = const Size(900, 5000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final clips = FakeAudioClipStore();
+      final player = FakeEventPlayer();
+      addTearDown(player.dispose);
+
+      await tester.pumpWidget(localizedApp(
+        locale: const Locale('en'),
+        home: ReportView(
+          viewModel: ReportViewModel(
+            session: night(),
+            clipStore: clips,
+            player: player,
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final texts = [
+        for (final t in tester.widgetList<Text>(find.byType(Text)))
+          if (t.data != null) t.data!,
+      ];
+      expect(texts, isNotEmpty, reason: '整棵树没有文字，这条断言会假绿');
+
+      final cjk = RegExp('[一-鿿]');
+      final offenders = texts.where((t) => cjk.hasMatch(t)).toList();
+      expect(offenders, isEmpty, reason: _cjkReport('报告页', offenders));
+    });
+  });
+}
+
+/// 拼出一份看得懂的中文残留报告。
+String _cjkReport(String where, List<String> offenders) =>
+    '$where 这些文案没有英文翻译：\n'
+    '${offenders.map((t) => '  - $t').join('\n')}\n'
+    '（缺翻译时 Flutter 静默退回模板语言，不会报错——'
+    '这类断言是唯一能发现它的地方）';
+
+/// 造一晚带事件的数据。
+RecordingSession _build(int startMs) {
+  final start = DateTime.fromMillisecondsSinceEpoch(startMs);
+  SoundEvent ev(SleepCategory label, double at, double dur, {String? clip}) =>
+      SoundEvent(
+        label: label,
+        startSeconds: at,
+        durationSeconds: dur,
+        confidence: 0.8,
+        snoreProbability: label == SleepCategory.snore ? 0.8 : 0.01,
+        windowCount: (dur / 3).round(),
+        clipPath: clip,
+      );
+  return RecordingSession(
+    id: 1,
+    startedAt: start,
+    endedAt: start.add(const Duration(hours: 8)),
+    events: [
+      ev(SleepCategory.snore, 3600, 180, clip: 'a/1.wav'),
+      ev(SleepCategory.cough, 7200, 12),
+      ev(SleepCategory.ambient, 9000, 600),
+      ev(SleepCategory.breathing, 2000, 900),
+    ],
+    stats: const SessionStats(
+      analyzedSeconds: 28000,
+      windowsTotal: 9330,
+      windowsInferred: 3500,
+      windowsVadSkipped: 5830,
+      windowsLowConfidence: 3100,
+      eventCount: 4,
+      snoreEventCount: 1,
+      snoreSeconds: 180,
+      categoryDistribution: {},
+    ),
+  );
 }

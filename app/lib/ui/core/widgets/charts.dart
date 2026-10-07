@@ -72,7 +72,7 @@ class HourlyChart extends StatelessWidget {
       return SizedBox(
         height: height,
         child: Center(
-          child: Text('没有可统计的声音事件',
+          child: Text(context.l10n.hourlyEmpty,
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -185,7 +185,7 @@ class TrendChart extends StatelessWidget {
     required this.points,
     this.height = 168,
     this.threshold,
-    this.thresholdLabel = '参考',
+    this.thresholdLabel,
   });
 
   final List<TrendPoint> points;
@@ -196,7 +196,10 @@ class TrendChart extends StatelessWidget {
   final double? threshold;
 
   /// 参考线的文字说明，必须与它的实际含义一致。
-  final String thresholdLabel;
+  ///
+  /// 为 null 时用默认的「参考」——那个词要按语言来，所以默认值不能在
+  /// 参数上写死（参数默认值必须是编译期常量）。
+  final String? thresholdLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +208,9 @@ class TrendChart extends StatelessWidget {
         height: height,
         child: Center(
           child: Text(
-            points.isEmpty ? '还没有可比较的记录' : '至少需要两晚才能看出趋势',
+            points.isEmpty
+                ? context.l10n.chartTrendNoPoints
+                : context.l10n.chartTrendNeedTwoNights,
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
@@ -221,7 +226,7 @@ class TrendChart extends StatelessWidget {
         painter: _TrendPainter(
         points: points,
         threshold: threshold,
-        thresholdLabel: thresholdLabel,
+        thresholdLabel: thresholdLabel ?? context.l10n.chartThresholdLegend,
       ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/analysis/session_insights.dart';
 import '../../../../domain/models/recording_session.dart';
 import '../../../core/theme.dart';
+import '../../../core/l10n/l10n_context.dart';
 import '../../../core/widgets/charts.dart';
 import '../../../core/widgets/section_card.dart';
 
@@ -26,25 +27,25 @@ class TrendCard extends StatelessWidget {
       // 只有一晚时不画趋势，直接告诉用户还差什么
       if (points.isEmpty) return const SizedBox.shrink();
       return SectionCard(
-        title: '鼾声指数趋势',
+        title: context.l10n.trendTitle,
         child: Text(
-          '再记录一晚就能看出变化了。',
+          context.l10n.trendSingleNight,
           style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textDim),
         ),
       );
     }
 
     return SectionCard(
-      title: '鼾声指数趋势',
-      subtitle: '最近 ${summary.nights} 晚，虚线是你的平均值 '
-          '${summary.averageIndex.toStringAsFixed(1)}%',
+      title: context.l10n.trendTitle,
+      subtitle: context.l10n.trendSubtitle(
+          summary.nights, summary.averageIndex.toStringAsFixed(1)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           TrendChart(
             points: points,
             threshold: summary.averageIndex,
-            thresholdLabel: '你的平均',
+            thresholdLabel: context.l10n.trendYourAverage,
           ),
           const SizedBox(height: 16),
           MetricRow(
@@ -52,18 +53,18 @@ class TrendCard extends StatelessWidget {
               MetricTile(
                 value: summary.averageIndex.toStringAsFixed(1),
                 unit: '%',
-                label: '平均',
+                label: context.l10n.trendAverage,
               ),
               MetricTile(
                 value: summary.bestIndex.toStringAsFixed(1),
                 unit: '%',
-                label: '最好一晚',
+                label: context.l10n.trendBestNight,
                 valueColor: AppColors.statusGood,
               ),
               MetricTile(
                 value: summary.worstIndex.toStringAsFixed(1),
                 unit: '%',
-                label: '最差一晚',
+                label: context.l10n.trendWorstNight,
                 valueColor: AppColors.statusCritical,
               ),
             ],
@@ -91,17 +92,17 @@ class _ChangeNote extends StatelessWidget {
     final delta = summary.changeFromFirst;
     final (text, color, icon) = summary.improving
         ? (
-            '比第一晚少了 ${delta.abs().toStringAsFixed(1)} 个百分点',
+            context.l10n.trendDeltaDown(delta.abs().toStringAsFixed(1)),
             AppColors.statusGood,
             Icons.trending_down
           )
         : summary.worsening
             ? (
-                '比第一晚多了 ${delta.abs().toStringAsFixed(1)} 个百分点',
+                context.l10n.trendDeltaUp(delta.abs().toStringAsFixed(1)),
                 AppColors.statusCritical,
                 Icons.trending_up
               )
-            : ('和第一晚基本持平', AppColors.textDim, Icons.trending_flat);
+            : (context.l10n.trendDeltaFlat, AppColors.textDim, Icons.trending_flat);
 
     return Row(
       children: [
@@ -112,7 +113,7 @@ class _ChangeNote extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(color: color)),
         ),
         Text(
-          '共 ${summary.nights} 晚',
+          context.l10n.trendTotalNights(summary.nights),
           style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textDim),
         ),
       ],

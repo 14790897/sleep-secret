@@ -23,6 +23,7 @@ import '../../../domain/analysis/sleep_score.dart';
 import '../../../domain/analysis/session_insights.dart';
 import '../../../domain/models/recording_state.dart';
 import '../../../domain/models/sleep_category.dart';
+import '../theme.dart';
 import 'l10n_context.dart';
 
 // ---------------------------------------------------------------- 类别名
@@ -144,5 +145,16 @@ extension RecordingWarningText on RecordingWarningKind {
   String message(BuildContext context) => switch (this) {
         RecordingWarningKind.notificationsDenied =>
           context.l10n.recordingWarningNotificationsDenied,
+      };
+}
+
+// -------------------------------------------------------------- 时间线配色大类
+
+extension SoundClassText on SoundClass {
+  /// 图例上那个名字。
+  String label(BuildContext context) => switch (this) {
+        SoundClass.snore => context.l10n.soundClassSnore,
+        SoundClass.event => context.l10n.soundClassEvent,
+        SoundClass.background => context.l10n.soundClassBackground,
       };
 }

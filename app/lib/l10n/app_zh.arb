@@ -242,5 +242,425 @@
         "type": "String"
       }
     }
-  }
+  },
+  "soundClassSnore": "鼾声",
+  "soundClassEvent": "其他声音",
+  "soundClassBackground": "呼吸/环境",
+  "legendSnore": "鼾声",
+  "legendOther": "其他声音",
+  "chartTrendNoPoints": "还没有可比较的记录",
+  "chartTrendNeedTwoNights": "至少需要两晚才能看出趋势",
+  "chartThresholdLegend": "参考",
+  "timelineEmpty": "这一晚没有检出声音事件",
+  "timelineTooltip": "{clock}  {label}  ·  {seconds} 秒",
+  "@timelineTooltip": {
+    "placeholders": {
+      "clock": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineSnoreProbability": "  ·  鼾声概率 {percent}%",
+  "@timelineSnoreProbability": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "trendTitle": "鼾声指数趋势",
+  "trendSingleNight": "再记录一晚就能看出变化了。",
+  "trendSubtitle": "最近 {nights} 晚，虚线是你的平均值 {average}%",
+  "@trendSubtitle": {
+    "placeholders": {
+      "nights": {
+        "type": "int"
+      },
+      "average": {
+        "type": "String"
+      }
+    }
+  },
+  "trendYourAverage": "你的平均",
+  "trendAverage": "平均",
+  "trendBestNight": "最好一晚",
+  "trendWorstNight": "最差一晚",
+  "trendDeltaDown": "比第一晚少了 {delta} 个百分点",
+  "@trendDeltaDown": {
+    "placeholders": {
+      "delta": {
+        "type": "String"
+      }
+    }
+  },
+  "trendDeltaUp": "比第一晚多了 {delta} 个百分点",
+  "@trendDeltaUp": {
+    "placeholders": {
+      "delta": {
+        "type": "String"
+      }
+    }
+  },
+  "trendDeltaFlat": "和第一晚基本持平",
+  "trendTotalNights": "共 {nights} 晚",
+  "@trendTotalNights": {
+    "placeholders": {
+      "nights": {
+        "type": "int"
+      }
+    }
+  },
+  "diagTitle": "端侧推理诊断",
+  "diagRerun": "重新运行",
+  "diagLoadAndRun": "加载模型并运行",
+  "diagRunning": "推理中…",
+  "diagUnknownError": "未知错误",
+  "diagModel": "模型：{name}",
+  "@diagModel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "diagClassMapping": "{count} 个 AudioSet 标签 → 7 个睡眠大类",
+  "@diagClassMapping": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagMatchPc": "与 PC 端一致",
+  "diagMismatchPc": "与 PC 端存在差异",
+  "diagTolerance": "比对 527 维 logits，容差 1e-3",
+  "diagMaxDiff": "最大差 {diff}",
+  "@diagMaxDiff": {
+    "placeholders": {
+      "diff": {
+        "type": "String"
+      }
+    }
+  },
+  "diagSevenCategories": "7 大类概率",
+  "diagRawTop5": "原始 top-5 标签",
+  "diagLoadFailed": "加载失败",
+  "diagRetry": "重试",
+  "recordingTitle": "睡眠录音",
+  "recordingIdle": "点一下开始",
+  "recordingActive": "录音中",
+  "recordingSubtitle": "整夜录音、本地分析，早上给出报告",
+  "recordingEventCount": "已检出 {count} 个声音事件",
+  "@recordingEventCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordingEventCountWithSnore": "已检出 {count} 个声音事件，其中鼾声 {snore} 段",
+  "@recordingEventCountWithSnore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "snore": {
+        "type": "int"
+      }
+    }
+  },
+  "recordingTapAgain": "再次点击结束并保存",
+  "recordingInputLevel": "输入电平",
+  "recordingLoud": "有声音",
+  "recordingQuiet": "太安静",
+  "recordingLevelNoGate": "所有声音都会送进模型分析。当前 {level}，峰值 {peak}",
+  "@recordingLevelNoGate": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      },
+      "peak": {
+        "type": "String"
+      }
+    }
+  },
+  "recordingLevelGated": "红线是识别门槛（现在 {threshold}，会随环境噪声自动调整）。电平要越过去才会被分析。当前 {level}，峰值 {peak}",
+  "@recordingLevelGated": {
+    "placeholders": {
+      "threshold": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      },
+      "peak": {
+        "type": "String"
+      }
+    }
+  },
+  "recordingLiveTitle": "实时分析",
+  "recordingLiveSubtitle": "安静片段会被直接跳过，不送进模型",
+  "recordingWindowsProcessed": "处理窗口",
+  "recordingWindowsInferred": "送进模型",
+  "recordingWindowsSkipped": "跳过",
+  "recordingInferenceErrors": "{count} 个窗口推理失败",
+  "@recordingInferenceErrors": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordingUsageTitle": "使用说明",
+  "recordingUsage1": "睡前点上面的大按钮开始录音，屏幕可以关掉。",
+  "recordingUsage2": "录音期间会有一条常驻通知，说明应用正在工作。",
+  "recordingUsage3": "早上起来再点一次结束，报告会自动生成。",
+  "recordingUsage4": "整夜只保留事件时间点，不保存原始音频。",
+  "archiveTitle": "数据导出",
+  "archiveTargetTitle": "导出目录",
+  "archiveTargetSubtitle": "选一个目录，每次录音结束会自动导出过去",
+  "archiveNoTarget": "还没选目录",
+  "archiveTargetBroken": "这个目录现在用不了——可能是授权被系统收回了，或者目录被删了。重新选一次即可。",
+  "archiveChooseFolder": "选择目录",
+  "archiveChangeFolder": "换一个",
+  "archiveClearTarget": "取消配置",
+  "archiveSyncHint": "把目录设在网盘的同步文件夹里（比如 iCloud、OneDrive、坚果云的本地目录），就自动有了云端备份。App 自己不上传任何东西——是你的网盘客户端在同步。",
+  "archiveManualTitle": "手动导出 / 导入",
+  "archiveManualSubtitle": "平时不用管，录音结束会自动导",
+  "archiveExportAll": "导出全部",
+  "archiveImportAll": "从目录导入",
+  "archiveDedupeHint": "导入按「开始时刻」去重——同一晚不会重复进来。换设备时先导出，再把目录同步过去，在新设备上导入即可。",
+  "archiveLastExport": "上次导出：{detail}",
+  "@archiveLastExport": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveLastImport": "上次导入：{detail}",
+  "@archiveLastImport": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "archivePartExported": "导出 {count} 晚",
+  "@archivePartExported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archivePartImported": "导入 {count} 晚",
+  "@archivePartImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archivePartClips": "片段 {count} 个",
+  "@archivePartClips": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archivePartSkipped": "跳过 {count} 晚（已经有了）",
+  "@archivePartSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archivePartClipsMissing": "{count} 个片段没找到",
+  "@archivePartClipsMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveContentsTitle": "导出的内容",
+  "archiveContentsSubtitle": "一晚一个 JSON 文件，外加音频片段",
+  "archiveContentsLine1": "事件的时间点、类别、置信度，以及整晚的统计。",
+  "archiveContentsLine2": "鼾声片段的音频文件（WAV）——这部分是声音本身。",
+  "archiveAudioWarning": "⚠️ 导出的文件里包含音频。如果你把目录放在网盘同步文件夹里，这些音频会跟着上传到云端——那是你的网盘，不是这个应用。介意的话，到「关于」页把「保留鼾声片段」关掉，之后就只会导出分析结果，不含任何声音。",
+  "reportViewTitle": "睡眠报告",
+  "reportHeaderStart": "{year}年{month}月{day}日 {time} 开始",
+  "@reportHeaderStart": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "reportHeaderTotal": " · 共 {span}",
+  "@reportHeaderTotal": {
+    "placeholders": {
+      "span": {
+        "type": "String"
+      }
+    }
+  },
+  "reportScoreTitle": "睡眠声音评分",
+  "reportSnoreIndex": "鼾声指数",
+  "reportTooShortNoScore": "录音太短，暂不计分",
+  "reportSnoreTotal": "鼾声总时长",
+  "reportSnoreSegments": "共 {count} 段",
+  "@reportSnoreSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reportSoundEvents": "声音事件",
+  "reportTimesUnit": "次",
+  "reportDiagnosisTitle": "录音质量",
+  "reportDiagnosisWarn": "有几处可能影响这次结果的判断",
+  "reportDiagnosisInfo": "几个说明",
+  "reportTooShortBody": "录音不足 {minutes} 分钟，不给出评分——太短的录音算出来的“一夜评分”没有参考价值。",
+  "@reportTooShortBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "reportScoreBreakdown": "评分构成",
+  "reportScoreBreakdownSubtitle": "满分 100，逐项扣分",
+  "reportNoDeduction": "不扣",
+  "reportHundredPoints": "100 分逐项扣完",
+  "reportClipsTitle": "鼾声录音",
+  "reportClipsNone": "这一晚没有留下录音。到「关于」页打开「保留鼾声片段」，之后录的就会留下——只留鼾声，梦话和咳嗽不录。",
+  "reportClipsSubtitle": "共 {count} 段 · {duration}，点一下试听",
+  "@reportClipsSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "reportDurSeconds": "{count} 秒",
+  "@reportDurSeconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reportDurMinutes": "{count} 分",
+  "@reportDurMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reportDurMinSec": "{m} 分 {s} 秒",
+  "@reportDurMinSec": {
+    "placeholders": {
+      "m": {
+        "type": "int"
+      },
+      "s": {
+        "type": "int"
+      }
+    }
+  },
+  "reportTimelineTitle": "整夜声音",
+  "reportTimelineSubtitle": "点或拖动图表可查看具体事件",
+  "reportTimelineHint": "柱子越高，事件越“突出”——鼾声最高，呼吸和环境声最低。具体类别在下方事件明细里。",
+  "reportHourlyTitle": "每小时分布",
+  "reportHourlyPeak": "{hour} 点前后鼾声最集中，合计 {span}",
+  "@reportHourlyPeak": {
+    "placeholders": {
+      "hour": {
+        "type": "int"
+      },
+      "span": {
+        "type": "String"
+      }
+    }
+  },
+  "reportHourlyFlat": "这一晚各时段鼾声都不明显",
+  "reportHourlyHint": "横轴是钟点，纵轴是该小时内声音的总时长。",
+  "reportDurationTitle": "鼾声段时长",
+  "reportDurationSubtitle": "共 {count} 段，最长一段 {longest}",
+  "@reportDurationSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "longest": {
+        "type": "String"
+      }
+    }
+  },
+  "reportDistributionTitle": "类别分布",
+  "reportDistributionEmpty": "这一晚没有检出可分类的声音事件",
+  "reportDistributionSubtitle": "按各类声音的总时长排序",
+  "reportPipelineTitle": "端侧分析",
+  "reportPipelineSubtitle": "安静片段被直接跳过，没有送进模型",
+  "reportPipelineSkipped": "能量门控跳过",
+  "reportInferenceRatio": "推理占比",
+  "reportLowConfidenceNote": "其中 {count} 个窗口模型把握不大（最高的大类才刚到 {threshold}）——它们照常计入事件，但类别未必可靠。",
+  "@reportLowConfidenceNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "threshold": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEventsTitle": "事件明细",
+  "reportEventsEmpty": "没有检出声音事件",
+  "reportEventsSubtitle": "共 {count} 条，其中 {playable} 条可以试听",
+  "@reportEventsSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "playable": {
+        "type": "int"
+      }
+    }
+  },
+  "reportEventsSubtitlePlain": "共 {count} 条",
+  "@reportEventsSubtitlePlain": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reportStop": "停止",
+  "reportListen": "试听",
+  "archivePickerConfirm": "选这个目录"
 }

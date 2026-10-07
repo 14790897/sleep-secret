@@ -12,6 +12,7 @@ import '../../../core/widgets/charts.dart';
 import '../../../core/widgets/score_gauge.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/l10n/domain_text.dart';
+import '../../../core/l10n/l10n_context.dart';
 import '../../../core/l10n/ui_message_text.dart';
 import '../../../core/widgets/sound_timeline.dart';
 import '../view_models/report_view_model.dart';
@@ -48,7 +49,7 @@ class ReportView extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('睡眠报告'),
+            title: Text(context.l10n.reportViewTitle),
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(24),
               child: Padding(
@@ -56,9 +57,12 @@ class ReportView extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '${started.year}年${started.month}月${started.day}日 '
-                    '${_hhmm(started)} 开始'
-                    '${session.endedAt != null ? ' · 共 ${formatSpan(session.duration.inSeconds.toDouble())}' : ''}',
+                    context.l10n.reportHeaderStart(started.year,
+                            started.month, started.day, _hhmm(started)) +
+                        (session.endedAt != null
+                            ? context.l10n.reportHeaderTotal(formatSpan(
+                                session.duration.inSeconds.toDouble()))
+                            : ''),
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppColors.textDim),
                   ),
@@ -131,17 +135,17 @@ class _OverviewCard extends StatelessWidget {
             if (score != null)
               ScoreGauge(
                 value: score.total.toDouble(),
-                label: '睡眠声音评分',
+                label: context.l10n.reportScoreTitle,
                 subLabel: score.gradeLabel(context),
                 higherIsBetter: true,
               )
             else
               ScoreGauge(
                 value: stats.snoreIndex.clamp(0, 100),
-                label: '鼾声指数',
+                label: context.l10n.reportSnoreIndex,
                 formattedValue: stats.snoreIndex.toStringAsFixed(1),
                 unit: '%',
-                subLabel: '录音太短，暂不计分',
+                subLabel: context.l10n.reportTooShortNoScore,
               ),
             const SizedBox(width: 20),
             Expanded(
@@ -151,19 +155,19 @@ class _OverviewCard extends StatelessWidget {
                   MetricTile(
                     value: stats.snoreIndex.toStringAsFixed(1),
                     unit: '%',
-                    label: '鼾声指数',
+                    label: context.l10n.reportSnoreIndex,
                   ),
                   const SizedBox(height: 14),
                   MetricTile(
                     value: formatSpan(stats.snoreSeconds),
-                    label: '鼾声总时长',
-                    hint: '共 ${stats.snoreEventCount} 段',
+                    label: context.l10n.reportSnoreTotal,
+                    hint: context.l10n.reportSnoreSegments(stats.snoreEventCount),
                   ),
                   const SizedBox(height: 14),
                   MetricTile(
                     value: '${stats.eventCount}',
-                    label: '声音事件',
-                    unit: '次',
+                    label: context.l10n.reportSoundEvents,
+                    unit: context.l10n.reportTimesUnit,
                   ),
                 ],
               ),
@@ -193,8 +197,10 @@ class _DiagnosisCard extends StatelessWidget {
     final warn = hasWarnings(diagnoses);
 
     return SectionCard(
-      title: '录音质量',
-      subtitle: warn ? '有几处可能影响这次结果的判断' : '几个说明',
+      title: context.l10n.reportDiagnosisTitle,
+      subtitle: warn
+          ? context.l10n.reportDiagnosisWarn
+          : context.l10n.reportDiagnosisInfo,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -262,10 +268,9 @@ class _ScoreBreakdownCard extends StatelessWidget {
 
     if (score == null) {
       return SectionCard(
-        title: '睡眠声音评分',
+        title: context.l10n.reportScoreTitle,
         child: Text(
-          '录音不足 ${kMinScorableDuration.inMinutes} 分钟，不给出评分——'
-          '太短的录音算出来的"一夜评分"没有参考价值。',
+          context.l10n.reportTooShortBody(kMinScorableDuration.inMinutes),
           style: theme.textTheme.bodySmall
               ?.copyWith(color: AppColors.textDim, height: 1.6),
         ),
@@ -273,8 +278,8 @@ class _ScoreBreakdownCard extends StatelessWidget {
     }
 
     return SectionCard(
-      title: '评分构成',
-      subtitle: '满分 100，逐项扣分',
+      title: context.l10n.reportScoreBreakdown,
+      subtitle: context.l10n.reportScoreBreakdownSubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -307,7 +312,9 @@ class _ScoreBreakdownCard extends StatelessWidget {
                 SizedBox(
                   width: 52,
                   child: Text(
-                    d.points <= 0 ? '不扣' : '−${d.points.round()}',
+                    d.points <= 0
+                        ? context.l10n.reportNoDeduction
+                        : '−${d.points.round()}',
                     textAlign: TextAlign.right,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: d.points <= 0
@@ -329,7 +336,8 @@ class _ScoreBreakdownCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('100 分逐项扣完', style: theme.textTheme.bodySmall),
+              Text(context.l10n.reportHundredPoints,
+                  style: theme.textTheme.bodySmall),
               Text('= ${score.total}',
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
@@ -405,10 +413,9 @@ class _ClipListCard extends StatelessWidget {
       // 说清楚为什么，不然「怎么没有」会变成一个谜。
       return SectionCard(
         key: ReportKeys.snoreClips,
-        title: '鼾声录音',
+        title: context.l10n.reportClipsTitle,
         child: Text(
-          '这一晚没有留下录音。到「关于」页打开「保留鼾声片段」，'
-          '之后录的就会留下——只留鼾声，梦话和咳嗽不录。',
+          context.l10n.reportClipsNone,
           style: theme.textTheme.bodySmall
               ?.copyWith(color: AppColors.textDim, height: 1.7),
         ),
@@ -420,9 +427,9 @@ class _ClipListCard extends StatelessWidget {
 
     return SectionCard(
       key: ReportKeys.snoreClips,
-      title: '鼾声录音',
-      subtitle: '共 ${clipIndexes.length} 段 · '
-          '${_clipDurationLabel(totalSeconds)}，点一下试听',
+      title: context.l10n.reportClipsTitle,
+      subtitle: context.l10n.reportClipsSubtitle(
+          clipIndexes.length, _clipDurationLabel(context, totalSeconds)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -485,12 +492,14 @@ abstract final class ReportKeys {
 ///
 /// **不能直接用 [formatSpan]**——它只精确到分钟，一段 30 秒的鼾声会显示成
 /// 「0m」。鼾声片段本来就常常只有几十秒，那个精度在这儿等于没写。
-String _clipDurationLabel(double seconds) {
+String _clipDurationLabel(BuildContext context, double seconds) {
   final total = seconds.round();
-  if (total < 60) return '$total 秒';
+  if (total < 60) return context.l10n.reportDurSeconds(total);
   final minutes = total ~/ 60;
   final rest = total % 60;
-  return rest == 0 ? '$minutes 分' : '$minutes 分 $rest 秒';
+  return rest == 0
+      ? context.l10n.reportDurMinutes(minutes)
+      : context.l10n.reportDurMinSec(minutes, rest);
 }
 
 /// 整夜声音时间线 + 图例。
@@ -508,8 +517,8 @@ class _TimelineCard extends StatelessWidget {
         : session.stats.analyzedSeconds;
 
     return SectionCard(
-      title: '整夜声音',
-      subtitle: '点或拖动图表可查看具体事件',
+      title: context.l10n.reportTimelineTitle,
+      subtitle: context.l10n.reportTimelineSubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -524,13 +533,12 @@ class _TimelineCard extends StatelessWidget {
             entries: {
               for (final c in SoundClass.values)
                 if (session.events.any((e) => e.label.soundClass == c))
-                  c.label: c.color,
+                  c.label(context): c.color,
             },
           ),
           const SizedBox(height: 8),
           Text(
-            '柱子越高，事件越"突出"——鼾声最高，呼吸和环境声最低。'
-            '具体类别在下方事件明细里。',
+            context.l10n.reportTimelineHint,
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: AppColors.textDim),
           ),
@@ -556,8 +564,8 @@ class _HourlyCard extends StatelessWidget {
 
     if (buckets.isEmpty) {
       return SectionCard(
-        title: '每小时分布',
-        child: Text('没有可统计的声音事件',
+        title: context.l10n.reportHourlyTitle,
+        child: Text(context.l10n.hourlyEmpty,
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: AppColors.textDim)),
       );
@@ -567,11 +575,12 @@ class _HourlyCard extends StatelessWidget {
     final peak = buckets.reduce((a, b) =>
         a.snoreSeconds >= b.snoreSeconds ? a : b);
     final subtitle = peak.snoreSeconds > 0
-        ? '${peak.hour} 点前后鼾声最集中，合计 ${formatSpan(peak.snoreSeconds)}'
-        : '这一晚各时段鼾声都不明显';
+        ? context.l10n.reportHourlyPeak(
+            peak.hour, formatSpan(peak.snoreSeconds))
+        : context.l10n.reportHourlyFlat;
 
     return SectionCard(
-      title: '每小时分布',
+      title: context.l10n.reportHourlyTitle,
       subtitle: subtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,12 +588,12 @@ class _HourlyCard extends StatelessWidget {
           HourlyChart(buckets: buckets),
           const SizedBox(height: 12),
           CategoryLegend(entries: {
-            '鼾声': SleepCategory.snore.soundClass.color,
-            '其他声音': AppColors.textDim.withValues(alpha: 0.45),
+            context.l10n.legendSnore: SleepCategory.snore.soundClass.color,
+            context.l10n.legendOther: AppColors.textDim.withValues(alpha: 0.45),
           }),
           const SizedBox(height: 8),
           Text(
-            '横轴是钟点，纵轴是该小时内声音的总时长。',
+            context.l10n.reportHourlyHint,
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: AppColors.textDim),
           ),
@@ -611,8 +620,8 @@ class _DurationCard extends StatelessWidget {
 
     if (total == 0) {
       return SectionCard(
-        title: '鼾声段时长',
-        child: Text('这一晚没有检出鼾声',
+        title: context.l10n.reportDurationTitle,
+        child: Text(context.l10n.histogramEmpty,
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: AppColors.textDim)),
       );
@@ -625,8 +634,8 @@ class _DurationCard extends StatelessWidget {
             .reduce((a, b) => a > b ? a : b);
 
     return SectionCard(
-      title: '鼾声段时长',
-      subtitle: '共 $total 段，最长一段 ${formatSpan(longest)}',
+      title: context.l10n.reportDurationTitle,
+      subtitle: context.l10n.reportDurationSubtitle(total, formatSpan(longest)),
       child: DurationHistogram(bins: bins),
     );
   }
@@ -653,8 +662,8 @@ class _DistributionCard extends StatelessWidget {
 
     if (byCategory.isEmpty) {
       return SectionCard(
-        title: '类别分布',
-        child: Text('这一晚没有检出可分类的声音事件',
+        title: context.l10n.reportDistributionTitle,
+        child: Text(context.l10n.reportDistributionEmpty,
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: AppColors.textDim)),
       );
@@ -665,8 +674,8 @@ class _DistributionCard extends StatelessWidget {
     final maxValue = sorted.first.value;
 
     return SectionCard(
-      title: '类别分布',
-      subtitle: '按各类声音的总时长排序',
+      title: context.l10n.reportDistributionTitle,
+      subtitle: context.l10n.reportDistributionSubtitle,
       child: Column(
         children: [
           for (final entry in sorted)
@@ -749,23 +758,25 @@ class _PipelineCard extends StatelessWidget {
     final ratio = (s.inferenceRatio * 100);
 
     return SectionCard(
-      title: '端侧分析',
-      subtitle: '安静片段被直接跳过，没有送进模型',
+      title: context.l10n.reportPipelineTitle,
+      subtitle: context.l10n.reportPipelineSubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MetricRow(
             children: [
-              MetricTile(value: '${s.windowsTotal}', label: '处理窗口'),
+              MetricTile(
+                  value: '${s.windowsTotal}',
+                  label: context.l10n.recordingWindowsProcessed),
               MetricTile(
                 value: '${s.windowsInferred}',
-                label: '送进模型',
+                label: context.l10n.recordingWindowsInferred,
                 hint: '${ratio.toStringAsFixed(0)}%',
                 valueColor: AppColors.accent,
               ),
               MetricTile(
                 value: '${s.windowsVadSkipped}',
-                label: '能量门控跳过',
+                label: context.l10n.reportPipelineSkipped,
                 valueColor: AppColors.statusGood,
               ),
             ],
@@ -773,7 +784,7 @@ class _PipelineCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              Text('推理占比',
+              Text(context.l10n.reportInferenceRatio,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: AppColors.textDim)),
               const SizedBox(width: 10),
@@ -796,9 +807,9 @@ class _PipelineCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Text(
-                '其中 ${s.windowsLowConfidence} 个窗口模型把握不大'
-                '（最高的大类才刚到 ${AnalysisConfig().lowConfidenceThreshold}）——'
-                '它们照常计入事件，但类别未必可靠。',
+                context.l10n.reportLowConfidenceNote(
+                    s.windowsLowConfidence,
+                    AnalysisConfig().lowConfidenceThreshold.toString()),
                 style: theme.textTheme.labelSmall
                     ?.copyWith(color: AppColors.textDim),
               ),
@@ -823,8 +834,8 @@ class _EventListCard extends StatelessWidget {
     if (events.isEmpty) {
       return SectionCard(
         key: ReportKeys.eventDetail,
-        title: '事件明细',
-        child: Text('没有检出声音事件',
+        title: context.l10n.reportEventsTitle,
+        child: Text(context.l10n.reportEventsEmpty,
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: AppColors.textDim)),
       );
@@ -834,10 +845,10 @@ class _EventListCard extends StatelessWidget {
 
     return SectionCard(
       key: ReportKeys.eventDetail,
-      title: '事件明细',
+      title: context.l10n.reportEventsTitle,
       subtitle: playable > 0
-          ? '共 ${events.length} 条，其中 $playable 条可以试听'
-          : '共 ${events.length} 条',
+          ? context.l10n.reportEventsSubtitle(events.length, playable)
+          : context.l10n.reportEventsSubtitlePlain(events.length),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -969,7 +980,9 @@ class _EventRow extends StatelessWidget {
                     onPressed: isLoading ? null : onPlay,
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
-                    tooltip: isPlaying ? '停止' : '试听',
+                    tooltip: isPlaying
+                        ? context.l10n.reportStop
+                        : context.l10n.reportListen,
                     icon: isLoading
                         ? const SizedBox(
                             width: 16,

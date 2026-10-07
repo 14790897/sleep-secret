@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/models/sleep_category.dart';
 import '../view_models/diagnostic_view_model.dart';
 import '../../../core/l10n/domain_text.dart';
+import '../../../core/l10n/l10n_context.dart';
 
 /// 端侧推理诊断页。
 ///
@@ -20,14 +21,14 @@ class DiagnosticView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('端侧推理诊断'),
+        title: Text(context.l10n.diagTitle),
         actions: [
           IconButton(
             onPressed: viewModel.status == DiagnosticStatus.loading
                 ? null
                 : viewModel.run,
             icon: const Icon(Icons.refresh),
-            tooltip: '重新运行',
+            tooltip: context.l10n.diagRerun,
           ),
         ],
       ),
@@ -39,21 +40,21 @@ class DiagnosticView extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: viewModel.run,
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text('加载模型并运行'),
+                  label: Text(context.l10n.diagLoadAndRun),
                 ),
               ),
-            DiagnosticStatus.loading => const _Centered(
+            DiagnosticStatus.loading => _Centered(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('推理中…'),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(context.l10n.diagRunning),
                   ],
                 ),
               ),
             DiagnosticStatus.failed => _FailureView(
-                message: viewModel.errorMessage ?? '未知错误',
+                message: viewModel.errorMessage ?? context.l10n.diagUnknownError,
                 onRetry: viewModel.run,
               ),
             DiagnosticStatus.ready => _ResultView(viewModel: viewModel),
@@ -78,8 +79,8 @@ class _ResultView extends StatelessWidget {
         Card(
           child: ListTile(
             leading: const Icon(Icons.memory),
-            title: Text('模型：${viewModel.modelName}'),
-            subtitle: Text('${viewModel.classCount} 个 AudioSet 标签 → 7 个睡眠大类'),
+            title: Text(context.l10n.diagModel(viewModel.modelName)),
+            subtitle: Text(context.l10n.diagClassMapping(viewModel.classCount)),
           ),
         ),
         const SizedBox(height: 8),
@@ -94,8 +95,10 @@ class _ResultView extends StatelessWidget {
                   ? theme.colorScheme.onSecondaryContainer
                   : theme.colorScheme.onErrorContainer,
             ),
-            title: Text(viewModel.allMatchPc ? '与 PC 端一致' : '与 PC 端存在差异'),
-            subtitle: const Text('比对 527 维 logits，容差 1e-3'),
+            title: Text(viewModel.allMatchPc
+                ? context.l10n.diagMatchPc
+                : context.l10n.diagMismatchPc),
+            subtitle: Text(context.l10n.diagTolerance),
           ),
         ),
         const SizedBox(height: 16),
@@ -133,7 +136,7 @@ class _ClipCard extends StatelessWidget {
                 if (diff != null)
                   Chip(
                     visualDensity: VisualDensity.compact,
-                    label: Text('最大差 ${diff.toStringAsExponential(1)}'),
+                    label: Text(context.l10n.diagMaxDiff(diff.toStringAsExponential(1))),
                     backgroundColor: result.matchesPC
                         ? theme.colorScheme.secondaryContainer
                         : theme.colorScheme.errorContainer,
@@ -141,7 +144,7 @@ class _ClipCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text('7 大类概率', style: theme.textTheme.labelLarge),
+            Text(context.l10n.diagSevenCategories, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             for (final category in SleepCategory.values)
               _CategoryBar(
@@ -149,7 +152,7 @@ class _ClipCard extends StatelessWidget {
                 value: result.prediction.probabilities[category] ?? 0,
               ),
             const SizedBox(height: 12),
-            Text('原始 top-5 标签', style: theme.textTheme.labelLarge),
+            Text(context.l10n.diagRawTop5, style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
             for (final entry in result.prediction.topLabels)
               Padding(
@@ -224,11 +227,11 @@ class _FailureView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 48),
             const SizedBox(height: 12),
-            const Text('加载失败', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(context.l10n.diagLoadFailed, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('重试')),
+            FilledButton(onPressed: onRetry, child: Text(context.l10n.diagRetry)),
           ],
         ),
       ),

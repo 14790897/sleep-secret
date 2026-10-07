@@ -44,18 +44,21 @@ class AppColors {
 /// 精确类别则由事件列表和点击查看给出。
 enum SoundClass {
   /// 鼾声：最需要被看见的。
-  snore('鼾声', Color(0xFFD95926)),
+  snore(Color(0xFFD95926)),
 
   /// 其他突发声音：咳嗽、梦话、翻身。
-  event('其他声音', Color(0xFF3987E5)),
+  event(Color(0xFF3987E5)),
 
   /// 背景声：呼吸、环境噪音。
-  background('呼吸/环境', Color(0xFF199E70));
+  background(Color(0xFF199E70));
 
-  const SoundClass(this.label, this.color);
+  const SoundClass(this.color);
 
-  final String label;
   final Color color;
+
+  // 原先这里还有个 `label`（'鼾声'/'其他声音'/'呼吸/环境'）。它被拿去当
+  // `CategoryLegend` 的 **map 键**用了，于是改一次界面文案就会让图例读不出来。
+  // 展示名现在在界面层按语言渲染，见 `lib/ui/core/l10n/domain_text.dart`。
 }
 
 extension SleepCategoryStyle on SleepCategory {
