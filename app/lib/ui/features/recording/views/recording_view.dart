@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/l10n/domain_text.dart';
+import '../../../core/l10n/l10n_context.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/widgets/section_card.dart';
@@ -50,12 +51,12 @@ class RecordingView extends StatelessWidget {
 
         if (embedded) {
           return Scaffold(
-            appBar: AppBar(title: const Text('睡眠录音')),
+            appBar: AppBar(title: Text(context.l10n.recordingTitle)),
             body: body,
           );
         }
         return Scaffold(
-          appBar: AppBar(title: const Text('睡眠录音')),
+          appBar: AppBar(title: Text(context.l10n.recordingTitle)),
           body: body,
         );
       },
@@ -135,7 +136,7 @@ class _HeroButton extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              recording ? '录音中' : '点一下开始',
+              recording ? context.l10n.recordingActive : context.l10n.recordingIdle,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
@@ -150,21 +151,23 @@ class _HeroButton extends StatelessWidget {
               )
             else
               Text(
-                '整夜录音、本地分析，早上给出报告',
+                context.l10n.recordingSubtitle,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: AppColors.textDim),
               ),
             if (recording) ...[
               const SizedBox(height: 10),
               Text(
-                '已检出 ${state.eventCount} 个声音事件'
-                '${state.snoreEventCount > 0 ? '，其中鼾声 ${state.snoreEventCount} 段' : ''}',
+                state.snoreEventCount > 0
+                    ? context.l10n.recordingEventCountWithSnore(
+                        state.eventCount, state.snoreEventCount)
+                    : context.l10n.recordingEventCount(state.eventCount),
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: AppColors.textDim),
               ),
               const SizedBox(height: 4),
               Text(
-                '再次点击结束并保存',
+                context.l10n.recordingTapAgain,
                 style: theme.textTheme.labelSmall
                     ?.copyWith(color: AppColors.textDim),
               ),
@@ -276,10 +279,10 @@ class _LevelMeter extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('输入电平', style: theme.textTheme.bodySmall),
+            Text(context.l10n.recordingInputLevel, style: theme.textTheme.bodySmall),
             if (above != null)
               Text(
-                above ? '有声音' : '太安静',
+                above ? context.l10n.recordingLoud : context.l10n.recordingQuiet,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: above ? AppColors.statusGood : AppColors.textDim,
                 ),
@@ -362,11 +365,10 @@ class _LevelMeter extends StatelessWidget {
         Text(
           t == null
               // 门控关着的时候电平条只剩一个作用：看麦克风有没有在工作
-              ? '所有声音都会送进模型分析。'
-                  '当前 ${level.toStringAsFixed(4)}，峰值 ${peak.toStringAsFixed(4)}'
-              : '红线是识别门槛（现在 ${t.toStringAsFixed(4)}，'
-                  '会随环境噪声自动调整）。电平要越过去才会被分析。'
-                  '当前 ${level.toStringAsFixed(4)}，峰值 ${peak.toStringAsFixed(4)}',
+              ? context.l10n.recordingLevelNoGate(
+                  level.toStringAsFixed(4), peak.toStringAsFixed(4))
+              : context.l10n.recordingLevelGated(t.toStringAsFixed(4),
+                  level.toStringAsFixed(4), peak.toStringAsFixed(4)),
           style: theme.textTheme.labelSmall
               ?.copyWith(color: AppColors.textDim, height: 1.5),
         ),
@@ -388,8 +390,8 @@ class _LiveStatsCard extends StatelessWidget {
     final skipped = s.windowsProcessed - s.windowsInferred;
 
     return SectionCard(
-      title: '实时分析',
-      subtitle: '安静片段会被直接跳过，不送进模型',
+      title: context.l10n.recordingLiveTitle,
+      subtitle: context.l10n.recordingLiveSubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -403,16 +405,18 @@ class _LiveStatsCard extends StatelessWidget {
           const SizedBox(height: 18),
           MetricRow(
             children: [
-              MetricTile(value: '${s.windowsProcessed}', label: '处理窗口'),
+              MetricTile(
+                  value: '${s.windowsProcessed}',
+                  label: context.l10n.recordingWindowsProcessed),
               MetricTile(
                 value: '${s.windowsInferred}',
-                label: '送进模型',
+                label: context.l10n.recordingWindowsInferred,
                 hint: '${(s.inferenceRatio * 100).toStringAsFixed(0)}%',
                 valueColor: AppColors.accent,
               ),
               MetricTile(
                 value: '$skipped',
-                label: '跳过',
+                label: context.l10n.recordingWindowsSkipped,
                 valueColor: AppColors.statusGood,
               ),
             ],
@@ -424,7 +428,7 @@ class _LiveStatsCard extends StatelessWidget {
                 const Icon(Icons.warning_amber,
                     size: 16, color: AppColors.statusCritical),
                 const SizedBox(width: 6),
-                Text('${s.inferenceErrors} 个窗口推理失败',
+                Text(context.l10n.recordingInferenceErrors(s.inferenceErrors),
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppColors.statusCritical)),
               ],
@@ -502,15 +506,15 @@ class _HowItWorksCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SectionCard(
-      title: '使用说明',
+      title: context.l10n.recordingUsageTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final line in const [
-            '睡前点上面的大按钮开始录音，屏幕可以关掉。',
-            '录音期间会有一条常驻通知，说明应用正在工作。',
-            '早上起来再点一次结束，报告会自动生成。',
-            '整夜只保留事件时间点，不保存原始音频。',
+          for (final line in [
+            context.l10n.recordingUsage1,
+            context.l10n.recordingUsage2,
+            context.l10n.recordingUsage3,
+            context.l10n.recordingUsage4,
           ])
             Padding(
               padding: const EdgeInsets.only(bottom: 8),

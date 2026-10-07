@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/repositories/archive_controller.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../../core/l10n/l10n_context.dart';
 import '../../../core/l10n/ui_message_text.dart';
 import '../view_models/archive_view_model.dart';
 
@@ -23,7 +24,7 @@ class ArchiveView extends StatelessWidget {
     return ListenableBuilder(
       listenable: viewModel,
       builder: (context, _) => Scaffold(
-        appBar: AppBar(title: const Text('数据导出')),
+        appBar: AppBar(title: Text(context.l10n.archiveTitle)),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
@@ -51,8 +52,8 @@ class _TargetCard extends StatelessWidget {
     final target = viewModel.targetDescription;
 
     return SectionCard(
-      title: '导出目录',
-      subtitle: '选一个目录，每次录音结束会自动导出过去',
+      title: context.l10n.archiveTargetTitle,
+      subtitle: context.l10n.archiveTargetSubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -72,7 +73,7 @@ class _TargetCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  target ?? '还没选目录',
+                  target ?? context.l10n.archiveNoTarget,
                   style: theme.textTheme.bodyMedium,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -83,8 +84,7 @@ class _TargetCard extends StatelessWidget {
           if (viewModel.targetBroken) ...[
             const SizedBox(height: 8),
             Text(
-              '这个目录现在用不了——可能是授权被系统收回了，或者目录被删了。'
-              '重新选一次即可。',
+              context.l10n.archiveTargetBroken,
               style: theme.textTheme.labelSmall
                   ?.copyWith(color: AppColors.statusWarning, height: 1.5),
             ),
@@ -94,21 +94,22 @@ class _TargetCard extends StatelessWidget {
             children: [
               FilledButton.tonal(
                 onPressed: viewModel.busy ? null : viewModel.chooseTarget,
-                child: Text(target == null ? '选择目录' : '换一个'),
+                child: Text(target == null
+                    ? context.l10n.archiveChooseFolder
+                    : context.l10n.archiveChangeFolder),
               ),
               if (target != null) ...[
                 const SizedBox(width: 8),
                 TextButton(
                   onPressed: viewModel.busy ? null : viewModel.clearTarget,
-                  child: const Text('取消配置'),
+                  child: Text(context.l10n.archiveClearTarget),
                 ),
               ],
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            '把目录设在网盘的同步文件夹里（比如 iCloud、OneDrive、坚果云的本地目录），'
-            '就自动有了云端备份。App 自己不上传任何东西——是你的网盘客户端在同步。',
+            context.l10n.archiveSyncHint,
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: AppColors.textDim, height: 1.6),
           ),
@@ -131,8 +132,8 @@ class _ActionsCard extends StatelessWidget {
     final ready = viewModel.hasTarget && viewModel.targetUsable && !viewModel.busy;
 
     return SectionCard(
-      title: '手动导出 / 导入',
-      subtitle: '平时不用管，录音结束会自动导',
+      title: context.l10n.archiveManualTitle,
+      subtitle: context.l10n.archiveManualSubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -140,12 +141,12 @@ class _ActionsCard extends StatelessWidget {
             children: [
               FilledButton.tonal(
                 onPressed: ready ? viewModel.exportAll : null,
-                child: const Text('导出全部'),
+                child: Text(context.l10n.archiveExportAll),
               ),
               const SizedBox(width: 8),
               OutlinedButton(
                 onPressed: ready ? viewModel.importAll : null,
-                child: const Text('从目录导入'),
+                child: Text(context.l10n.archiveImportAll),
               ),
               if (viewModel.busy) ...[
                 const SizedBox(width: 12),
@@ -171,8 +172,7 @@ class _ActionsCard extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           Text(
-            '导入按「开始时刻」去重——同一晚不会重复进来。'
-            '换设备时先导出，再把目录同步过去，在新设备上导入即可。',
+            context.l10n.archiveDedupeHint,
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: AppColors.textDim, height: 1.6),
           ),
@@ -191,20 +191,24 @@ class _OutcomeLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final verb = wasExport ? '导出' : '导入';
-
     final parts = <String>[
-      '$verb ${outcome.sessions} 晚',
-      if (outcome.clips > 0) '片段 ${outcome.clips} 个',
-      if (outcome.skipped > 0) '跳过 ${outcome.skipped} 晚（已经有了）',
-      if (outcome.clipsMissing > 0) '${outcome.clipsMissing} 个片段没找到',
+      wasExport
+          ? context.l10n.archivePartExported(outcome.sessions)
+          : context.l10n.archivePartImported(outcome.sessions),
+      if (outcome.clips > 0) context.l10n.archivePartClips(outcome.clips),
+      if (outcome.skipped > 0) context.l10n.archivePartSkipped(outcome.skipped),
+      if (outcome.clipsMissing > 0)
+        context.l10n.archivePartClipsMissing(outcome.clipsMissing),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '上次$verb：${parts.join(' · ')}',
+          (wasExport
+                  ? context.l10n.archiveLastExport
+                  : context.l10n.archiveLastImport)(
+              parts.join(' · ')),
           style: theme.textTheme.bodySmall?.copyWith(
             color: outcome.isClean ? AppColors.statusGood : AppColors.statusWarning,
           ),
@@ -235,14 +239,14 @@ class _WhatGetsExportedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SectionCard(
-      title: '导出的内容',
-      subtitle: '一晚一个 JSON 文件，外加音频片段',
+      title: context.l10n.archiveContentsTitle,
+      subtitle: context.l10n.archiveContentsSubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final line in const [
-            '事件的时间点、类别、置信度，以及整晚的统计。',
-            '鼾声片段的音频文件（WAV）——这部分是声音本身。',
+          for (final line in [
+            context.l10n.archiveContentsLine1,
+            context.l10n.archiveContentsLine2,
           ])
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -251,10 +255,7 @@ class _WhatGetsExportedCard extends StatelessWidget {
             ),
           const SizedBox(height: 6),
           Text(
-            '⚠️ 导出的文件里包含音频。如果你把目录放在网盘同步文件夹里，'
-            '这些音频会跟着上传到云端——那是你的网盘，不是这个应用。'
-            '介意的话，到「关于」页把「保留鼾声片段」关掉，'
-            '之后就只会导出分析结果，不含任何声音。',
+            context.l10n.archiveAudioWarning,
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: AppColors.textDim, height: 1.65),
           ),

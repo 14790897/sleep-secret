@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 
 import '../../domain/repositories/export_target.dart';
+import '../../l10n/app_strings.dart';
 
 /// 普通目录。桌面平台用这个。
 ///
@@ -101,7 +102,10 @@ class DesktopExportTargetPicker implements ExportTargetPicker {
 
   @override
   Future<ExportTarget?> pick() async {
-    final path = await getDirectoryPath(confirmButtonText: '选这个目录');
+    // 这是**系统对话框上的按钮**，用户在选目录时就会看到。
+    // 这一层拿不到 BuildContext（选择器是从仓库层弹的），走 appStrings。
+    final path = await getDirectoryPath(
+        confirmButtonText: appStrings.archivePickerConfirm);
     return path == null ? null : DirectoryExportTarget(path);
   }
 
