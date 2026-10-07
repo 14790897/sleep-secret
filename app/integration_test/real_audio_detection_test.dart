@@ -12,7 +12,8 @@ import 'package:sleep_secret/domain/models/sleep_category.dart';
 /// 而合成信号的输出是接近均匀的噪声——那只能证明"链路通"，
 /// 证明不了"识别准"。真实样本才能回答"它认不认得出鼾声"。
 ///
-/// 样本来源：ESC-50 的 snoring 类（CC BY-NC，仅用于效果验证）。
+/// 样本来源：Freesound 上的 **CC0** 真实录音，见 `scripts/fetch_test_audio.py`
+/// 和 `scripts/test_audio_sources.json`（每个文件的出处和许可都记在那儿）。
 ///
 /// 注意：这些是 5 秒片段，且都是"典型"鼾声。它能过不代表真实整夜录音
 /// 的检出率就高——那还要看距离、被子遮挡、手机摆放位置等因素。
