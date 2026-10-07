@@ -6,6 +6,7 @@ import '../../domain/repositories/archive_controller.dart';
 import '../../domain/repositories/export_target.dart';
 import '../services/archive_service.dart';
 import '../services/session_database.dart';
+import '../services/webdav_export_target.dart';
 
 /// 导出/导入的编排：配置存哪、目标还能不能用、正在忙不忙。
 ///
@@ -19,6 +20,13 @@ class ArchiveRepository implements ArchiveController {
   });
 
   static const String _kExportTarget = 'export_target';
+
+  /// 没传上去的那几晚（会话 id，逗号分隔）。
+  ///
+  /// 自动导出失败时**不能就这么算了**：整夜录音是插着电放在床头跑的，
+  /// 网盘那会儿掉线、或者手机在省电模式下掐了网络，都是常事。
+  /// 记下来，下次打开 App 再试一次。
+  static const String _kPendingUploads = 'pending_uploads';
 
   final ArchiveService _service;
   final SessionDatabase _database;
@@ -110,6 +118,20 @@ class ArchiveRepository implements ArchiveController {
   }
 
   @override
+  Future<void> useWebDavTarget() async {
+    _serialized = WebDavExportTarget.serializedTag;
+    // description 得走一次 restore 才拿得到（它要读凭据拼主机名）
+    final target = await _picker.restore(_serialized!);
+    _description = target?.description;
+    _usable = target != null;
+    _last = null;
+
+    await _database.open();
+    await _database.writeStringSetting(_kExportTarget, _serialized);
+    _emit();
+  }
+
+  @override
   Future<void> clearExportTarget() async {
     _serialized = null;
     _description = null;
@@ -118,6 +140,60 @@ class ArchiveRepository implements ArchiveController {
     await _database.open();
     await _database.writeStringSetting(_kExportTarget, null);
     _emit();
+  }
+
+  /// 这一晚没导出成功，记下来下次再试。
+  ///
+  /// 没有 id 的会话（还没落库）直接忽略——落库之后才有稳定的标识。
+  Future<void> queueRetry(RecordingSession session) async {
+    final id = session.id;
+    if (id == null) return;
+    await _database.open();
+    final ids = await _pendingIds()..add('$id');
+    await _database.writeStringSetting(_kPendingUploads, ids.join(','));
+  }
+
+  /// 把之前失败的再试一遍。启动时调一次。
+  ///
+  /// 成功的从队列里删掉；**还在失败的留着**——不设次数上限，
+  /// 因为失败的原因多半是网络，而网络总会好。
+  Future<int> flushRetries() async {
+    await _database.open();
+    final ids = await _pendingIds();
+    if (ids.isEmpty) return 0;
+
+    await load();
+    if (_serialized == null) return 0; // 目标被清掉了，队列留着别丢
+
+    var done = 0;
+    for (final raw in ids.toList()) {
+      final id = int.tryParse(raw);
+      if (id == null) {
+        ids.remove(raw);
+        continue;
+      }
+      final session = await _database.loadSession(id);
+      if (session == null) {
+        ids.remove(raw); // 那一晚被删了，别再挂着
+        continue;
+      }
+      try {
+        await _run(isExport: true, only: [session]);
+        ids.remove(raw);
+        done++;
+      } catch (_) {
+        // 还是不行，留着下次
+      }
+    }
+    await _database.writeStringSetting(
+        _kPendingUploads, ids.isEmpty ? null : ids.join(','));
+    if (done > 0) _emit();
+    return done;
+  }
+
+  Future<Set<String>> _pendingIds() async {
+    final raw = await _database.readStringSetting(_kPendingUploads) ?? '';
+    return raw.split(',').where((s) => s.trim().isNotEmpty).toSet();
   }
 
   @override

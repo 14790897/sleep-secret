@@ -42,6 +42,7 @@ class FakeArchiveController implements ArchiveController {
 
   int loadCalls = 0;
   int chooseCalls = 0;
+  int webDavCalls = 0;
   int clearCalls = 0;
   int exportCalls = 0;
   int importCalls = 0;
@@ -94,6 +95,14 @@ class FakeArchiveController implements ArchiveController {
     _usable = true;
     _emit();
     return true;
+  }
+
+  @override
+  Future<void> useWebDavTarget() async {
+    webDavCalls++;
+    _description = '坚果云 / WebDAV · dav.jianguoyun.com/sleep-secret';
+    _usable = true;
+    _last = null;
   }
 
   @override

@@ -16,7 +16,9 @@ import 'data/services/event_player.dart';
 import 'data/services/file_audio_clip_store.dart';
 import 'data/services/foreground_service_controller.dart';
 import 'data/services/onnx_classifier_service.dart';
+import 'data/services/combined_export_picker.dart';
 import 'data/services/saf_export_target.dart';
+import 'data/services/webdav_settings.dart';
 import 'data/services/session_database.dart';
 import 'domain/models/recording_session.dart';
 import 'l10n/app_localizations.dart';
@@ -138,13 +140,22 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
     _player = JustAudioEventPlayer();
     _database = SessionDatabase();
 
-    // Android 走 SAF（拿不到可写的真实路径），桌面就是普通目录。
+    // 凭据存在 App 私有的 SQLite 里。取舍写在 webdav_settings.dart 顶上：
+    // Keystore 那条路会弄坏 Windows 构建，而这个项目要出 Windows 包。
+    final webDavSettings = DatabaseWebDavSettingsStore(_database);
+
+    // Android 走 SAF（拿不到可写的真实路径），桌面就是普通目录；
+    // 两者都可以被换成 WebDAV（坚果云）。那只是**第三种目标类型**，
+    // 由 CombinedExportTargetPicker 分流，仓储和导出逻辑一个字都不用改。
     _archiveRepository = ArchiveRepository(
       service: ArchiveService(database: _database, clipStore: _clipStore),
       database: _database,
-      picker: defaultTargetPlatform == TargetPlatform.android
-          ? SafExportTargetPicker()
-          : const DesktopExportTargetPicker(),
+      picker: CombinedExportTargetPicker(
+        folderPicker: defaultTargetPlatform == TargetPlatform.android
+            ? SafExportTargetPicker()
+            : const DesktopExportTargetPicker(),
+        settingsStore: webDavSettings,
+      ),
     );
 
     _recordingRepository = RecordingRepository(
@@ -166,7 +177,14 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
     unawaited(_localeRepository.load());
 
     _recordingViewModel = RecordingViewModel(controller: _recordingRepository);
-    _archiveViewModel = ArchiveViewModel(controller: _archiveRepository);
+    _archiveViewModel = ArchiveViewModel(
+      controller: _archiveRepository,
+      webDavSettings: webDavSettings,
+    );
+
+    // 上次没传上去的，趁现在再试一遍。不 await：它要走网络，
+    // 卡着启动流程的话，用户会以为 App 打不开了。
+    unawaited(_archiveRepository.flushRetries());
   }
 
   /// 录音落库之后自动导出到用户配的目录。
@@ -177,7 +195,10 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
     try {
       await _archiveRepository.exportSession(session);
     } catch (_) {
-      // 导出页会显示失败原因，这里不重复报
+      // 导出页会显示失败原因，这里不重复报——但要**记下来下次再试**。
+      // 这条路多半是深夜自动跑的：那会儿网盘掉线、或者省电模式掐了网络，
+      // 用户根本不在旁边，没人会去点「重试」。
+      await _archiveRepository.queueRetry(session);
     }
   }
 

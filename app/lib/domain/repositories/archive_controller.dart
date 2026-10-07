@@ -51,6 +51,13 @@ abstract interface class ArchiveController {
   /// 弹目录选择器让用户配一个。用户取消返回 false。
   Future<bool> chooseExportTarget();
 
+  /// 把导出目标切到 WebDAV（坚果云）。
+  ///
+  /// 凭据由界面那边先写进 Keystore（见 `WebDavSettingsStore`），
+  /// 这里只把「目标类型」记下来。**不在这里发网络请求**——
+  /// 它好不好用由「测试连接」和真正的同步去发现，那时候的错误信息具体得多。
+  Future<void> useWebDavTarget();
+
   /// 取消配置。
   Future<void> clearExportTarget();
 
