@@ -14,6 +14,7 @@ class SessionStats {
     required this.snoreSeconds,
     required this.categoryDistribution,
     this.signalsCollected = false,
+    this.rawLabelCounts = const {},
   });
 
   const SessionStats.empty()
@@ -26,7 +27,8 @@ class SessionStats {
         snoreEventCount = 0,
         snoreSeconds = 0,
         categoryDistribution = const {},
-        signalsCollected = false;
+        signalsCollected = false,
+        rawLabelCounts = const {};
 
   /// 已分析的音频总时长。
   final double analyzedSeconds;
@@ -56,6 +58,30 @@ class SessionStats {
   /// 在界面上必须分得开，否则用户会拿一份空数据的旧报告当作「我一切正常」。
   final bool signalsCollected;
 
+  /// 整夜里每个 **AudioSet 原始标签**当了多少次窗口的冠军。
+  ///
+  /// ## 为什么按整夜计数，不记在事件上
+  ///
+  /// 大类会把原始标签盖掉：`Gasp`（倒吸气）归在「呼吸」里，而同类相邻窗口
+  /// **会合并成一个事件**——一夜的呼吸常常就是一个大事件，中间那几次倒吸气
+  /// 在事件层面根本不存在。要核查「模型到底点过哪些名、各多少次」，
+  /// 只能按窗口计。
+  ///
+  /// ## 键是标签名（英文），不是索引
+  ///
+  /// 和 `events.label` 存枚举名同一个道理：名字是 AudioSet 给出的标识，
+  /// 换个模型重编索引不会让历史数据读错。而且 527 个标签里我们只映射了 47 个，
+  /// **剩下 480 个没有中文名**——原样显示英文反而是对的，那才是模型说的话。
+  ///
+  /// 老记录没有这一项（空表）——那时候的引擎不收集它。
+  final Map<String, int> rawLabelCounts;
+
+  /// 某个 AudioSet 标签当冠军的次数。没出现过就是 0。
+  int rawLabelCount(String label) => rawLabelCounts[label] ?? 0;
+
+  /// 一共出现过多少种原始标签。
+  int get rawLabelKindCount => rawLabelCounts.length;
+
   /// 实际推理比例。这个数直接决定耗电与耗时。
   double get inferenceRatio =>
       windowsTotal == 0 ? 0.0 : windowsInferred / windowsTotal;
@@ -75,6 +101,7 @@ class SessionStats {
     double? snoreSeconds,
     Map<SleepCategory, double>? categoryDistribution,
     bool? signalsCollected,
+    Map<String, int>? rawLabelCounts,
   }) =>
       SessionStats(
         analyzedSeconds: analyzedSeconds ?? this.analyzedSeconds,
@@ -87,6 +114,7 @@ class SessionStats {
         snoreSeconds: snoreSeconds ?? this.snoreSeconds,
         categoryDistribution: categoryDistribution ?? this.categoryDistribution,
         signalsCollected: signalsCollected ?? this.signalsCollected,
+        rawLabelCounts: rawLabelCounts ?? this.rawLabelCounts,
       );
 }
 

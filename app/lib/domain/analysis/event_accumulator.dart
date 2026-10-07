@@ -76,6 +76,12 @@ class EventAccumulator {
   final List<WindowObservation> _observations = [];
   final List<SoundEvent> _events = [];
 
+  /// 整夜里每个 AudioSet 原始标签当冠军的次数。见 [SessionStats.rawLabelCounts]。
+  ///
+  /// 计数放在**窗口**这一层，不放在事件上——同类相邻窗口会合并成一个大事件，
+  /// 记在事件上等于把罕见标签丢了。
+  final Map<String, int> _rawLabelCounts = {};
+
   /// 已经通知过定案的事件下标。build() 可能被调用多次，
   /// 没有这个集合会把同一个事件重复报出去。
   final Set<int> _closed = {};
@@ -85,6 +91,11 @@ class EventAccumulator {
 
   void add(WindowObservation obs) {
     _observations.add(obs);
+    final raw = obs.rawLabel;
+    if (raw != null) {
+      _rawLabelCounts[raw] = (_rawLabelCounts[raw] ?? 0) + 1;
+    }
+
     final label = obs.label;
 
     if (label == null) {
@@ -226,6 +237,7 @@ class EventAccumulator {
         snoreSeconds: snoreSeconds,
         categoryDistribution: distribution,
         signalsCollected: true,
+        rawLabelCounts: Map.unmodifiable(_rawLabelCounts),
       ),
     );
   }
@@ -234,5 +246,6 @@ class EventAccumulator {
     _observations.clear();
     _events.clear();
     _closed.clear();
+    _rawLabelCounts.clear();
   }
 }

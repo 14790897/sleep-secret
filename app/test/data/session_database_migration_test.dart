@@ -73,6 +73,39 @@ CREATE TABLE events (
   FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
 )''';
 
+/// v4 的建表语句：v3 的事件表加上 signal 列、会话表加上 signals_collected。
+const String _v4Sessions = '''
+CREATE TABLE sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at INTEGER NOT NULL,
+  ended_at INTEGER,
+  analyzed_seconds REAL NOT NULL DEFAULT 0,
+  windows_total INTEGER NOT NULL DEFAULT 0,
+  windows_inferred INTEGER NOT NULL DEFAULT 0,
+  windows_vad_skipped INTEGER NOT NULL DEFAULT 0,
+  windows_low_confidence INTEGER NOT NULL DEFAULT 0,
+  event_count INTEGER NOT NULL DEFAULT 0,
+  snore_event_count INTEGER NOT NULL DEFAULT 0,
+  snore_seconds REAL NOT NULL DEFAULT 0,
+  signals_collected INTEGER
+)''';
+
+const String _v4Events = '''
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  label TEXT NOT NULL,
+  start_seconds REAL NOT NULL,
+  duration_seconds REAL NOT NULL,
+  confidence REAL NOT NULL,
+  snore_probability REAL NOT NULL,
+  window_count INTEGER NOT NULL,
+  clip_path TEXT,
+  peak_rms REAL,
+  signal TEXT,
+  FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
+)''';
+
 void main() {
   setUpAll(sqfliteFfiInit);
 
@@ -212,6 +245,146 @@ void main() {
     });
     await db.close();
   }
+
+  /// 造一个 v4 的库：有信号，但**还没有原始标签计数**。
+  Future<void> createV4Database() async {
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: 4,
+        onCreate: (db, _) async {
+          await db.execute(_v4Sessions);
+          await db.execute(_v4Events);
+          await db.execute(
+            'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+          );
+        },
+      ),
+    );
+    await db.insert('sessions', {
+      'started_at': DateTime(2026, 10, 7, 23).millisecondsSinceEpoch,
+      'ended_at': DateTime(2026, 10, 8, 7).millisecondsSinceEpoch,
+      'analyzed_seconds': 28800.0,
+      'windows_total': 9600,
+      'windows_inferred': 9600,
+      'windows_vad_skipped': 0,
+      'windows_low_confidence': 0,
+      'event_count': 1,
+      'snore_event_count': 1,
+      'snore_seconds': 240.0,
+      'signals_collected': 1,
+    });
+    await db.insert('events', {
+      'session_id': 1,
+      'label': 'breathing',
+      'start_seconds': 3600.0,
+      'duration_seconds': 3.0,
+      'confidence': 0.9,
+      'snore_probability': 0.1,
+      'window_count': 1,
+      'clip_path': '1791278973396/3600000.wav',
+      'peak_rms': 0.42,
+      'signal': 'Gasp',
+    });
+    await db.close();
+  }
+
+  group('v4 -> v5 迁移（加原始标签计数）', () {
+    test('老库能打开，事件、片段、电平、信号都还在', () async {
+      await createV4Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final full = await db.loadSession((await db.listSessions()).single.id!);
+
+      expect(full!.events, hasLength(1));
+      expect(full.events.single.clipPath, '1791278973396/3600000.wav');
+      expect(full.events.single.peakRms, closeTo(0.42, 1e-9));
+      expect(full.events.single.signal, 'Gasp');
+      expect(full.stats.signalsCollected, isTrue);
+    });
+
+    test('老记录的原始标签是空表——不是「一种都没有」', () async {
+      await createV4Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final full = await db.loadSession((await db.listSessions()).single.id!);
+
+      // 空表 = 没收集。报告里的「详细视图」会照这个说「升级前的记录不收集它」，
+      // 而不是列一张空表让人以为模型整夜什么都没说。
+      expect(full!.stats.rawLabelCounts, isEmpty);
+      expect(full.stats.rawLabelKindCount, 0);
+    });
+
+    test('迁移后新写入的计数能存能读', () async {
+      await createV4Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      await db.insertSession(RecordingSession(
+        id: null,
+        startedAt: DateTime(2026, 10, 8, 23),
+        endedAt: DateTime(2026, 10, 9, 7),
+        events: const [],
+        stats: const SessionStats(
+          analyzedSeconds: 28800,
+          windowsTotal: 9600,
+          windowsInferred: 9600,
+          windowsVadSkipped: 0,
+          windowsLowConfidence: 0,
+          eventCount: 0,
+          snoreEventCount: 0,
+          snoreSeconds: 0,
+          categoryDistribution: {},
+          signalsCollected: true,
+          rawLabelCounts: {'Snoring': 4120, 'Male speech, man speaking': 430},
+        ),
+      ));
+
+      // 按开始时间倒序，刚写进去的那条在最前面
+      final full = await db.loadSession((await db.listSessions()).first.id!);
+
+      expect(full!.stats.rawLabelCounts,
+          {'Snoring': 4120, 'Male speech, man speaking': 430},
+          reason: '新列要真的落盘，不能只是建了列没写');
+    });
+
+    test('坏 JSON 不会让整条记录读不出来', () async {
+      await createV4Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      await db.insertSession(RecordingSession(
+        id: null, startedAt: DateTime(2026, 10, 8, 23), endedAt: null,
+        events: const [], stats: const SessionStats.empty(),
+      ));
+      // 直接往那一列里塞一段坏数据，模拟写坏/被截断
+      final id = (await db.listSessions()).first.id!;
+      await (await db.open()).update('sessions', {'raw_label_counts': '{不是 JSON'},
+          where: 'id = ?', whereArgs: [id]);
+
+      final full = await db.loadSession(id);
+      expect(full, isNotNull, reason: '核查用的数据读不出来，不该把整晚记录一起毁掉');
+      expect(full!.stats.rawLabelCounts, isEmpty);
+    });
+
+    test('v1 的老库能一路升到 v5（四步迁移连着跑）', () async {
+      await createV1Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final full = await db.loadSession((await db.listSessions()).single.id!);
+
+      expect(full!.events, hasLength(2), reason: '四步迁移之后事件都该在');
+      expect(full.stats.rawLabelCounts, isEmpty);
+    });
+  });
 
   group('v3 -> v4 迁移（加高危信号）', () {
     test('老库能打开，事件一条不丢，片段和电平都还在', () async {

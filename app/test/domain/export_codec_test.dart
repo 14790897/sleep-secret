@@ -112,6 +112,82 @@ void main() {
     });
   });
 
+  group('高危信号与原始标签', () {
+    RecordingSession withSignals() => RecordingSession(
+          id: null,
+          startedAt: DateTime(2026, 10, 7, 23),
+          endedAt: DateTime(2026, 10, 8, 7),
+          events: const [
+            SoundEvent(
+              label: SleepCategory.breathing,
+              startSeconds: 100,
+              durationSeconds: 3,
+              confidence: 0.9,
+              snoreProbability: 0.1,
+              windowCount: 1,
+              signal: 'Gasp',
+            ),
+            SoundEvent(
+              label: SleepCategory.snore,
+              startSeconds: 200,
+              durationSeconds: 30,
+              confidence: 0.8,
+              snoreProbability: 0.8,
+              windowCount: 10,
+            ),
+          ],
+          stats: const SessionStats(
+            analyzedSeconds: 28800,
+            windowsTotal: 9600,
+            windowsInferred: 9600,
+            windowsVadSkipped: 0,
+            windowsLowConfidence: 0,
+            eventCount: 2,
+            snoreEventCount: 1,
+            snoreSeconds: 30,
+            categoryDistribution: {},
+            signalsCollected: true,
+            rawLabelCounts: {'Snoring': 4120, 'Male speech, man speaking': 430},
+          ),
+        );
+
+    test('信号、收集标志、原始标签计数都能往返', () {
+      final round = decodeSession(encodeSession(withSignals()));
+
+      expect(round.events.map((e) => e.signal).toList(), ['Gasp', null]);
+      expect(round.stats.signalsCollected, isTrue);
+      expect(round.stats.rawLabelCounts,
+          {'Snoring': 4120, 'Male speech, man speaking': 430});
+    });
+
+    test('升级前导出的文件里没有这三项，读成「没收集」而不是「没有」', () {
+      // 手工把那几个键抹掉，模拟老文件。**这不是"防御性编程"**：
+      // 用户手里真的有升级前导出的 JSON，导入回来必须还能读。
+      final old = jsonDecode(encodeSession(withSignals())) as Map<String, dynamic>;
+      final session = old['session'] as Map<String, dynamic>;
+      (session['stats'] as Map<String, dynamic>)
+        ..remove('signalsCollected')
+        ..remove('rawLabelCounts');
+      for (final e in session['events'] as List) {
+        (e as Map<String, dynamic>).remove('signal');
+      }
+
+      final round = decodeSession(jsonEncode(old));
+
+      expect(round.events.every((e) => e.signal == null), isTrue);
+      expect(round.stats.signalsCollected, isFalse);
+      expect(round.stats.rawLabelCounts, isEmpty);
+    });
+
+    test('计数值是坏数据时当空表，不让整份文件读不出来', () {
+      final bad = jsonDecode(encodeSession(withSignals())) as Map<String, dynamic>;
+      ((bad['session'] as Map<String, dynamic>)['stats']
+          as Map<String, dynamic>)['rawLabelCounts'] = {'Snoring': '不是数字'};
+
+      expect(decodeSession(jsonEncode(bad)).stats.rawLabelCounts, isEmpty);
+    });
+  });
+
   group('坏文件', () {
     test('不是本应用的文件', () {
       expect(() => decodeSession('{"app":"something-else"}'),

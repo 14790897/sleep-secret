@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../../../../data/models/sleep_class_map.dart';
 import '../../../../data/services/event_player.dart';
 import '../../../../domain/models/recording_session.dart';
 import '../../../../domain/models/ui_message.dart';
@@ -15,6 +16,7 @@ class ReportViewModel extends ChangeNotifier {
     required this._session,
     required this._clipStore,
     this._player,
+    this.classMap,
   }) {
     _sub = _player?.playingStream.listen((playing) {
       if (!playing) {
@@ -28,6 +30,12 @@ class ReportViewModel extends ChangeNotifier {
   final RecordingSession _session;
   final AudioClipStore _clipStore;
   final EventPlayer? _player;
+
+  /// 映射表，用来在「详细视图」里把原始标签对照到大类。
+  ///
+  /// **可选**：拿不到就只是不显示那一列对照，报告本身照常渲染——
+  /// 这是核查用的附加信息，不该成为打开报告的前提。
+  final SleepClassMap? classMap;
   StreamSubscription<bool>? _sub;
 
   int _playingIndex = -1;

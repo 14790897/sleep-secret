@@ -145,6 +145,44 @@ void main() {
           reason: '新分析一律标记为「收集过信号」');
     });
 
+    test('原始标签按窗口计数——不按事件', () {
+      // 这条盯着的是「计数放在窗口层」这个选择：三个 Snoring 窗口会合并成
+      // **一个**事件，但计数必须是 3。记在事件上的话，一夜的呼吸就只剩 1。
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.snore, rawLabel: 'Snoring'));
+      acc.add(obs(start: 3, label: SleepCategory.snore, rawLabel: 'Snoring'));
+      acc.add(obs(start: 6, label: SleepCategory.snore, rawLabel: 'Snort',
+          confidence: 0.1));
+      acc.add(obs(start: 9, label: SleepCategory.breathing, rawLabel: 'Gasp',
+          confidence: 0.9));
+
+      final outcome = acc.build();
+
+      expect(outcome.stats.rawLabelCounts,
+          {'Snoring': 2, 'Snort': 1, 'Gasp': 1});
+      expect(outcome.stats.rawLabelCount('Snoring'), 2);
+      expect(outcome.stats.rawLabelKindCount, 3);
+    });
+
+    test('被门控跳过的窗口不计进原始标签', () {
+      // 跳过的窗口压根没进模型，没有原始标签——记进去等于凭空编了个标签。
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: null, inferred: false));
+      acc.add(obs(start: 3, label: SleepCategory.snore, rawLabel: 'Snoring'));
+
+      expect(acc.build().stats.rawLabelCounts, {'Snoring': 1});
+    });
+
+    test('reset 之后原始标签不残留', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.snore, rawLabel: 'Snoring'));
+      acc.build();
+      acc.reset();
+      acc.add(obs(start: 0, label: SleepCategory.snore, rawLabel: 'Snort'));
+
+      expect(acc.build().stats.rawLabelCounts, {'Snort': 1});
+    });
+
     test('reset 之后信号痕迹不残留', () {
       final acc = EventAccumulator();
       acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Gasp',

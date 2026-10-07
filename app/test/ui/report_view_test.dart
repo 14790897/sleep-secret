@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../helpers/pump_app.dart';
+import 'package:sleep_secret/data/models/sleep_class_map.dart';
 import 'package:sleep_secret/domain/analysis/sleep_score.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
@@ -75,22 +76,28 @@ void main() {
     player = FakeEventPlayer();
   });
 
-  ReportViewModel buildVm(RecordingSession session) => ReportViewModel(
+  ReportViewModel buildVm(RecordingSession session, {SleepClassMap? classMap}) =>
+      ReportViewModel(
         session: session,
         clipStore: clipStore,
         player: player,
+        classMap: classMap,
       );
 
-  Widget wrap(RecordingSession session) =>
-      localizedApp(home: ReportView(viewModel: buildVm(session)));
+  Widget wrap(RecordingSession session, {SleepClassMap? classMap}) =>
+      localizedApp(home: ReportView(viewModel: buildVm(session, classMap: classMap)));
 
   /// 报告页很长，默认 800x600 的测试视口装不下；ListView 只构建可见区域，
   /// 屏幕外的分区根本不在 widget 树里，断言会找不到。把视口调高即可。
-  Future<void> pumpReport(WidgetTester tester, RecordingSession session) async {
+  Future<void> pumpReport(
+    WidgetTester tester,
+    RecordingSession session, {
+    SleepClassMap? classMap,
+  }) async {
     tester.view.physicalSize = const Size(900, 4200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(wrap(session));
+    await tester.pumpWidget(wrap(session, classMap: classMap));
     await tester.pumpAndSettle();
   }
 
@@ -750,6 +757,127 @@ void main() {
       );
 
       expect(find.text('疑似呼吸暂停的信号'), findsNothing);
+    });
+  });
+
+
+  group('详细视图（原始 AudioSet 标签）', () {
+    /// 一张刻意留了两个**没映射**索引的映射表。
+    ///
+    /// 未映射那一列是这个视图最该看见的东西——它说明有些声音在分类体系外面，
+    /// 而它们在报告别的地方一次都不会出现。没有未映射的样本就测不到它。
+    SleepClassMap tinyMap() => SleepClassMap.fromJson({
+          'model': 'test-model',
+          'num_classes': 11,
+          'categories': {
+            'snore': [0],
+            'breathing': [1],
+            'cough': [2],
+            'sneeze': [3],
+            'vocal': [4],
+            'movement': [5],
+            'ambient': [6],
+            'deviceNoise': [7],
+            'silence': [10],
+          },
+          'core_snore': [0],
+          'id2label': {
+            '0': 'Snoring',
+            '1': 'Gasp',
+            '2': 'Cough',
+            '3': 'Sneeze',
+            '4': 'Speech',
+            '5': 'Rustle',
+            '6': 'Rain',
+            '7': 'Mechanical fan',
+            '8': 'Thunder', // 未映射
+            '9': 'Alarm', // 未映射
+            '10': 'Silence',
+          },
+        });
+
+    RecordingSession labelled(Map<String, int> counts) => buildSession(
+          stats: SessionStats(
+            analyzedSeconds: 28800,
+            windowsTotal: 9600,
+            windowsInferred: 9600,
+            windowsVadSkipped: 0,
+            windowsLowConfidence: 0,
+            eventCount: 1,
+            snoreEventCount: 1,
+            snoreSeconds: 180,
+            categoryDistribution: const {},
+            signalsCollected: true,
+            rawLabelCounts: counts,
+          ),
+        );
+
+    testWidgets('按次数从多到少列，带百分比和大类对照', (tester) async {
+      await pumpReport(
+        tester,
+        labelled({'Snoring': 100, 'Gasp': 50, 'Thunder': 30, 'Alarm': 20}),
+        classMap: tinyMap(),
+      );
+
+      final card = ReportKeys.rawLabels;
+      expect(inCard(card, find.text('详细视图')), findsOneWidget);
+      expect(inCard(card, find.textContaining('共 4 种标签')), findsOneWidget);
+      expect(inCard(card, find.textContaining('200 个分析窗口')), findsOneWidget);
+
+      expect(inCard(card, find.text('Snoring')), findsOneWidget);
+      expect(inCard(card, find.text('鼾声')), findsOneWidget);
+      expect(inCard(card, find.text('50.0%')), findsOneWidget);
+      expect(inCard(card, find.text('10.0%')), findsOneWidget);
+    });
+
+    testWidgets('未映射的标签标出来，并且说明有几样', (tester) async {
+      await pumpReport(
+        tester,
+        labelled({'Snoring': 100, 'Thunder': 30, 'Alarm': 20}),
+        classMap: tinyMap(),
+      );
+
+      final card = ReportKeys.rawLabels;
+      // Thunder / Alarm 都不在映射表里
+      expect(inCard(card, find.text('未映射')), findsNWidgets(2));
+      expect(inCard(card, find.textContaining('其中 2 种没有归进任何大类')),
+          findsOneWidget);
+    });
+
+    testWidgets('全是已映射的标签时，不提未映射', (tester) async {
+      await pumpReport(tester, labelled({'Snoring': 100, 'Gasp': 50}),
+          classMap: tinyMap());
+
+      expect(inCard(ReportKeys.rawLabels, find.text('未映射')), findsNothing);
+    });
+
+    testWidgets('拿不到映射表时照常列出标签，只是那一列全空', (tester) async {
+      // 映射表是可选注入的——它拿不到不该让整张卡消失，
+      // 更不该让报告打不开。核查信息缺失是缺信息，不是崩溃。
+      await pumpReport(tester, labelled({'Snoring': 100, 'Thunder': 30}));
+
+      final card = ReportKeys.rawLabels;
+      expect(inCard(card, find.text('Snoring')), findsOneWidget);
+      expect(inCard(card, find.text('Thunder')), findsOneWidget);
+    });
+
+    testWidgets('老记录（没有计数）明说是没收集，不列空表', (tester) async {
+      await pumpReport(tester, buildSession());
+
+      final card = ReportKeys.rawLabels;
+      expect(inCard(card, find.textContaining('升级前的记录不收集它')),
+          findsOneWidget);
+    });
+
+    testWidgets('压在统计后面、但在「事件明细」之前', (tester) async {
+      // 两个方向都要卡住：往前会让它挡住正常阅读；往后要滚过一整屏
+      // 原始事件（一夜上百行）才够得着，那就不叫「方便核查」了。
+      await pumpReport(tester, labelled({'Snoring': 100}), classMap: tinyMap());
+
+      final raw = tester.getTopLeft(find.byKey(ReportKeys.rawLabels)).dy;
+      final detail = tester.getTopLeft(find.byKey(ReportKeys.eventDetail)).dy;
+      expect(raw, greaterThan(0));
+      expect(raw, lessThan(detail), reason: '详细视图应当排在「事件明细」之前');
     });
   });
 

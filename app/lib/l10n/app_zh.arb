@@ -616,6 +616,29 @@
   },
   "reportSignalsNotCollected": "这一晚的录音没有收集这类信号——它是升级前的记录，那一版不记这个。再录一晚就有了。",
   "reportSignalsCaveat": "这几样和睡眠呼吸问题有关联，但「听得出声音」不等于「查得出病」：一夜里几次倒吸气可能什么都不是，也可能说明气道在做功，麦克风分不清这两者。另外，模型把「喘得厉害」也常常认成倒吸气，所以这一栏不专指呼吸暂停之后那一声。这里不做判断，只把模型真听见的那几声摆出来，配上时间点——判断是不是呼吸暂停要靠睡眠监测（血氧、气流、胸腹运动），不是一份录音。要是你打鼾很重、夜里被憋醒过，或者白天老是犯困，带着这份报告去看医生。",
+  "reportRawLabelsTitle": "详细视图",
+  "reportRawLabelsSubtitle": "模型整夜里给出的原始 AudioSet 标签，按出现次数排",
+  "reportRawLabelsSummary": "共 {kinds} 种标签 · {windows} 个分析窗口",
+  "@reportRawLabelsSummary": {
+    "placeholders": {
+      "kinds": {"type": "int"},
+      "windows": {"type": "int"}
+    }
+  },
+  "reportRawLabelsWindowNote": "一个计数 = 一个分析窗口（{seconds} 秒）。大类是我们拼出来的，这里才是模型的原话。",
+  "@reportRawLabelsWindowNote": {
+    "placeholders": {
+      "seconds": {"type": "int"}
+    }
+  },
+  "reportRawLabelsUnmappedNote": "其中 {count} 种没有归进任何大类——它们当冠军的那些窗口，报告里别的任何地方都看不到。",
+  "@reportRawLabelsUnmappedNote": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "reportRawLabelsUnmappedTag": "未映射",
+  "reportRawLabelsNone": "这一晚没有可列的原始标签——升级前的记录不收集它。",
   "reportTimelineTitle": "整夜声音",
   "reportTimelineSubtitle": "点或拖动图表可查看具体事件",
   "reportTimelineHint": "柱子越高，事件越“突出”——鼾声最高，呼吸和环境声最低。具体类别在下方事件明细里。",

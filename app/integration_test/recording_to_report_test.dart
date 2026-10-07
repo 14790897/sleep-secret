@@ -300,6 +300,16 @@ void main() {
         reason: '信号要跟着事件一起往返，不然那一声就点不开了',
       );
 
+      // 「详细视图」那张表靠这两个：原始标签计数得真的被引擎收集到，
+      // 而且要真的落盘读回来。少任何一步，报告里那张卡只会显示
+      // 「升级前的记录不收集它」——看起来像是版本问题，其实是链路断了。
+      expect(written.stats.rawLabelCounts, isNotEmpty,
+          reason: '引擎没有把窗口的原始标签记下来');
+      expect(written.stats.rawLabelCount('Snoring'), greaterThan(0),
+          reason: '这段素材模型判成鼾声（>0.9），原始标签里必须有 Snoring');
+      expect(reloaded.stats.rawLabelCounts, written.stats.rawLabelCounts,
+          reason: '原始标签计数要能原样读回来');
+
       final listed = await built.repository.listSessions();
       expect(listed.map((s) => s.id), contains(written.id));
     });

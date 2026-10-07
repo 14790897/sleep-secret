@@ -83,6 +83,8 @@ Map<String, Object?> _encodeStats(SessionStats stats) => {
       'snoreEventCount': stats.snoreEventCount,
       'snoreSeconds': stats.snoreSeconds,
       'signalsCollected': stats.signalsCollected,
+      // 报告里「详细视图」那张表就是它。导出带上，换台机器也能核查。
+      'rawLabelCounts': stats.rawLabelCounts,
       // 这一项**数据库里不存**（读回来恒为空表），导出带上是为了让 JSON
       // 本身是一份完整的数据快照；导入时读不出来，会退回空表。
       'categoryDistribution': {
@@ -147,7 +149,18 @@ SessionStats _decodeStats(Object? raw) {
     categoryDistribution: const {},
     // 老文件没有这一项，读成 false——同数据库那边：没收集 ≠ 没有
     signalsCollected: raw['signalsCollected'] == true,
+    rawLabelCounts: _rawLabelCounts(raw['rawLabelCounts']),
   );
+}
+
+/// 读原始标签计数。坏数据当空表处理，理由同数据库那边：
+/// 它是核查用的，不该让一份报告整个读不出来。
+Map<String, int> _rawLabelCounts(Object? raw) {
+  if (raw is! Map) return const {};
+  return {
+    for (final e in raw.entries)
+      if (e.value is num) e.key.toString(): (e.value as num).toInt(),
+  };
 }
 
 /// 按 `.name` 找类别。找不到时抛异常而不是猜一个——

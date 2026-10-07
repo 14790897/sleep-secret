@@ -218,6 +218,7 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
           session: session,
           clipStore: _clipStore,
           player: _player,
+          classMap: _analysisRepository.classMap,
         ),
       ),
       routes: {

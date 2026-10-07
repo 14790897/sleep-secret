@@ -115,6 +115,13 @@ class ReportView extends StatelessWidget {
               _DistributionCard(session: session),
               const SizedBox(height: 12),
               _PipelineCard(session: session),
+              // 「详细视图」排在「端侧分析」之后、「事件明细」**之前**。
+              //
+              // 它是**核查用**的，不是读报告用的，所以压在统计图表后面；
+              // 但不能真排到最末——「事件明细」一夜可以上百行，
+              // 把核查用的东西放在它后面，等于要滚过一整屏原始数据才够得着。
+              const SizedBox(height: 12),
+              _RawLabelsCard(viewModel: viewModel),
               const SizedBox(height: 12),
               _EventListCard(viewModel: viewModel),
             ],
@@ -585,6 +592,9 @@ abstract final class ReportKeys {
   /// 「事件明细」里第 i 个事件的那一行。
   static ValueKey<String> eventRow(int i) => ValueKey('event-row-$i');
 
+  /// 「详细视图」卡（原始 AudioSet 标签计数）。
+  static const ValueKey<String> rawLabels = ValueKey('section-raw-labels');
+
   /// 「疑似呼吸暂停的信号」卡。
   static const ValueKey<String> apneaSignals = ValueKey('section-apnea-signals');
 
@@ -927,6 +937,162 @@ class _PipelineCard extends StatelessWidget {
 }
 
 /// 事件明细列表。有音频片段的事件可以点播放。
+/// 「详细视图」：模型整夜里给出的**原始 AudioSet 标签**。
+///
+/// ## 它和上面每张卡说的不是一回事
+///
+/// 上面的卡说的都是**大类**——那是我们拼出来的。这张说的是模型的**原话**：
+/// 527 个标签里它点了哪些名、各多少次。报告哪里看着不对时，先翻到这张，
+/// 能立刻分清是**模型说错了**，还是**我们映射错了**。
+///
+/// ## 「未映射」那一列是最该看的
+///
+/// 527 个标签里只映射了 47 个。没被映射的标签当冠军时，那一窗**不产生任何
+/// 事件**——它在报告的其他任何地方都不会出现，只在这里露一面。所以那一列
+/// 不只是标注，它是**唯一一条能看见分类体系漏洞的通道**。
+///
+/// ## 排序按次数，不按字母
+///
+/// 一夜最多几十种标签，按次数排的话，值得看的那几种一定在头几行。
+class _RawLabelsCard extends StatelessWidget {
+  const _RawLabelsCard({required this.viewModel});
+
+  final ReportViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final note = theme.textTheme.bodySmall
+        ?.copyWith(color: AppColors.textDim, height: 1.7);
+    final counts = viewModel.session.stats.rawLabelCounts;
+
+    if (counts.isEmpty) {
+      return SectionCard(
+        key: ReportKeys.rawLabels,
+        title: context.l10n.reportRawLabelsTitle,
+        child: Text(context.l10n.reportRawLabelsNone, style: note),
+      );
+    }
+
+    // 拿不到映射表就只是不显示对照那一列，报告照常渲染——
+    // 这是核查用的附加信息，不该成为打开报告的前提。
+    final byCategory =
+        viewModel.classMap?.labelToCategory() ?? const <String, SleepCategory>{};
+
+    final rows = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total = rows.fold<int>(0, (sum, e) => sum + e.value);
+    final unmapped = rows.where((e) => !byCategory.containsKey(e.key)).length;
+
+    return SectionCard(
+      key: ReportKeys.rawLabels,
+      title: context.l10n.reportRawLabelsTitle,
+      subtitle: context.l10n.reportRawLabelsSubtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.reportRawLabelsSummary(rows.length, total),
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.l10n.reportRawLabelsWindowNote(
+                const AnalysisConfig().windowSeconds.round()),
+            style: note,
+          ),
+          if (unmapped > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              context.l10n.reportRawLabelsUnmappedNote(unmapped),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: AppColors.statusWarning, height: 1.6),
+            ),
+          ],
+          const SizedBox(height: 12),
+          for (final e in rows)
+            _RawLabelRow(
+              label: e.key,
+              count: e.value,
+              total: total,
+              category: byCategory[e.key],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RawLabelRow extends StatelessWidget {
+  const _RawLabelRow({
+    required this.label,
+    required this.count,
+    required this.total,
+    required this.category,
+  });
+
+  final String label;
+  final int count;
+  final int total;
+
+  /// 未映射时为 null——那一行会有个「未映射」的标记。
+  final SleepCategory? category;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dim = theme.textTheme.labelSmall?.copyWith(color: AppColors.textDim);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 54,
+            child: Text(
+              '$count',
+              textAlign: TextAlign.right,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textDim,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          // 标签名不截断：这是模型的原话，正是核查要看的东西，
+          // 长名字（"Male speech, man speaking"）换行显示，不省略。
+          Expanded(
+            child: Text(label, style: theme.textTheme.bodySmall),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 62,
+            child: Text(
+              category?.label(context) ?? context.l10n.reportRawLabelsUnmappedTag,
+              textAlign: TextAlign.right,
+              style: category == null
+                  ? dim?.copyWith(color: AppColors.statusWarning)
+                  : dim,
+            ),
+          ),
+          SizedBox(
+            width: 46,
+            child: Text(
+              total == 0
+                  ? ''
+                  : '${(count / total * 100).toStringAsFixed(1)}%',
+              textAlign: TextAlign.right,
+              style: dim,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EventListCard extends StatelessWidget {
   const _EventListCard({required this.viewModel});
 

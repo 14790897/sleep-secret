@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 
 import '../../domain/models/recording_session.dart';
@@ -12,7 +14,7 @@ class SessionDatabase {
   SessionDatabase({DatabaseFactory? factory, this.databasePath})
       : _factory = factory ?? databaseFactory;
 
-  static const int schemaVersion = 4;
+  static const int schemaVersion = 5;
   static const String _dbName = 'sleep_secret.db';
 
   final DatabaseFactory _factory;
@@ -57,7 +59,12 @@ class SessionDatabase {
         snore_seconds REAL NOT NULL DEFAULT 0,
         -- 这次分析有没有收集高危信号。老记录是 NULL，读回来当 false——
         -- 「没数据」和「一个都没认出来」在界面上必须分得开。
-        signals_collected INTEGER
+        signals_collected INTEGER,
+        -- 整夜里每个 AudioSet 原始标签当冠军的次数，JSON 对象
+        -- （如 {"Snoring": 4120, "Breathing": 2003}）。报告里的「详细视图」
+        -- 就是拿它渲染的。存 JSON 不另起一张表：一夜最多几十个键，
+        -- 从来只整份读写，拆成行除了多一张表和一次 JOIN 没别的好处。
+        raw_label_counts TEXT
       )
     ''');
     await db.execute('''
@@ -117,6 +124,11 @@ class SessionDatabase {
       await db.execute('ALTER TABLE events ADD COLUMN signal TEXT');
       await db.execute('ALTER TABLE sessions ADD COLUMN signals_collected INTEGER');
     }
+    if (from < 5) {
+      // v4 不收集 AudioSet 原始标签。老记录保留为 NULL——报告里那张
+      // 「详细视图」会说明「升级前的记录不收集它」，而不是列一张空表。
+      await db.execute('ALTER TABLE sessions ADD COLUMN raw_label_counts TEXT');
+    }
   }
 
   /// 读一个字符串设置。没设过就返回 null。
@@ -175,6 +187,7 @@ class SessionDatabase {
         'snore_event_count': session.stats.snoreEventCount,
         'snore_seconds': session.stats.snoreSeconds,
         'signals_collected': session.stats.signalsCollected ? 1 : 0,
+        'raw_label_counts': jsonEncode(session.stats.rawLabelCounts),
       });
 
       for (final event in session.events) {
@@ -274,11 +287,30 @@ class SessionDatabase {
         snoreSeconds: (row['snore_seconds'] as num).toDouble(),
         // 老记录这一列是 NULL，读成 false——那是「没收集」，不是「没有」
         signalsCollected: (row['signals_collected'] as int? ?? 0) != 0,
+        rawLabelCounts: _rawLabelCountsFromColumn(row['raw_label_counts']),
         // 类别分布不落库：它是平均概率，体积大且对"看历史"价值有限，
         // 需要时应重跑分析。
         categoryDistribution: const {},
       ),
     );
+  }
+
+  /// 读原始标签计数那一列。
+  ///
+  /// 坏 JSON 不该让整条历史记录读不出来——这是**核查用**的数据，
+  /// 读不出来就当没有，别把它升级成一个打不开的报告。
+  static Map<String, int> _rawLabelCountsFromColumn(Object? raw) {
+    if (raw is! String || raw.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+      return {
+        for (final e in decoded.entries)
+          if (e.value is num) e.key.toString(): (e.value as num).toInt(),
+      };
+    } catch (_) {
+      return const {};
+    }
   }
 
   SoundEvent _eventFromRow(Map<String, Object?> row) => SoundEvent(

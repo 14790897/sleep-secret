@@ -33,6 +33,25 @@ class SleepClassMap {
   String labelOf(int index) =>
       (index >= 0 && index < labels.length) ? labels[index] : 'unknown($index)';
 
+  /// 反查表：AudioSet 标签名 → 它归的大类。
+  ///
+  /// ⚠️ **不是每个标签都有归属。** 527 个里只映射了 47 个，剩下 480 个
+  /// 没有大类——模型的 argmax 落到它们身上时，那一窗不产生事件。
+  /// 报告里的「详细视图」正是靠这张表把「未映射」标出来，
+  /// 而那是核查时最该看见的一行：它说明有些声音在分类体系外面。
+  ///
+  /// 每次调用重建一遍。47 条，一页只调一次，不值得为它上缓存——
+  /// 加缓存要么让构造函数不再是 const，要么往这个不可变对象里塞可变状态。
+  Map<String, SleepCategory> labelToCategory() {
+    final out = <String, SleepCategory>{};
+    for (final entry in categoryIndices.entries) {
+      for (final i in entry.value) {
+        if (i >= 0 && i < labels.length) out[labels[i]] = entry.key;
+      }
+    }
+    return out;
+  }
+
   // 大类名 -> 枚举，直接用枚举的 `.name`（英文）。
   //
   // ⚠️ **不要用 `SleepCategory.label`**：那是给用户看的中文，改一次界面文案
