@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
+import '../../l10n/app_strings.dart';
+
 /// 前台服务的契约。
 ///
 /// 抽出来有两个原因：测试环境（Windows / 单元测试）没有 Android 前台服务；
@@ -45,11 +47,17 @@ abstract interface class ForegroundServiceController {
 class FlutterForegroundServiceController implements ForegroundServiceController {
   FlutterForegroundServiceController({
     this.channelId = 'sleep_secret_recording',
-    this.channelName = '睡眠录音',
+    this.channelName,
   });
 
   final String channelId;
-  final String channelName;
+
+  /// 通知渠道名。**null 表示按当前语言取**（见 `appStrings`）；
+  /// 测试可以注入一个固定值。
+  ///
+  /// ⚠️ Android 的渠道名**一旦建立就固化进系统设置**，之后用户在系统里
+  /// 切换语言不会让它跟着变。这是平台行为，不是这里能解决的。
+  final String? channelName;
 
   bool _initialized = false;
   bool _unsupported = false;
@@ -77,8 +85,8 @@ class FlutterForegroundServiceController implements ForegroundServiceController 
       FlutterForegroundTask.init(
         androidNotificationOptions: AndroidNotificationOptions(
           channelId: channelId,
-          channelName: channelName,
-          channelDescription: '整夜录音期间保持运行',
+          channelName: channelName ?? appStrings.notificationChannelName,
+          channelDescription: appStrings.notificationChannelDescription,
           // 整夜挂着，不该震动或响铃打断睡眠。
           enableVibration: false,
           playSound: false,

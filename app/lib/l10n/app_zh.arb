@@ -160,5 +160,87 @@
   "bin2to5m": "2–5分",
   "binOver5m": ">5分",
   "histogramEmpty": "这一晚没有检出鼾声",
-  "hourlyEmpty": "没有可统计的声音事件"
+  "hourlyEmpty": "没有可统计的声音事件",
+  "notificationChannelName": "睡眠录音",
+  "notificationChannelDescription": "整夜录音期间保持运行",
+  "notificationRecordingTitle": "睡眠录音中",
+  "notificationRecordingText": "正在记录整夜声音",
+  "recordingWarningNotificationsDenied": "通知权限被拒绝，录音期间不会显示常驻通知。录音本身不受影响，但系统在后台清理时更容易把它一并杀掉。建议到「设置 → 应用 → Sleep Secret → 通知」里允许通知，并把省电策略改成「无限制」。",
+  "recordingErrorMicDenied": "未获得麦克风权限，无法录音",
+  "recordingErrorStreamFailed": "录音流出错：{detail}",
+  "@recordingErrorStreamFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "recordingErrorStartFailed": "启动录音失败：{detail}",
+  "@recordingErrorStartFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "recordingErrorAnalysisFailed": "分析出错：{detail}",
+  "@recordingErrorAnalysisFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "reportErrorClipMissing": "这段音频已经不在了",
+  "archiveErrorPickFailed": "选择目录失败：{detail}",
+  "@archiveErrorPickFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveErrorOperationFailed": "操作失败：{detail}",
+  "@archiveErrorOperationFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveErrorNoTarget": "还没有配置导出目录",
+  "archiveErrorTargetUnusable": "配置的目录现在用不了（授权被撤销，或者目录不在了）",
+  "archiveErrorBusy": "上一次导出/导入还没结束",
+  "archiveErrorClipWriteFailed": "片段写入失败：{detail}",
+  "@archiveErrorClipWriteFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveErrorSessionWriteFailed": "会话写入失败：{detail}",
+  "@archiveErrorSessionWriteFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveErrorClipImportFailed": "片段导入失败：{detail}",
+  "@archiveErrorClipImportFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveErrorUnreadableFile": "读不了 {detail}",
+  "@archiveErrorUnreadableFile": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
+import 'package:sleep_secret/domain/models/ui_message.dart';
+import 'package:sleep_secret/data/repositories/archive_repository.dart';
 import 'package:sleep_secret/domain/repositories/archive_controller.dart';
 import 'package:sleep_secret/ui/features/archive/view_models/archive_view_model.dart';
 import 'package:sleep_secret/ui/features/archive/views/archive_view.dart';
@@ -298,7 +300,10 @@ void main() {
     testWidgets('读不了的文件逐条列出来，用户才知道是哪一晚', (tester) async {
       controller.nextOutcome = const ArchiveOutcome(
         sessions: 1,
-        problems: ['sessions/1791.json 读不了：不是本应用导出的文件'],
+        problems: [
+          UiMessage(UiMessageKind.archiveUnreadableFile,
+              'sessions/1791.json：不是本应用导出的文件'),
+        ],
       );
       await pumpPage(tester);
 
@@ -309,7 +314,8 @@ void main() {
     });
 
     testWidgets('操作失败 —— 显示错误，页面不崩', (tester) async {
-      controller.failNext = StateError('还没有配置导出目录');
+      // 仓库现在抛的是带类型的 ArchiveException，视图模型按类型分支出话术
+      controller.failNext = ArchiveException(UiMessageKind.archiveNoTarget);
       await pumpPage(tester);
 
       await tester.tap(find.text('导出全部'));

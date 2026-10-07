@@ -1,4 +1,5 @@
 import '../models/recording_session.dart';
+import '../models/ui_message.dart';
 
 /// 一次导出/导入的结果。
 class ArchiveOutcome {
@@ -25,7 +26,10 @@ class ArchiveOutcome {
   final int clipsMissing;
 
   /// 具体哪儿不对（读不了的文件）。**给用户看的**，所以要能看懂。
-  final List<String> problems;
+  ///
+  /// 存的是结构化的事实（哪一种 + 不翻译的细节），不是拼好的句子——
+  /// 拼句子要按语言来，而这一层拿不到 `BuildContext`。
+  final List<UiMessage> problems;
 
   bool get isClean => problems.isEmpty;
 }

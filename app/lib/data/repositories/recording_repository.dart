@@ -6,6 +6,7 @@ import '../../domain/analysis/night_analysis_engine.dart';
 import '../../domain/models/recording_session.dart';
 import '../../domain/models/recording_state.dart';
 import '../../domain/repositories/audio_clip_store.dart';
+import '../../l10n/app_strings.dart';
 import '../../domain/repositories/recording_controller.dart';
 import '../../domain/repositories/sleep_analyzer.dart';
 import '../services/audio_capture_service.dart';
@@ -73,12 +74,6 @@ class RecordingRepository implements RecordingController {
   /// 说清楚两件事：**录音没断**，以及**代价是什么**。
   /// 「关于」页写着「录音期间会有一条常驻通知」——那句话在权限被拒时是假的，
   /// 所以这里必须明确纠正，不能装作无事发生。
-  static const String _notificationWarning =
-      '通知权限被拒绝，录音期间不会显示常驻通知。录音本身不受影响，'
-      '但系统在后台清理时更容易把它一并杀掉。'
-      '建议到「设置 → 应用 → Sleep Secret → 通知」里允许通知，'
-      '并把省电策略改成「无限制」。';
-
   bool _recordClips = true;
   bool _settingsLoaded = false;
 
@@ -108,7 +103,7 @@ class RecordingRepository implements RecordingController {
     if (!granted) {
       _emit(_state.copyWith(
         isRecording: false,
-        error: '未获得麦克风权限，无法录音',
+        error: const RecordingError(RecordingErrorKind.micDenied),
       ));
       return;
     }
@@ -135,14 +130,15 @@ class RecordingRepository implements RecordingController {
       _maxBacklog = 0;
 
       await _foregroundService.start(
-        title: '睡眠录音中',
-        text: '正在记录整夜声音',
+        title: appStrings.notificationRecordingTitle,
+        text: appStrings.notificationRecordingText,
       );
 
       final stream = await _capture.start();
       _pcmSubscription = stream.listen(
         _enqueue,
-        onError: (Object e) => _emit(_state.copyWith(error: '录音流出错: $e')),
+        onError: (Object e) => _emit(_state.copyWith(
+            error: RecordingError(RecordingErrorKind.streamFailed, detail: '$e'))),
         cancelOnError: false,
       );
 
@@ -153,12 +149,14 @@ class RecordingRepository implements RecordingController {
         isRecording: true,
         startedAt: actualStart,
         clearError: true,
-        warning: notificationsOk ? null : _notificationWarning,
+        warning: notificationsOk ? null : RecordingWarningKind.notificationsDenied,
         clearWarning: notificationsOk,
       ));
     } catch (e) {
       await _teardown();
-      _emit(_state.copyWith(isRecording: false, error: '启动录音失败: $e'));
+      _emit(_state.copyWith(
+          isRecording: false,
+          error: RecordingError(RecordingErrorKind.startFailed, detail: '$e')));
     }
   }
 
@@ -171,7 +169,8 @@ class RecordingRepository implements RecordingController {
         await _engine.feedPcm(chunk);
       } catch (e) {
         // 单块失败不该中断整夜录音。
-        _emit(_state.copyWith(error: '分析出错: $e'));
+        _emit(_state.copyWith(error:
+            RecordingError(RecordingErrorKind.analysisFailed, detail: '$e')));
       } finally {
         _backlog--;
       }

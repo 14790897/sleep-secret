@@ -95,7 +95,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
-    controller.push(const RecordingState(error: '未获得麦克风权限，无法录音'));
+    controller.push(
+        const RecordingState(error: RecordingError(RecordingErrorKind.micDenied)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 

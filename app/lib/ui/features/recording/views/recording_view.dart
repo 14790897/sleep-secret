@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/domain_text.dart';
+
 import '../../../core/theme.dart';
 import '../../../core/widgets/section_card.dart';
 import '../view_models/recording_view_model.dart';
@@ -31,11 +33,11 @@ class RecordingView extends StatelessWidget {
             _HeroButton(viewModel: viewModel),
             if (viewModel.state.error != null) ...[
               const SizedBox(height: 16),
-              _ErrorBanner(message: viewModel.state.error!),
+              _ErrorBanner(message: viewModel.state.error!.message(context)),
             ],
             if (viewModel.state.warning != null) ...[
               const SizedBox(height: 16),
-              _WarningBanner(message: viewModel.state.warning!),
+              _WarningBanner(message: viewModel.state.warning!.message(context)),
             ],
             if (viewModel.state.isRecording) ...[
               const SizedBox(height: 16),

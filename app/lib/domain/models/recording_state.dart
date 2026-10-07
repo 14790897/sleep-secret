@@ -1,3 +1,42 @@
+/// 录音为什么停了 / 起不来。
+///
+/// **领域层只说"是哪种"，不说"这句话怎么写"**——文案在界面层按语言渲染
+/// （见 `lib/ui/core/l10n/domain_text.dart`）。
+///
+/// 加多语言之前这里是直接把中文句子塞进 [RecordingState.error] 的，
+/// 而 `RecordingRepository` 整条链上**拿不到 `BuildContext`**（它在
+/// `main.dart` 的 initState 里装配，生命周期也长于任何页面）。
+enum RecordingErrorKind {
+  /// 没有麦克风权限。
+  micDenied,
+
+  /// 采集流本身出错。
+  streamFailed,
+
+  /// 起不来（前台服务、模型加载等）。
+  startFailed,
+
+  /// 分析环节出错。
+  analysisFailed,
+}
+
+/// 一条录音错误。[detail] 是异常原文。
+///
+/// **异常原文要留给用户看**：它往往是报 bug 时唯一的线索。
+/// 所以它不是日志，是界面文案的一部分——只不过这部分不翻译。
+class RecordingError {
+  const RecordingError(this.kind, {this.detail});
+
+  final RecordingErrorKind kind;
+  final String? detail;
+}
+
+/// 需要提醒、但**不影响录音继续**的事情。
+enum RecordingWarningKind {
+  /// 通知权限被拒——录音照跑，但后台被系统清掉的风险变高。
+  notificationsDenied,
+}
+
 /// 录音进行中的实时状态，供界面展示。
 class RecordingState {
   const RecordingState({
@@ -47,14 +86,14 @@ class RecordingState {
   final double? vadThreshold;
 
   /// 出错信息。非 null 表示录音异常结束或无法开始。
-  final String? error;
+  final RecordingError? error;
 
   /// 需要提醒、但**不影响录音继续**的事情。
   ///
   /// 和 [error] 的区别是严重的程度：error 意味着录音没在跑，
   /// warning 意味着在跑、但用户该知道某件事（比如通知权限被拒，
   /// 于是后台被系统清掉的风险变高了）。
-  final String? warning;
+  final RecordingWarningKind? warning;
 
   /// 实际推理比例。能量门控跳过的窗口不计入。
   double get inferenceRatio =>
@@ -72,9 +111,9 @@ class RecordingState {
     double? inputLevel,
     double? peakLevel,
     double? vadThreshold,
-    String? error,
+    RecordingError? error,
     bool clearError = false,
-    String? warning,
+    RecordingWarningKind? warning,
     bool clearWarning = false,
   }) =>
       RecordingState(

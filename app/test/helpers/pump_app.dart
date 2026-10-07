@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:sleep_secret/l10n/app_localizations.dart';
+import 'package:sleep_secret/l10n/app_strings.dart';
 import 'package:sleep_secret/ui/core/theme.dart';
 
 /// 测试里那个 `MaterialApp` 的**唯一**构造点。
@@ -34,3 +36,14 @@ Widget localizedApp({
       home: home,
       routes: routes ?? const <String, WidgetBuilder>{},
     );
+
+/// 给**非 widget 测试**用：把那份"给后台用的"文案初始化成指定语言。
+///
+/// widget 测试由 [localizedApp] 里的同步器负责；纯 `test()` 里根本没有
+/// widget 树，而被测的代码（通知栏标题、录音错误）恰好要用 `appStrings`。
+/// 不初始化它会直接抛——这是故意的，静默兜底成中文会让通知栏
+/// 悄悄变成错误的语言。
+Future<void> initAppStringsForTest([String lang = 'zh']) async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setAppStrings(await AppLocalizations.delegate.load(Locale(lang)));
+}
