@@ -435,9 +435,11 @@ class _ApneaSignalCard extends StatelessWidget {
     final note = theme.textTheme.bodySmall
         ?.copyWith(color: AppColors.textDim, height: 1.7);
 
+    // 判据和 [analyzeApneaSignals] 用同一个函数，不各写一套。
+    // 写两套的话，万一将来名单变了，行数和「共 N 次」会对不上。
     final rows = <int>[
       for (var i = 0; i < session.events.length; i++)
-        if (session.events[i].isSignal) i,
+        if (isApneaSignalLabel(session.events[i].signal)) i,
     ];
 
     return SectionCard(

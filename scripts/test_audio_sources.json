@@ -50,5 +50,16 @@
       "derived_from": "https://freesound.org/people/poorenglishjuggler/sounds/182758",
       "note": "削掉 320Hz 以下再压上 -6dB 房间噪声，模拟手机不放在枕边"
     }
+  ],
+  "gasp": [
+    {
+      "title": "Gasp 4.wav",
+      "creator": "jayfrosting",
+      "license": "CC0",
+      "license_version": "1.0",
+      "source": "https://freesound.org/people/jayfrosting/sounds/333396",
+      "matched_label": "Gasp",
+      "score": 0.51
+    }
   ]
 }

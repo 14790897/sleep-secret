@@ -142,7 +142,7 @@ void main() {
     await tester.tap(find.text('关于'));
     await tester.pumpAndSettle();
 
-    expect(find.text('保留鼾声片段'), findsOneWidget);
+    expect(find.text('保留鼾声与呼吸信号片段'), findsOneWidget);
 
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();

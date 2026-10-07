@@ -115,17 +115,6 @@ void main() {
           reason: '顺序照搬事件列表，不在这里重排——排序是界面的事');
     });
 
-    test('多种信号都在时，顺序固定按名单走，不按次数', () {
-      // 用次数排的话，这里会是 Snort(5) 在前——而「哪个更多」和
-      // 「哪个更值得注意」没有关系，固定顺序还方便跨夜对比。
-      final a = analyzeApneaSignals(sessionOf([
-        for (var i = 0; i < 5; i++) ev(signal: 'Snort', start: i * 10.0),
-        ev(signal: 'Gasp', start: 500),
-      ]));
-
-      expect(a.hits.map((h) => h.label), ['Gasp', 'Snort']);
-    });
-
     test('名单外的标签不会被当成信号', () {
       final a = analyzeApneaSignals(sessionOf([
         ev(signal: 'Cough'),
@@ -139,10 +128,22 @@ void main() {
       final a = analyzeApneaSignals(sessionOf([
         ev(signal: 'Gasp'),
         ev(signal: 'Gasp', start: 10),
-        ev(signal: 'Wheeze', start: 20),
+        ev(signal: null, start: 20),
       ]));
 
-      expect(a.totalCount, 3);
+      expect(a.totalCount, 2);
+    });
+
+    test('被移出名单的那几个，现在都不算信号', () {
+      // 2026-10-07 量过一轮，这三个在能找到的 CC0 素材上一段都没通过
+      // （判据：argmax == 目标标签且分数 ≥ 0.5）。移出去了就是移出去了——
+      // 这条测试把这个决定钉住，免得将来顺手又加回来。
+      // 理由和数字见 `lib/domain/analysis/apnea_signals.dart`。
+      for (final gone in ['Wheeze', 'Pant', 'Snort', 'Sniff']) {
+        expect(isApneaSignalLabel(gone), isFalse, reason: gone);
+        expect(analyzeApneaSignals(sessionOf([ev(signal: gone)])).hits,
+            isEmpty, reason: gone);
+      }
     });
 
     test('普通事件不算进去', () {

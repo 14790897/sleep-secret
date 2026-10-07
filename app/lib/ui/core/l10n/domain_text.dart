@@ -82,9 +82,6 @@ extension DiagnosisText on Diagnosis {
 String apneaSignalName(BuildContext context, String rawLabel) =>
     switch (rawLabel) {
       'Gasp' => context.l10n.signalGasp,
-      'Snort' => context.l10n.signalSnort,
-      'Wheeze' => context.l10n.signalWheeze,
-      'Pant' => context.l10n.signalPant,
       // 认不出的名字直接显示原文。它不该发生，但真发生了也不能显示成空白——
       // 「认出来了却没名字」比一个英文标签名更让人困惑。
       _ => rawLabel,

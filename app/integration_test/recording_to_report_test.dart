@@ -211,6 +211,60 @@ void main() {
           reason: '写出的 WAV 不该只有头部');
     });
 
+    /// 一段「一夜」：安静打底，中间插几段倒吸气。
+    ///
+    /// 不能直接 tile 成 30 秒——那是**连续**的倒吸气，现实里不存在，
+    /// 模型也未必还认它是倒吸气。真实情况是安静中间偶尔来一声。
+    Float32List nightWithGasps(Float32List gasp, {int episodes = 4}) {
+      const gap = 16000 * 6; // 6 秒安静，够事件定案（mergeGapSeconds = 9）
+      final parts = <Float32List>[];
+      var seed = 999;
+      for (var i = 0; i < episodes; i++) {
+        // 固定种子的低幅噪声当底噪，避免每次跑不一致
+        final q = Float32List(gap);
+        for (var j = 0; j < gap; j++) {
+          seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+          q[j] = ((seed % 2000) / 1000.0 - 1.0) * 0.0015;
+        }
+        parts.add(q);
+        parts.add(gasp);
+      }
+      final total = parts.fold<int>(0, (a, p) => a + p.length);
+      final out = Float32List(total);
+      var at = 0;
+      for (final p in parts) {
+        out.setRange(at, at + p.length, p);
+        at += p.length;
+      }
+      return out;
+    }
+
+    testWidgets('真实倒吸气走完整条链路，产出能回放的信号事件', (tester) async {
+      final audio = nightWithGasps(
+        await loadWave('assets/testdata/real/real_gasp.wav'),
+      );
+      final r = await runSession(tester, audio);
+      final session = r.session;
+
+      final signals = session.events.where((e) => e.isSignal).toList();
+      expect(signals, isNotEmpty,
+          reason: '这段素材模型判成 Gasp（0.42~0.49），一段都没有说明链路断了');
+      expect(signals.every((e) => e.signal == 'Gasp'), isTrue);
+      expect(session.stats.signalsCollected, isTrue,
+          reason: '报告靠这个标志区分「没查」和「没有」，没写上的话'
+              '新录的夜晚也会显示成「升级前的记录」');
+
+      // ⚠️ 这两条是这次改动的**目的**：高危信号得能听。
+      // 事件有 6 秒下限，而倒吸气只有一两秒——不豁免的话它连事件都成立不了，
+      // 也就永远不会有片段。这条测试就是盯着那个豁免还在不在。
+      final playable = signals.where((e) => e.clipPath != null).toList();
+      expect(playable, isNotEmpty, reason: '高危信号必须留下片段，否则点了没反应');
+      final resolved = await clipStore.resolve(playable.first.clipPath!);
+      expect(resolved, isNotNull, reason: '片段路径应当能还原成真实文件');
+      expect(await File(resolved!).length(), greaterThan(44),
+          reason: '写出的 WAV 不该只有头部');
+    });
+
     testWidgets('同一份数据从库里读回来要和写进去的一致', (tester) async {
       final audio = tile(
         await loadWave('assets/testdata/real/snore_01.wav'),

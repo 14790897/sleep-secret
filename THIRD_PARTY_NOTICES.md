@@ -32,6 +32,19 @@
 当前几个文件的核心鼾声得分：`snore_01/02/05` = 0.910 / 0.965 / 0.816，
 `rain` 和 `rooster` = 0.000，`bandlimited_snore` = 0.871。
 
+### `real_gasp.wav` —— 高危信号的 fixture，判据不同
+
+「疑似呼吸暂停的信号」那一条链路也用一个真实素材验（`real_gasp.wav`，
+jayfrosting 的 *Gasp 4.wav*，CC0）。它**不能用鼾声那套判据挑**：信号要的是
+**527 维里取 argmax 就是那个标签**，因为 App 里正是按 `topLabels.first` 取的。
+这段的 `Gasp` 得分是 0.489（单窗口 0.417），第二名 `Sigh` 只有 0.18。
+
+⚠️ **这是在用模型自己挑样本**，所以它只能证明**链路是通的**，
+不能证明模型在真实睡眠里认得出倒吸气。2026-10-07 试过其余几个信号
+（`Wheeze` 37 段、`Pant` 40 段、`Snort` 40 段），**一个都没通过**——
+所以那些没进 App 的名单。经过和判断依据都写在
+`app/lib/domain/analysis/apnea_signals.dart` 的注释里。
+
 ### `bandlimited_snore.wav` 是派生作品
 
 它由上面某一段 CC0 鼾声**加工**而来：削掉 320Hz 以下、再压上房间噪声，
@@ -49,7 +62,7 @@
 - **本仓库中的位置**：`app/assets/models/ced-tiny.onnx`
 - **引用**：CED: Consistent Ensemble Distillation for Audio Tagging
   （arXiv:2308.11957）
-- **说明**：模型在 AudioSet 上训练。527→7 的大类映射见
+- **说明**：模型在 AudioSet 上训练。527→9 的大类映射见
   `app/assets/models/sleep_class_map.json`，生成脚本是 `ml/sleep_classes.py`。
 
 ## 三、运行时依赖

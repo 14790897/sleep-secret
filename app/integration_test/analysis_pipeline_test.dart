@@ -143,6 +143,21 @@ void main() {
     }
   });
 
+  testWidgets('真实倒吸气：模型这一层就认得出 Gasp', (tester) async {
+    // 这段素材是**按这条判据挑出来的**（见 scripts/fetch_test_audio.py），
+    // 在这里再验一次，是为了拦住「模型或映射表换了、fixture 悄悄失效」——
+    // fixture 一旦不再被判成 Gasp，下面那条链路测试会以看不懂的方式变红。
+    await repository.initialize();
+    final samples = await loadWave('assets/testdata/real/real_gasp.wav');
+    final p = await repository.classifySamples(samples);
+
+    expect(p.topLabels.first.label, 'Gasp',
+        reason: '模型给出的最高标签变了，fixture 需要重挑');
+    expect(p.topLabels.first.probability, greaterThan(0.25),
+        reason: '要高于 App 的信号门槛（lowConfidenceThreshold），'
+            '否则它根本成不了信号事件，链路测试也就失去意义');
+  });
+
   testWidgets('整段安静不产生事件', (tester) async {
     final audio = buildNight(
       Float32List(16000 * 5), // 空的"鼾声"，实际全是 0

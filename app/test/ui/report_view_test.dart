@@ -660,22 +660,21 @@ void main() {
       await pumpReport(tester, signalsSession([
         (signal: 'Gasp', start: 1000),
         (signal: 'Gasp', start: 2000),
-        (signal: 'Wheeze', start: 3000),
+        (signal: 'Gasp', start: 3000),
       ]));
 
       final card = ReportKeys.apneaSignals;
       expect(inCard(card, find.text('疑似呼吸暂停的信号')), findsOneWidget);
       expect(inCard(card, find.textContaining('整夜共 3 次')), findsOneWidget);
       // 显示的是「倒吸气」「哮鸣」，不是大类名「呼吸声」
-      expect(inCard(card, find.text('倒吸气')), findsNWidgets(2));
-      expect(inCard(card, find.text('哮鸣')), findsOneWidget);
+      expect(inCard(card, find.text('倒吸气')), findsNWidgets(3));
       expect(inCard(card, find.text('呼吸声')), findsNothing);
     });
 
     testWidgets('每一条都有播放键', (tester) async {
       await pumpReport(tester, signalsSession([
         (signal: 'Gasp', start: 1000),
-        (signal: 'Snort', start: 2000),
+        (signal: 'Gasp', start: 2000),
       ]));
 
       // 信号事件的第 1、2 条（第 0 条是默认的鼾声）
@@ -701,8 +700,11 @@ void main() {
       final card = ReportKeys.apneaSignals;
       expect(inCard(card, find.textContaining('整夜没有认出')), findsOneWidget);
       // 「这几样」必须写明白，否则用户拿这份东西当「查过了，没问题」
-      expect(inCard(card, find.textContaining('倒吸气、喷鼻息、哮鸣、急促呼吸')),
-          findsOneWidget);
+      // 断言整句而不是只找「倒吸气」——底下那段说明里也有这个词
+      expect(
+        inCard(card, find.textContaining('整夜没有认出这些声音：倒吸气')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('老记录说「没收集」，不说「没有」', (tester) async {

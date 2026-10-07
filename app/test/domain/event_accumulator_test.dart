@@ -62,12 +62,21 @@ void main() {
       expect(events.single.windowCount, 2);
     });
 
-    test('不同的信号不会互相合并', () {
-      final acc = EventAccumulator();
-      acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Gasp'));
-      acc.add(obs(start: 3, label: SleepCategory.breathing, rawLabel: 'Wheeze'));
+    test('名单外的标签不会成为信号，哪怕模型很有把握', () {
+      // Wheeze / Pant / Snort 曾经在名单里，2026-10-07 量过一轮之后移出去了
+      // （见 apnea_signals.dart）。这条盯着「移出去」这件事真的生效——
+      // 没有它的话，将来名单改了、这里却在用旧名字，测试会静静地测错东西。
+      for (final gone in ['Wheeze', 'Pant', 'Snort', 'Sniff']) {
+        final acc = EventAccumulator();
+        acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: gone,
+            confidence: 0.9));
+        acc.add(obs(start: 3, label: SleepCategory.breathing, rawLabel: gone,
+            confidence: 0.9));
 
-      expect(acc.build().events.map((e) => e.signal), ['Gasp', 'Wheeze']);
+        final events = acc.build().events;
+        expect(events.every((e) => e.signal == null), isTrue, reason: gone);
+        expect(events, hasLength(1), reason: '$gone 应当只是普通呼吸窗口');
+      }
     });
 
     test('一声 3 秒的倒吸气能留下——它豁免最短时长', () {
@@ -126,7 +135,7 @@ void main() {
       final acc = EventAccumulator();
       acc.add(obs(start: 0, label: SleepCategory.breathing));
       acc.add(obs(start: 3, label: SleepCategory.breathing));
-      acc.add(obs(start: 6, label: SleepCategory.breathing, rawLabel: 'Pant',
+      acc.add(obs(start: 6, label: SleepCategory.breathing, rawLabel: 'Gasp',
           confidence: 0.9));
 
       final outcome = acc.build();
