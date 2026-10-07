@@ -107,7 +107,7 @@ class _TargetCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             '把目录设在网盘的同步文件夹里（比如 iCloud、OneDrive、坚果云的本地目录），'
-            '就自动有了云端备份。**App 自己不上传任何东西**，是你的网盘客户端在同步。',
+            '就自动有了云端备份。App 自己不上传任何东西——是你的网盘客户端在同步。',
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: AppColors.textDim, height: 1.6),
           ),
@@ -241,7 +241,7 @@ class _WhatGetsExportedCard extends StatelessWidget {
         children: [
           for (final line in const [
             '事件的时间点、类别、置信度，以及整晚的统计。',
-            '鼾声片段的音频文件（WAV）——**这部分是声音本身**。',
+            '鼾声片段的音频文件（WAV）——这部分是声音本身。',
           ])
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -250,7 +250,7 @@ class _WhatGetsExportedCard extends StatelessWidget {
             ),
           const SizedBox(height: 6),
           Text(
-            '⚠️ 导出的文件里**包含音频**。如果你把目录放在网盘同步文件夹里，'
+            '⚠️ 导出的文件里包含音频。如果你把目录放在网盘同步文件夹里，'
             '这些音频会跟着上传到云端——那是你的网盘，不是这个应用。'
             '介意的话，到「关于」页把「保留鼾声片段」关掉，'
             '之后就只会导出分析结果，不含任何声音。',
