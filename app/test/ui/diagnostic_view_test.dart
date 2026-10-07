@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/pump_app.dart';
 import 'package:sleep_secret/data/models/sleep_class_map.dart';
 import 'package:sleep_secret/data/services/diagnostic_fixtures.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
@@ -92,7 +93,7 @@ Map<String, ExpectedClip> clipsWith(List<double> logits) => {
 
 void main() {
   Widget wrap(DiagnosticViewModel vm) =>
-      MaterialApp(home: DiagnosticView(viewModel: vm));
+      localizedApp(home: DiagnosticView(viewModel: vm));
 
   DiagnosticViewModel buildVm({
     List<double>? analyzerLogits,

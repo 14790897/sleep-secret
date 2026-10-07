@@ -2,11 +2,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/analysis/sleep_score.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
-import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/core/widgets/score_gauge.dart';
 import 'package:sleep_secret/ui/core/widgets/sound_timeline.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
@@ -77,10 +77,8 @@ void main() {
         player: player,
       );
 
-  Widget wrap(RecordingSession session) => MaterialApp(
-        theme: buildAppTheme(),
-        home: ReportView(viewModel: buildVm(session)),
-      );
+  Widget wrap(RecordingSession session) =>
+      localizedApp(home: ReportView(viewModel: buildVm(session)));
 
   /// 报告页很长，默认 800x600 的测试视口装不下；ListView 只构建可见区域，
   /// 屏幕外的分区根本不在 widget 树里，断言会找不到。把视口调高即可。

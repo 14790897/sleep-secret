@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/repositories/archive_controller.dart';
-import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/features/archive/view_models/archive_view_model.dart';
 import 'package:sleep_secret/ui/features/archive/views/archive_view.dart';
 
@@ -150,8 +150,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(MaterialApp(
-      theme: buildAppTheme(),
+    await tester.pumpWidget(localizedApp(
       home: ArchiveView(viewModel: ArchiveViewModel(controller: controller)),
     ));
     await tester.pumpAndSettle();

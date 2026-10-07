@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/analysis/session_insights.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
-import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/core/widgets/charts.dart';
 import 'package:sleep_secret/ui/features/trend/views/trend_card.dart';
 
@@ -37,8 +37,7 @@ void main() {
     tester.view.physicalSize = const Size(900, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(
-      theme: buildAppTheme(),
+    await tester.pumpWidget(localizedApp(
       home: Scaffold(body: SingleChildScrollView(
         child: TrendCard(sessions: sessions),
       )),
@@ -154,18 +153,15 @@ void main() {
 
   group('HourlyChart / DurationHistogram 空态', () {
     testWidgets('没有桶时显示提示而不是空图', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        theme: buildAppTheme(),
-        home: const Scaffold(body: HourlyChart(buckets: [])),
-      ));
+      await tester.pumpWidget(
+          localizedApp(home: const Scaffold(body: HourlyChart(buckets: []))));
       await tester.pumpAndSettle();
 
       expect(find.text('没有可统计的声音事件'), findsOneWidget);
     });
 
     testWidgets('分箱全零时显示没有鼾声', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        theme: buildAppTheme(),
+      await tester.pumpWidget(localizedApp(
         home: Scaffold(
           body: DurationHistogram(
             bins: [

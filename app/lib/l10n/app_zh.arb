@@ -1,0 +1,60 @@
+{
+  "@@locale": "zh",
+
+  "appTitle": "Sleep Secret",
+
+  "tabSleep": "睡眠",
+  "tabReport": "报告",
+  "tabAbout": "关于",
+
+  "reportTitle": "睡眠报告",
+  "historyTitle": "历史记录",
+  "noReportsTitle": "还没有睡眠报告",
+  "noReportsBody": "到「睡眠」页点开始录音，\n第二天早上这里就会出现这一晚的分析。",
+
+  "reportCardTime": "{month}月{day}日  {time}",
+  "@reportCardTime": {
+    "description": "列表里每张报告卡的时间。中文是「10月7日」，英文不能照拼，所以整句交给 ARB",
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" },
+      "time": { "type": "String", "example": "03:42" }
+    }
+  },
+  "reportCardSummary": "鼾声 {snoreSegments} 段 · {snoreSpan} · {eventCount} 个事件",
+  "@reportCardSummary": {
+    "description": "报告卡上的第二行",
+    "placeholders": {
+      "snoreSegments": { "type": "int" },
+      "snoreSpan": { "type": "String", "example": "2h 15m" },
+      "eventCount": { "type": "int" }
+    }
+  },
+
+  "delete": "删除",
+  "cancel": "取消",
+  "deleteConfirmTitle": "删除这条记录？",
+  "deleteConfirmBody": "删除后无法恢复。",
+
+  "aboutWhatTitle": "这个应用做什么",
+  "aboutWhatBody": "整夜录音，在手机本地识别睡眠中的声音类型——鼾声、呼吸声、咳嗽、梦话、翻身、环境噪音——并生成一晚的时间线和统计。",
+  "aboutPrivacyTitle": "数据不出手机",
+  "aboutPrivacySubtitle": "所有分析都在设备本地完成",
+  "aboutPrivacyBody": "录音不会上传。原始音频在分析后即丢弃，只保留事件的时间点、类别，以及（如果你开着上面的开关）鼾声片段。",
+  "aboutNotTitle": "它不是什么",
+  "aboutNotBody": "不是医疗器械，不能用于诊断睡眠呼吸暂停或其他疾病。识别结果来自通用的音频事件模型，没有针对你本人做过校准。身体不适请就医。",
+
+  "archiveEntry": "数据导出",
+  "archiveEntrySubtitle": "导出到网盘同步目录，换设备可以再导回来",
+  "diagnosticEntry": "端侧推理诊断",
+  "diagnosticEntrySubtitle": "开发者选项：验证模型加载与推理",
+
+  "clipCardTitle": "录音片段",
+  "clipCardSubtitle": "为鼾声事件保留一段可回放的音频",
+  "clipOn": "保留鼾声片段",
+  "clipOff": "不保留任何音频",
+  "clipOnSubtitle": "每晚约几 MB，存在应用私有目录里",
+  "clipOffSubtitle": "分析完即丢弃，历史记录里无法试听",
+  "clipOnBody": "只会保留鼾声，不会保留梦话等其他声音。片段存在应用私有目录，其他应用读不到；删除某晚记录时会连同片段一起删掉。",
+  "clipOffBody": "关掉之后 App 不写出任何音频文件，只保留事件的时间点和类别。"
+}

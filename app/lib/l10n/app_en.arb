@@ -1,0 +1,44 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Sleep Secret",
+
+  "tabSleep": "Sleep",
+  "tabReport": "Reports",
+  "tabAbout": "About",
+
+  "reportTitle": "Sleep report",
+  "historyTitle": "History",
+  "noReportsTitle": "No sleep reports yet",
+  "noReportsBody": "Tap the button on the Sleep tab to start recording.\nYour first report shows up here the next morning.",
+
+  "reportCardTime": "{month}/{day}  {time}",
+  "reportCardSummary": "{snoreSegments} snore segments · {snoreSpan} · {eventCount} events",
+
+  "delete": "Delete",
+  "cancel": "Cancel",
+  "deleteConfirmTitle": "Delete this recording?",
+  "deleteConfirmBody": "This can't be undone.",
+
+  "aboutWhatTitle": "What this app does",
+  "aboutWhatBody": "Records all night and identifies, entirely on your phone, what kinds of sounds you made — snoring, breathing, coughing, talking in your sleep, moving around, background noise — then lays out a timeline and the numbers for that night.",
+  "aboutPrivacyTitle": "Your audio never leaves the phone",
+  "aboutPrivacySubtitle": "All analysis happens on the device",
+  "aboutPrivacyBody": "Recordings are never uploaded. The raw audio is discarded right after analysis — all that's kept is when each sound happened, what it was, and (if you left the switch above on) the snore clips.",
+  "aboutNotTitle": "What it isn't",
+  "aboutNotBody": "It is not a medical device and cannot diagnose sleep apnoea or anything else. The results come from a general-purpose audio event model that has never been calibrated to you specifically. If something feels wrong, see a doctor.",
+
+  "archiveEntry": "Export data",
+  "archiveEntrySubtitle": "Export to a synced folder and bring it back on another device",
+  "diagnosticEntry": "On-device inference check",
+  "diagnosticEntrySubtitle": "Developer option: verify model loading and inference",
+
+  "clipCardTitle": "Audio clips",
+  "clipCardSubtitle": "Keep a playable clip for each snore event",
+  "clipOn": "Keep snore clips",
+  "clipOff": "Keep no audio at all",
+  "clipOnSubtitle": "A few MB per night, in the app's private folder",
+  "clipOffSubtitle": "Discarded after analysis — nothing to play back later",
+  "clipOnBody": "Only snoring is kept — not sleep talking or anything else. Clips live in the app's private folder, so other apps can't read them, and deleting a night deletes its clips along with it.",
+  "clipOffBody": "With this off the app writes no audio files at all — only when each event happened and what it was."
+}

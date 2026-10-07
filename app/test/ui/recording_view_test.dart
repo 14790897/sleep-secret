@@ -1,8 +1,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_state.dart';
-import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/features/recording/view_models/recording_view_model.dart';
 import 'package:sleep_secret/ui/features/recording/views/recording_view.dart';
 
@@ -10,7 +10,7 @@ import '../helpers/fake_recording_controller.dart';
 
 void main() {
   Widget wrap(RecordingViewModel vm) =>
-      MaterialApp(theme: buildAppTheme(), home: RecordingView(viewModel: vm));
+      localizedApp(home: RecordingView(viewModel: vm));
 
   testWidgets('未录音时展示大按钮与使用说明', (tester) async {
     final vm = RecordingViewModel(controller: FakeRecordingController());

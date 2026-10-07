@@ -1,0 +1,36 @@
+import 'package:flutter/material.dart';
+import 'package:sleep_secret/l10n/app_localizations.dart';
+import 'package:sleep_secret/ui/core/theme.dart';
+
+/// 测试里那个 `MaterialApp` 的**唯一**构造点。
+///
+/// ## 为什么不能各自 new
+///
+/// 加多语言之前，`test/ui/` 下六个文件各自 new 了一个裸 `MaterialApp`。
+/// 那种写法的问题是：`localizationsDelegates` 这种东西**加漏一个地方
+/// 不会编译报错，只会让那个文件里的断言以看不懂的方式失败**。
+/// 九个构造点就是九次漂移的机会。
+///
+/// ## 为什么测试必须钉死 locale
+///
+/// `flutter_test` 的默认平台 locale 是 **en_US**。`MaterialApp` 在没有
+/// 精确匹配时回退到 `supportedLocales` 的第一项——那个顺序是代码生成时
+/// 按 arb 文件名排的，不是我们说了算。所以不钉的话**测试会渲染成英文**，
+/// 于是所有 `find.text('鼾声录音')` 这一类的断言集体失败，
+/// 而且报的是「找不到」，看不出跟语言有关。
+///
+/// 钉成中文之后，测试断言的就是用户在这个 App 的主场语言下看到的东西。
+/// 英文那一侧由 `test/ui/localization_test.dart` 单独把关。
+Widget localizedApp({
+  required Widget home,
+  Locale locale = const Locale('zh'),
+  Map<String, WidgetBuilder>? routes,
+}) =>
+    MaterialApp(
+      theme: buildAppTheme(),
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: home,
+      routes: routes ?? const <String, WidgetBuilder>{},
+    );

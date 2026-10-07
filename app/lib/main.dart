@@ -16,6 +16,8 @@ import 'data/services/onnx_classifier_service.dart';
 import 'data/services/saf_export_target.dart';
 import 'data/services/session_database.dart';
 import 'domain/models/recording_session.dart';
+import 'l10n/app_localizations.dart';
+import 'ui/core/l10n/l10n_context.dart';
 import 'ui/core/theme.dart';
 import 'ui/features/archive/view_models/archive_view_model.dart';
 import 'ui/features/archive/views/archive_view.dart';
@@ -129,9 +131,13 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sleep Secret',
+      // 用 onGenerateTitle 而不是 title：title 只在启动时取一次，
+      // 系统语言变了不会重算。
+      onGenerateTitle: (context) => context.l10n.appTitle,
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: HomeView(
         recordingViewModel: _recordingViewModel,
         reportViewModelFactory: (session) => ReportViewModel(
