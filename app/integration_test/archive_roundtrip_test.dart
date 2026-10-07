@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../test/helpers/pump_app.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:sleep_secret/data/repositories/archive_repository.dart';
 import 'package:sleep_secret/data/services/archive_service.dart';
@@ -14,7 +15,6 @@ import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/domain/repositories/export_target.dart';
-import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/features/archive/view_models/archive_view_model.dart';
 import 'package:sleep_secret/ui/features/archive/views/archive_view.dart';
 
@@ -158,8 +158,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(MaterialApp(
-      theme: buildAppTheme(),
+    await tester.pumpWidget(localizedApp(
       home: ArchiveView(viewModel: ArchiveViewModel(controller: controller)),
     ));
     await settle(tester, 300);

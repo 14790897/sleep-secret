@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
+import '../test/helpers/pump_app.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:sqflite/sqflite.dart' show inMemoryDatabasePath;
 import 'package:sleep_secret/data/repositories/recording_repository.dart';
@@ -16,7 +17,6 @@ import 'package:sleep_secret/data/services/session_database.dart';
 import 'package:sleep_secret/data/services/wav_decoder_service.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
-import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
 import 'package:sleep_secret/ui/features/recording/view_models/recording_view_model.dart';
 import 'package:sleep_secret/ui/features/recording/views/recording_view.dart';
@@ -275,8 +275,8 @@ void main() {
 
       // 用真实界面，只把依赖换成注入了回放采集器的仓库。
       // 构造方式和 main.dart 一致——HomeView 就是 App 的外壳。
-      await tester.pumpWidget(MaterialApp(
-        theme: buildAppTheme(),
+      // 区别只有 locale 钉死（测试默认 en_US，不钉会渲染成英文）。
+      await tester.pumpWidget(localizedApp(
         home: HomeView(
           recordingViewModel: RecordingViewModel(controller: built.repository),
           reportViewModelFactory: (session) => ReportViewModel(
