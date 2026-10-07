@@ -8,6 +8,7 @@ import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/core/widgets/score_gauge.dart';
+import 'package:sleep_secret/ui/core/widgets/section_card.dart';
 import 'package:sleep_secret/ui/core/widgets/sound_timeline.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
 import 'package:sleep_secret/ui/features/report/views/report_view.dart';
@@ -91,6 +92,19 @@ void main() {
     await tester.pumpWidget(wrap(session));
     await tester.pumpAndSettle();
   }
+
+  /// 把查找限定在某一张开区里。
+  ///
+  /// 自从「鼾声录音」卡出现之后，同一个片段会在**两处**各有一行——
+  /// 全局 `find.byIcon(play)` 会数出双份，断言就分不清是"多了一行"
+  /// 还是"卡片重复渲染了"。凡是有数量含义的断言都该说清楚在哪儿数。
+  Finder inSection(String title, Finder matching) => find.descendant(
+        of: find.ancestor(
+          of: find.text(title),
+          matching: find.byType(SectionCard),
+        ),
+        matching: matching,
+      );
 
   testWidgets('头部展示鼾声指数与关键数字', (tester) async {
     await pumpReport(tester, buildSession());
@@ -226,7 +240,8 @@ void main() {
       await pumpReport(tester, withClips());
 
       // 3 个事件里 2 个有片段
-      expect(find.byIcon(Icons.play_circle_outline), findsNWidgets(2));
+      expect(inSection('事件明细', find.byIcon(Icons.play_circle_outline)),
+          findsNWidgets(2));
       expect(find.textContaining('其中 2 条可以试听'), findsOneWidget);
     });
 
@@ -253,7 +268,8 @@ void main() {
       await tester.tap(find.byIcon(Icons.play_circle_outline).first);
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
+      expect(inSection('事件明细', find.byIcon(Icons.stop_circle_outlined)),
+          findsOneWidget);
     });
 
     testWidgets('点下去立刻进入播放态，不会一直转圈', (tester) async {
@@ -265,7 +281,8 @@ void main() {
       // just_audio 的 play() 要等播放结束才 resolve。实现里一旦 await 它，
       // 「正在播放」就永远设不上，界面会一直停在加载态——这个断言就是防它。
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
+      expect(inSection('事件明细', find.byIcon(Icons.stop_circle_outlined)),
+          findsOneWidget);
     });
 
     testWidgets('再点同一个事件会停止播放', (tester) async {
@@ -273,11 +290,12 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.play_circle_outline).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.stop_circle_outlined));
+      await tester.tap(inSection('事件明细', find.byIcon(Icons.stop_circle_outlined)));
       await tester.pumpAndSettle();
 
       expect(player.stopCount, greaterThanOrEqualTo(1));
-      expect(find.byIcon(Icons.play_circle_outline), findsNWidgets(2));
+      expect(inSection('事件明细', find.byIcon(Icons.play_circle_outline)),
+          findsNWidgets(2));
     });
 
     testWidgets('点另一条会切过去而不是叠加播放', (tester) async {
@@ -291,7 +309,8 @@ void main() {
       expect(player.playCount, 2);
       expect(player.currentPath, '/fake/clips/sess/200000.wav');
       // 同一时刻只有一条在播
-      expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
+      expect(inSection('事件明细', find.byIcon(Icons.stop_circle_outlined)),
+          findsOneWidget);
     });
 
     testWidgets('播放自然结束后按钮回到可播放态', (tester) async {
@@ -299,13 +318,15 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.play_circle_outline).first);
       await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
+      expect(inSection('事件明细', find.byIcon(Icons.stop_circle_outlined)),
+          findsOneWidget);
 
       player.finishNaturally();
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.stop_circle_outlined), findsNothing);
-      expect(find.byIcon(Icons.play_circle_outline), findsNWidgets(2));
+      expect(inSection('事件明细', find.byIcon(Icons.play_circle_outline)),
+          findsNWidgets(2));
     });
 
     testWidgets('文件已丢失时明确提示，而不是点了没反应', (tester) async {
@@ -314,8 +335,113 @@ void main() {
       await tester.tap(find.byIcon(Icons.play_circle_outline).first);
       await tester.pumpAndSettle();
 
-      expect(find.text('这段音频已经不在了'), findsOneWidget);
+      // 两张卡都会显示这条——播放状态是共用的，点播放的地方不能"没反应"
+      expect(find.text('这段音频已经不在了'), findsNWidgets(2));
       expect(player.playCount, 0, reason: '拿不到路径就不该交给播放器');
+    });
+  });
+
+  group('鼾声录音卡', () {
+    /// 一晚：2 段带录音的鼾声，夹在呼吸声、咳嗽、环境噪音中间。
+    /// 这就是真实的样子——81 条事件里只有 9 条有音频。
+    RecordingSession mixed() {
+      clipStore.saved['sess/100000.wav'] = Float32List(10);
+      clipStore.saved['sess/200000.wav'] = Float32List(10);
+      return buildSession(events: [
+        event(
+            label: SleepCategory.snore,
+            start: 100,
+            duration: 30,
+            snore: 0.8,
+            clipPath: 'sess/100000.wav'),
+        event(label: SleepCategory.breathing, start: 150, duration: 300),
+        event(label: SleepCategory.cough, start: 300, duration: 12),
+        event(
+            label: SleepCategory.snore,
+            start: 200,
+            duration: 20,
+            snore: 0.7,
+            clipPath: 'sess/200000.wav'),
+        event(label: SleepCategory.ambient, start: 500, duration: 40),
+      ]);
+    }
+
+    testWidgets('带录音的片段集中在一张卡里，没有录音的类别不在里面', (tester) async {
+      await pumpReport(tester, mixed());
+
+      expect(inSection('鼾声录音', find.byIcon(Icons.play_circle_outline)),
+          findsNWidgets(2),
+          reason: '呼吸声、咳嗽、环境噪音都不该出现——它们没有录音，'
+              '而这张卡存在的理由就是播放键夹在它们中间找不到');
+    });
+
+    testWidgets('段数和总时长直接写出来，不用自己数', (tester) async {
+      await pumpReport(tester, mixed());
+
+      // 30 + 20 = 50 秒。整句精确比——「共 2 段」这几个字在
+      // 「鼾声段时长」卡里也有，containing 会撞上。
+      expect(find.text('共 2 段 · 50 秒，点一下试听'), findsOneWidget);
+    });
+
+    testWidgets('只有一段时也按秒显示——不能写成「0m」', (tester) async {
+      clipStore.saved['sess/100000.wav'] = Float32List(10);
+      await pumpReport(tester, buildSession(events: [
+        event(
+            label: SleepCategory.snore,
+            start: 100,
+            duration: 45,
+            snore: 0.8,
+            clipPath: 'sess/100000.wav'),
+      ]));
+
+      // formatSpan 只到分钟，直接用它的话这一段会显示成「0m」
+      expect(find.text('共 1 段 · 45 秒，点一下试听'), findsOneWidget);
+    });
+
+    testWidgets('排在「事件明细」前面', (tester) async {
+      // 这张卡存在的意义就是**不用翻**。放到最后一张等于没做。
+      await pumpReport(tester, mixed());
+
+      final clips = tester.getTopLeft(find.text('鼾声录音')).dy;
+      final details = tester.getTopLeft(find.text('事件明细')).dy;
+      expect(clips, lessThan(details),
+          reason: '鼾声录音排在 y=$clips，事件明细排在 y=$details');
+    });
+
+    testWidgets('和「事件明细」共享播放状态', (tester) async {
+      await pumpReport(tester, mixed());
+
+      await tester.tap(
+          inSection('鼾声录音', find.byIcon(Icons.play_circle_outline)).first);
+      await tester.pumpAndSettle();
+
+      // 两处认的是**同一个事件下标**，所以在任一处点了播，
+      // 另一处也要跟着变——不然会出现两个播放键同时亮着
+      expect(inSection('鼾声录音', find.byIcon(Icons.stop_circle_outlined)),
+          findsOneWidget);
+      expect(inSection('事件明细', find.byIcon(Icons.stop_circle_outlined)),
+          findsOneWidget);
+    });
+
+    testWidgets('没打鼾的一晚，整张卡不出现', (tester) async {
+      await pumpReport(tester, buildSession(events: [
+        event(label: SleepCategory.breathing, start: 100, duration: 300),
+      ]));
+
+      expect(find.text('鼾声录音'), findsNothing,
+          reason: '不打鼾还占一张卡，就是往报告里塞噪音');
+    });
+
+    testWidgets('打了鼾却一段录音都没有 —— 说清楚为什么', (tester) async {
+      // 用户把「保留鼾声片段」关了，或者那是关闭之前的记录。
+      // 不给理由的话，「怎么没有」会变成一个谜。
+      await pumpReport(tester, buildSession(events: [
+        event(label: SleepCategory.snore, start: 100, duration: 30, snore: 0.8),
+      ]));
+
+      expect(find.text('鼾声录音'), findsOneWidget);
+      expect(find.textContaining('没有留下录音'), findsOneWidget);
+      expect(find.byIcon(Icons.play_circle_outline), findsNothing);
     });
   });
 

@@ -337,6 +337,19 @@ void main() {
       expect(find.byIcon(Icons.play_circle_outline), findsWidgets,
           reason: '鼾声事件保留了片段，界面上应当能点开听');
 
+      // 「鼾声录音」卡：把所有带录音的片段**集中**列一份。
+      // 段数要和库里真正带片段的条数对得上——数不对说明过滤条件写错了。
+      //
+      // ⚠️ `listSessions()` 返回的是**不带事件**的摘要，`latest.events` 是空的。
+      // 要比事件就得按 id 读完整的那一份。
+      final full = await built.repository.loadSession(listed.first.id!);
+      expect(full, isNotNull);
+      final withClip = full!.events.where((e) => e.hasClip).toList();
+      expect(withClip, isNotEmpty, reason: '这条测试的前提是录到了带片段的鼾声');
+      expect(find.text('鼾声录音'), findsOneWidget);
+      expect(find.textContaining('共 ${withClip.length} 段 ·'), findsOneWidget,
+          reason: '鼾声录音卡应当列出全部 ${withClip.length} 段录音');
+
       expect(tester.takeException(), isNull);
     });
   });
