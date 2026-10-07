@@ -95,9 +95,25 @@ SleepScore? scoreSession(RecordingSession session) {
       totalSnoreSeconds <= 0 ? 0.0 : longSnoreSeconds / totalSnoreSeconds;
   final continuityDeduction = longRatio * _maxContinuityDeduction;
 
-  // ---- 3. 干扰频次：非鼾声事件每小时多少次 ----
+  // ---- 3. 干扰频次：咳嗽 / 梦话 / 翻身，每小时多少次 ----
+  //
+  // ⚠️ 这里以前是「非鼾声、非静音」全都算（`!e.isSnore && !e.label.isRecessive`），
+  // **把环境噪音和呼吸声也算成了干扰**——和界面上那句「咳嗽、梦话、翻身等」
+  // 对不上，而且环境噪音被扣了两次（这里一次，下面第 4 项占比又一次）。
+  //
+  // 真实整夜数据上这个 bug 很扎眼：一晚 81 个事件里绝大多数是低置信度的
+  // 环境噪音碎片，于是「干扰频次 9.4 次/小时」扣掉 7 分——而那一晚
+  // 其实几乎没被任何东西打断过。
+  //
+  // 干扰指的是**可能打断睡眠的声音**：咳嗽、梦话、翻身。
+  // 呼吸和背景噪音不是——前者是睡眠本来的样子，后者是环境不是事件。
+  const disturbances = {
+    SleepCategory.cough,
+    SleepCategory.vocal,
+    SleepCategory.movement,
+  };
   final disturbanceCount =
-      session.events.where((e) => !e.isSnore && !e.label.isRecessive).length;
+      session.events.where((e) => disturbances.contains(e.label)).length;
   final perHour = disturbanceCount / (analyzed / 3600);
   final disturbanceDeduction =
       _ramp(perHour, _disturbancePerHourAtFullDeduction) *
