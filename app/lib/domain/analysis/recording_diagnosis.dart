@@ -12,23 +12,48 @@ enum DiagnosisLevel {
   info,
 }
 
+/// 这是哪一条诊断。
+///
+/// **领域层只说"是哪一条、数值多少"，不说"这句话怎么写"**——
+/// 措辞在界面层按语言渲染，见 `lib/ui/core/l10n/domain_text.dart`。
+///
+/// 加多语言之前，`Diagnosis` 直接带 `title`/`detail` 两个拼好的中文句子。
+/// 那样领域层就被迫知道用户在看什么语言，而它拿不到 `BuildContext`，
+/// 也不该拿到。
+enum DiagnosisKind {
+  /// 整晚几乎所有窗口都没进模型。
+  noInference,
+
+  /// 只有极少数窗口进了模型。
+  tooFewInferred,
+
+  /// 整晚都有声音，但模型对大多数窗口都没把握。
+  lowConfidence,
+
+  /// 鼾声占比高得离谱。
+  snoreRatioHigh,
+
+  /// 有窗口进了模型，但一个事件都没检出。
+  noEvents,
+}
+
 /// 一条诊断结论。
 class Diagnosis {
   const Diagnosis({
     required this.level,
-    required this.title,
-    required this.detail,
+    required this.kind,
+    this.params = const {},
   });
 
   final DiagnosisLevel level;
+  final DiagnosisKind kind;
 
-  /// 一句话结论。
-  final String title;
-
-  /// 说清楚**为什么**，以及**能做什么**。
+  /// 渲染这条结论需要的数值。
   ///
-  /// 只有结论没有下一步的诊断等于噪音——用户看完只会困惑。
-  final String detail;
+  /// 用 `Map` 而不是给每个 kind 定义一个类：这里的参数最多三个，
+  /// 每加一条规则就多一个类不划算。代价是取的时候要写死键名——
+  /// 所以**键名和渲染方（`domain_text.dart`）是一对，改的时候要一起改**。
+  final Map<String, Object?> params;
 }
 
 /// 从会话统计里推断这次录音可不可信。
@@ -72,10 +97,7 @@ List<Diagnosis> diagnoseSession(RecordingSession session) {
   if (isFullNight && s.windowsInferred == 0) {
     out.add(const Diagnosis(
       level: DiagnosisLevel.warning,
-      title: '整晚几乎没有触发分析',
-      detail: '所有窗口都没越过能量门控。常见原因：手机被被子或枕头挡住、'
-          '离得太远、或者麦克风权限被系统收回了。'
-          '建议把手机放在枕边、屏幕朝上、不要盖东西。',
+      kind: DiagnosisKind.noInference,
     ));
     return out;
   }
@@ -84,10 +106,12 @@ List<Diagnosis> diagnoseSession(RecordingSession session) {
   if (isFullNight && inferredRatio < 0.02) {
     out.add(Diagnosis(
       level: DiagnosisLevel.warning,
-      title: '只有极少窗口触发了分析',
-      detail: '整晚 ${(inferredRatio * 100).toStringAsFixed(1)}% 的窗口越过了'
-          '能量门控（${s.windowsInferred}/${s.windowsTotal}）。'
-          '如果那晚确实有打鼾，说明手机可能被挡住或放得太远。',
+      kind: DiagnosisKind.tooFewInferred,
+      params: {
+        'percent': inferredRatio * 100,
+        'inferred': s.windowsInferred,
+        'total': s.windowsTotal,
+      },
     ));
   }
 
@@ -107,12 +131,11 @@ List<Diagnosis> diagnoseSession(RecordingSession session) {
     if (lowConfRatio > 0.9) {
       out.add(Diagnosis(
         level: DiagnosisLevel.warning,
-        title: '整晚都有声音，但模型对大多数窗口都没把握',
-        detail: '${(inferredRatio * 100).toStringAsFixed(0)}% 的窗口都有声音'
-            '（越过了能量门控），其中 ${(lowConfRatio * 100).toStringAsFixed(0)}% '
-            '的最高大类得分不到 0.25。通常是持续的背景噪声——'
-            '风扇、空调、雨声、电视。这些窗口的类别仍然会出现在下面的报告里，'
-            '但别太当真。',
+        kind: DiagnosisKind.lowConfidence,
+        params: {
+          'inferredPercent': inferredRatio * 100,
+          'lowConfPercent': lowConfRatio * 100,
+        },
       ));
     }
   }
@@ -124,10 +147,9 @@ List<Diagnosis> diagnoseSession(RecordingSession session) {
   if (isFullNight && s.snoreIndex > 50) {
     out.add(Diagnosis(
       level: DiagnosisLevel.warning,
-      title: '鼾声占比异常高（${s.snoreIndex.toStringAsFixed(0)}%）',
-      detail: '整晚有一半以上的时间被判定为鼾声。持续的低频噪声——'
-          '风扇、空调、抽湿机——很容易被听成鼾声。'
-          '如果那晚确实打了一整夜，这条可以忽略。',
+      kind: DiagnosisKind.snoreRatioHigh,
+      // 这个数会进**标题**（「鼾声占比异常高（68%）」），所以渲染方也要它
+      params: {'percent': s.snoreIndex},
     ));
   }
 
@@ -135,9 +157,7 @@ List<Diagnosis> diagnoseSession(RecordingSession session) {
   if (isFullNight && s.eventCount == 0 && s.windowsInferred > 0) {
     out.add(const Diagnosis(
       level: DiagnosisLevel.info,
-      title: '整晚没有检出任何声音事件',
-      detail: '有窗口进了模型，但都没达到置信度门槛。'
-          '如果那晚环境很安静，这是正常结果。',
+      kind: DiagnosisKind.noEvents,
     ));
   }
 

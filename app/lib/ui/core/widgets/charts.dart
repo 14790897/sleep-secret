@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../../domain/analysis/session_insights.dart';
+import '../l10n/domain_text.dart';
+import '../l10n/l10n_context.dart';
 import '../theme.dart';
 
 /// 图表共用的尺寸与描边规范。
@@ -368,7 +370,7 @@ class DurationHistogram extends StatelessWidget {
       return SizedBox(
         height: height,
         child: Center(
-          child: Text('这一晚没有检出鼾声',
+          child: Text(context.l10n.histogramEmpty,
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -379,15 +381,26 @@ class DurationHistogram extends StatelessWidget {
     return SizedBox(
       height: height,
       width: double.infinity,
-      child: CustomPaint(painter: _HistogramPainter(bins: bins)),
+      child: CustomPaint(
+        painter: _HistogramPainter(
+          bins: bins,
+          labels: [for (final b in bins) b.kind.label(context)],
+        ),
+      ),
     );
   }
 }
 
 class _HistogramPainter extends CustomPainter {
-  _HistogramPainter({required this.bins});
+  _HistogramPainter({required this.bins, required this.labels});
 
   final List<DurationBin> bins;
+
+  /// 横轴上每一格的文字，由 widget 层按当前语言生成好传进来。
+  ///
+  /// `CustomPainter` 里只有 Canvas，拿不到 BuildContext，也就查不了本地化。
+  /// 这不是新发明的办法——同一文件里的 `thresholdLabel` 早就是这么传的。
+  final List<String> labels;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -429,11 +442,12 @@ class _HistogramPainter extends CustomPainter {
         tp.paint(canvas, Offset(cx - tp.width / 2, baseline - h - tp.height - 3));
       }
 
-      final tp = label(b.label, AppColors.textDim, size: 9);
+      final tp = label(labels[i], AppColors.textDim, size: 9);
       tp.paint(canvas, Offset(cx - tp.width / 2, baseline + 5));
     }
   }
 
   @override
-  bool shouldRepaint(_HistogramPainter old) => old.bins != bins;
+  bool shouldRepaint(_HistogramPainter old) =>
+      old.bins != bins || old.labels != labels;
 }

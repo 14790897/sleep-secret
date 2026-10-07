@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/models/sound_event.dart';
 import '../theme.dart';
+import '../l10n/domain_text.dart';
 
 /// 整夜声音时间线。
 ///
@@ -311,7 +312,7 @@ class _EventTooltip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$clock  ${event.label.label}  ·  '
+              '$clock  ${event.label.label(context)}  ·  '
               '${event.durationSeconds.round()} 秒'
               '${event.isSnore ? '  ·  鼾声概率 ${(event.snoreProbability * 100).toStringAsFixed(0)}%' : ''}',
               style: theme.textTheme.bodySmall,

@@ -10,16 +10,16 @@ MODELS = pathlib.Path(__file__).resolve().parent.parent / "models"
 
 # 标签名必须与 AudioSet id2label 完全一致（注意逗号后的完整描述）
 SLEEP_MAP = {
-    "鼾声":     ["Snoring", "Snort"],
-    "呼吸声":   ["Breathing", "Wheeze", "Gasp", "Sigh"],
-    "咳嗽清嗓": ["Cough", "Throat clearing", "Sneeze", "Sniff"],
-    "人声梦话": ["Speech", "Male speech, man speaking", "Female speech, woman speaking",
+    "snore":     ["Snoring", "Snort"],
+    "breathing":   ["Breathing", "Wheeze", "Gasp", "Sigh"],
+    "cough": ["Cough", "Throat clearing", "Sneeze", "Sniff"],
+    "vocal": ["Speech", "Male speech, man speaking", "Female speech, woman speaking",
                  "Child speech, kid speaking", "Whispering", "Laughter", "Crying, sobbing",
                  "Groan"],
-    "体动床响": ["Rustle", "Rustling leaves", "Tap", "Clicking"],
-    "环境噪音": ["Noise", "Environmental noise", "White noise",
+    "movement": ["Rustle", "Rustling leaves", "Tap", "Clicking"],
+    "ambient": ["Noise", "Environmental noise", "White noise",
                  "Traffic noise, roadway noise", "Wind", "Rain", "Door", "Music"],
-    "静音":     ["Silence"],
+    "silence":     ["Silence"],
 }
 
 # 判定"这是鼾声事件"时使用的核心类别（用于鼾声指数）

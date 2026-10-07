@@ -1,41 +1,49 @@
 {
   "@@locale": "zh",
-
   "appTitle": "Sleep Secret",
-
   "tabSleep": "睡眠",
   "tabReport": "报告",
   "tabAbout": "关于",
-
   "reportTitle": "睡眠报告",
   "historyTitle": "历史记录",
   "noReportsTitle": "还没有睡眠报告",
   "noReportsBody": "到「睡眠」页点开始录音，\n第二天早上这里就会出现这一晚的分析。",
-
   "reportCardTime": "{month}月{day}日  {time}",
   "@reportCardTime": {
     "description": "列表里每张报告卡的时间。中文是「10月7日」，英文不能照拼，所以整句交给 ARB",
     "placeholders": {
-      "month": { "type": "int" },
-      "day": { "type": "int" },
-      "time": { "type": "String", "example": "03:42" }
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String",
+        "example": "03:42"
+      }
     }
   },
   "reportCardSummary": "鼾声 {snoreSegments} 段 · {snoreSpan} · {eventCount} 个事件",
   "@reportCardSummary": {
     "description": "报告卡上的第二行",
     "placeholders": {
-      "snoreSegments": { "type": "int" },
-      "snoreSpan": { "type": "String", "example": "2h 15m" },
-      "eventCount": { "type": "int" }
+      "snoreSegments": {
+        "type": "int"
+      },
+      "snoreSpan": {
+        "type": "String",
+        "example": "2h 15m"
+      },
+      "eventCount": {
+        "type": "int"
+      }
     }
   },
-
   "delete": "删除",
   "cancel": "取消",
   "deleteConfirmTitle": "删除这条记录？",
   "deleteConfirmBody": "删除后无法恢复。",
-
   "aboutWhatTitle": "这个应用做什么",
   "aboutWhatBody": "整夜录音，在手机本地识别睡眠中的声音类型——鼾声、呼吸声、咳嗽、梦话、翻身、环境噪音——并生成一晚的时间线和统计。",
   "aboutPrivacyTitle": "数据不出手机",
@@ -43,12 +51,10 @@
   "aboutPrivacyBody": "录音不会上传。原始音频在分析后即丢弃，只保留事件的时间点、类别，以及（如果你开着上面的开关）鼾声片段。",
   "aboutNotTitle": "它不是什么",
   "aboutNotBody": "不是医疗器械，不能用于诊断睡眠呼吸暂停或其他疾病。识别结果来自通用的音频事件模型，没有针对你本人做过校准。身体不适请就医。",
-
   "archiveEntry": "数据导出",
   "archiveEntrySubtitle": "导出到网盘同步目录，换设备可以再导回来",
   "diagnosticEntry": "端侧推理诊断",
   "diagnosticEntrySubtitle": "开发者选项：验证模型加载与推理",
-
   "clipCardTitle": "录音片段",
   "clipCardSubtitle": "为鼾声事件保留一段可回放的音频",
   "clipOn": "保留鼾声片段",
@@ -56,5 +62,103 @@
   "clipOnSubtitle": "每晚约几 MB，存在应用私有目录里",
   "clipOffSubtitle": "分析完即丢弃，历史记录里无法试听",
   "clipOnBody": "只会保留鼾声，不会保留梦话等其他声音。片段存在应用私有目录，其他应用读不到；删除某晚记录时会连同片段一起删掉。",
-  "clipOffBody": "关掉之后 App 不写出任何音频文件，只保留事件的时间点和类别。"
+  "clipOffBody": "关掉之后 App 不写出任何音频文件，只保留事件的时间点和类别。",
+  "categorySnore": "鼾声",
+  "categoryBreathing": "呼吸声",
+  "categoryCough": "咳嗽清嗓",
+  "categoryVocal": "人声梦话",
+  "categoryMovement": "体动床响",
+  "categoryAmbient": "环境噪音",
+  "categorySilence": "静音",
+  "diagnosisNoInferenceTitle": "整晚几乎没有触发分析",
+  "diagnosisNoInferenceDetail": "所有窗口都没越过能量门控。常见原因：手机被被子或枕头挡住、离得太远、或者麦克风权限被系统收回了。建议把手机放在枕边、屏幕朝上、不要盖东西。",
+  "diagnosisTooFewTitle": "只有极少窗口触发了分析",
+  "diagnosisTooFewDetail": "整晚 {percent}% 的窗口越过了能量门控（{inferred}/{total}）。如果那晚确实有打鼾，说明手机可能被挡住或放得太远。",
+  "@diagnosisTooFewDetail": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "inferred": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "diagnosisLowConfidenceTitle": "整晚都有声音，但模型对大多数窗口都没把握",
+  "diagnosisLowConfidenceDetail": "{inferredPercent}% 的窗口都有声音（越过了能量门控），其中 {lowConfPercent}% 的最高大类得分不到 0.25。通常是持续的背景噪声——风扇、空调、雨声、电视。这些窗口的类别仍然会出现在下面的报告里，但别太当真。",
+  "@diagnosisLowConfidenceDetail": {
+    "placeholders": {
+      "inferredPercent": {
+        "type": "String"
+      },
+      "lowConfPercent": {
+        "type": "String"
+      }
+    }
+  },
+  "diagnosisSnoreRatioTitle": "鼾声占比异常高（{percent}%）",
+  "@diagnosisSnoreRatioTitle": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "diagnosisSnoreRatioDetail": "整晚有一半以上的时间被判定为鼾声。持续的低频噪声——风扇、空调、抽湿机——很容易被听成鼾声。如果那晚确实打了一整夜，这条可以忽略。",
+  "diagnosisNoEventsTitle": "整晚没有检出任何声音事件",
+  "diagnosisNoEventsDetail": "有窗口进了模型，但都没达到置信度门槛。如果那晚环境很安静，这是正常结果。",
+  "gradeQuiet": "很安静",
+  "gradeGood": "比较安静",
+  "gradeFair": "有些声音",
+  "gradeNoisy": "鼾声明显",
+  "gradeHeavy": "鼾声很重",
+  "deductionSnoreRatio": "鼾声占比",
+  "deductionSnoreRatioDetail": "鼾声占整夜的 {ratio}%",
+  "@deductionSnoreRatioDetail": {
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
+  "deductionSnoreContinuity": "鼾声连续性",
+  "deductionSnoreContinuityDetail": "超过 2 分钟的鼾声占鼾声总时长的 {longRatio}%",
+  "@deductionSnoreContinuityDetail": {
+    "placeholders": {
+      "longRatio": {
+        "type": "String"
+      }
+    }
+  },
+  "deductionSnoreContinuityNone": "没有检出鼾声",
+  "deductionDisturbances": "干扰频次",
+  "deductionDisturbancesDetail": "咳嗽、梦话、翻身等平均每小时 {perHour} 次",
+  "@deductionDisturbancesDetail": {
+    "placeholders": {
+      "perHour": {
+        "type": "String"
+      }
+    }
+  },
+  "deductionAmbient": "环境噪音",
+  "deductionAmbientDetail": "环境声占整夜的 {ratio}%",
+  "@deductionAmbientDetail": {
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
+  "scoreCaveat": "这个分数只看声音：鼾声、连续时长、打断次数、环境噪音。它不反映你的睡眠分期或觉醒次数——那需要体动或心率数据，麦克风测不出来。整夜安静但没睡好的人，在这里也会拿到高分。",
+  "binUnder15s": "<15秒",
+  "bin15to30": "15–30秒",
+  "bin30to60": "30–60秒",
+  "bin1to2m": "1–2分",
+  "bin2to5m": "2–5分",
+  "binOver5m": ">5分",
+  "histogramEmpty": "这一晚没有检出鼾声",
+  "hourlyEmpty": "没有可统计的声音事件"
 }

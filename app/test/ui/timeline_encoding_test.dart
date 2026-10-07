@@ -27,8 +27,8 @@ void main() {
         final higher = order[i].timelineWeight;
         final lower = order[i + 1].timelineWeight;
         expect(higher, greaterThan(lower),
-            reason: '${order[i].label}（$higher）应当高于 '
-                '${order[i + 1].label}（$lower）——'
+            reason: '${order[i].name}（$higher）应当高于 '
+                '${order[i + 1].name}（$lower）——'
                 '柱高是"多值得注意"的编码，顺序错了图就读不懂了');
       }
     });
@@ -54,7 +54,7 @@ void main() {
       for (final c in SleepCategory.values) {
         if (c.isRecessive) continue; // 静音根本不画
         expect(c.timelineWeight, greaterThan(kTimelineTrackWeight),
-            reason: '${c.label} 的柱高 ${c.timelineWeight} 不高于底纹轨道 '
+            reason: '${c.name} 的柱高 ${c.timelineWeight} 不高于底纹轨道 '
                 '$kTimelineTrackWeight，会和背景糊在一起');
       }
     });

@@ -72,6 +72,6 @@ class SoundEvent {
   }
 
   @override
-  String toString() => 'SoundEvent(${label.label} @${startSeconds.toStringAsFixed(1)}s '
+  String toString() => 'SoundEvent(${label.name} @${startSeconds.toStringAsFixed(1)}s '
       '${durationSeconds.toStringAsFixed(1)}s conf=${confidence.toStringAsFixed(3)})';
 }

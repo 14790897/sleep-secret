@@ -9,14 +9,16 @@ import 'package:sleep_secret/domain/models/sleep_category.dart';
 Map<String, dynamic> validJson() => {
       'model': 'test-model',
       'num_classes': 3,
+      // 键是**枚举名**（英文），不是界面上的中文名。
+      // 拿中文当数据键的话，改一次界面文案就会让这张表读不出来。
       'categories': {
-        '鼾声': [0],
-        '呼吸声': [1],
-        '咳嗽清嗓': [2],
-        '人声梦话': [0],
-        '体动床响': [1],
-        '环境噪音': [2],
-        '静音': [0],
+        'snore': [0],
+        'breathing': [1],
+        'cough': [2],
+        'vocal': [0],
+        'movement': [1],
+        'ambient': [2],
+        'silence': [0],
       },
       'core_snore': [0],
       'id2label': {'0': 'Snoring', '1': 'Breathing', '2': 'Cough'},
@@ -58,7 +60,7 @@ void main() {
 
     test('缺少某个必需大类时抛 FormatException', () {
       final json = validJson();
-      (json['categories'] as Map).remove('静音');
+      (json['categories'] as Map).remove('silence');
       expect(() => SleepClassMap.fromJson(json), throwsFormatException);
     });
 
@@ -90,7 +92,7 @@ void main() {
         expect(
           map.categoryIndices[category],
           isNotEmpty,
-          reason: '${category.label} 不应为空',
+          reason: '${category.name} 不应为空',
         );
       }
       // Snoring 是 AudioSet 第 43 号标签，类别映射必须落在它上面

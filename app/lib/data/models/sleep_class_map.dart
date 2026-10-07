@@ -33,16 +33,15 @@ class SleepClassMap {
   String labelOf(int index) =>
       (index >= 0 && index < labels.length) ? labels[index] : 'unknown($index)';
 
-  /// 中文大类名 -> 枚举。名字对不上说明映射表和代码不同步，必须报错而不是兜底。
-  static const Map<String, SleepCategory> _byLabel = {
-    '鼾声': SleepCategory.snore,
-    '呼吸声': SleepCategory.breathing,
-    '咳嗽清嗓': SleepCategory.cough,
-    '人声梦话': SleepCategory.vocal,
-    '体动床响': SleepCategory.movement,
-    '环境噪音': SleepCategory.ambient,
-    '静音': SleepCategory.silence,
-  };
+  // 大类名 -> 枚举，直接用枚举的 `.name`（英文）。
+  //
+  // ⚠️ **不要用 `SleepCategory.label`**：那是给用户看的中文，改一次界面文案
+  // 就会让这张映射表读不出来。这类"拿展示文本当数据键"的错误，这个项目
+  // 已经在导出格式上避过一次（`export_codec` 那边有同样的注释），这里是第二处。
+  //
+  // 名字对不上说明映射表和代码不同步，必须报错而不是兜底。
+  static final Map<String, SleepCategory> _byName =
+      SleepCategory.values.asNameMap();
 
   /// 解析 JSON。字段缺失或类型不符直接抛 [FormatException]。
   factory SleepClassMap.fromJson(Map<String, dynamic> json) {
@@ -54,7 +53,7 @@ class SleepClassMap {
 
     final indices = <SleepCategory, List<int>>{};
     for (final entry in rawCategories.entries) {
-      final category = _byLabel[entry.key];
+      final category = _byName[entry.key];
       if (category == null) {
         throw FormatException('未知的睡眠大类: ${entry.key}');
       }
@@ -67,7 +66,7 @@ class SleepClassMap {
 
     for (final category in SleepCategory.values) {
       if (!indices.containsKey(category)) {
-        throw FormatException('映射表缺少大类: ${category.label}');
+        throw FormatException('映射表缺少大类: ${category.name}');
       }
     }
 
@@ -112,7 +111,7 @@ class SleepClassMap {
         'model': modelName,
         'num_classes': numClasses,
         'categories': {
-          for (final entry in categoryIndices.entries) entry.key.label: entry.value,
+          for (final entry in categoryIndices.entries) entry.key.name: entry.value,
         },
         'core_snore': snoreIndices,
         'id2label': {

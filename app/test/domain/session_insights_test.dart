@@ -134,9 +134,9 @@ void main() {
         ev(label: SleepCategory.snore, start: 100, duration: 30), // 应落入 30-60
       ]);
 
-      expect(bins.firstWhere((b) => b.label == '<15秒').count, 0);
-      expect(bins.firstWhere((b) => b.label == '15–30秒').count, 1);
-      expect(bins.firstWhere((b) => b.label == '30–60秒').count, 1);
+      expect(bins.firstWhere((b) => b.kind == DurationBinKind.under15s).count, 0);
+      expect(bins.firstWhere((b) => b.kind == DurationBinKind.s15to30).count, 1);
+      expect(bins.firstWhere((b) => b.kind == DurationBinKind.s30to60).count, 1);
     });
 
     test('非鼾声事件不计入', () {

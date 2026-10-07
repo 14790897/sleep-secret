@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/models/sleep_category.dart';
 import '../view_models/diagnostic_view_model.dart';
+import '../../../core/l10n/domain_text.dart';
 
 /// 端侧推理诊断页。
 ///
@@ -180,7 +181,7 @@ class _CategoryBar extends StatelessWidget {
         children: [
           SizedBox(
             width: 64,
-            child: Text(category.label, style: theme.textTheme.bodySmall),
+            child: Text(category.label(context), style: theme.textTheme.bodySmall),
           ),
           Expanded(
             child: ClipRRect(
