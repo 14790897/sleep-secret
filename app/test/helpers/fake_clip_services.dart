@@ -18,6 +18,21 @@ class FakeAudioClipStore implements AudioClipStore {
 
   bool failOnSave = false;
 
+  /// 导入时采用的路径。内存版没有真实文件，只记下调用。
+  final List<({String relativePath, String localPath})> adopted = [];
+  bool failOnAdopt = false;
+
+  @override
+  Future<bool> adopt({
+    required String relativePath,
+    required String localPath,
+  }) async {
+    if (failOnAdopt) return false;
+    adopted.add((relativePath: relativePath, localPath: localPath));
+    saved[relativePath] = Float32List(0);
+    return true;
+  }
+
   @override
   Future<String?> save({
     required DateTime sessionStartedAt,

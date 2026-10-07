@@ -4,6 +4,7 @@ import '../../../../domain/models/recording_session.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/score_gauge.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../archive/views/archive_view.dart';
 import '../../diagnostic/views/diagnostic_view.dart';
 import '../../recording/view_models/recording_view_model.dart';
 import '../../recording/views/recording_view.dart';
@@ -385,6 +386,21 @@ class _AboutView extends StatelessWidget {
                 '身体不适请就医。',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(height: 1.7, color: AppColors.textDim),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.cloud_upload_outlined,
+                    color: AppColors.accent),
+                title: const Text('数据导出'),
+                subtitle: Text('导出到网盘同步目录，换设备可以再导回来',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textDim)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).pushNamed(
+                  ArchiveView.routeName,
+                ),
               ),
             ),
             const SizedBox(height: 12),

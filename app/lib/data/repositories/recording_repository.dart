@@ -25,6 +25,7 @@ class RecordingRepository implements RecordingController {
     AudioClipStore? clipStore,
     AnalysisConfig config = const AnalysisConfig(),
     DateTime Function()? clock,
+    this._autoExport,
   })  : _analyzer = analyzer,
         _clipStore = clipStore,
         _engine = NightAnalysisEngine(
@@ -39,6 +40,12 @@ class RecordingRepository implements RecordingController {
   final SessionDatabase _database;
   final ForegroundServiceController _foregroundService;
   final AudioClipStore? _clipStore;
+
+  /// 一段录音**落库之后**被调用，用来自动导出到用户配的目录。
+  ///
+  /// 用回调而不是直接依赖导出那边：录音不该知道导出是怎么实现的，
+  /// 而且测试里传 null 或一个假回调就行。
+  final Future<void> Function(RecordingSession session)? _autoExport;
   final NightAnalysisEngine _engine;
 
   /// 取当前时间。抽成可注入是为了测试能控制时间流逝。
@@ -199,6 +206,15 @@ class RecordingRepository implements RecordingController {
     final session = _engine.toSession(startedAt, endedAt, outcome);
 
     final id = await _database.insertSession(session);
+    final saved = session.copyWith(id: id);
+
+    // 自动导出。**故意不 await**：搬片段可能要好几秒，让用户点完「结束」
+    // 还得多等一截。进度由导出那边自己报（`ArchiveController.busy`）。
+    // 失败也只记在那边——这次录音已经落库了，不该被导出拖累。
+    final export = _autoExport;
+    if (export != null && saved.isFinished) {
+      unawaited(export(saved));
+    }
 
     _emit(_state.copyWith(
       isRecording: false,

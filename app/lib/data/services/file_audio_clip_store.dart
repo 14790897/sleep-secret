@@ -73,6 +73,23 @@ class FileAudioClipStore implements AudioClipStore {
   }
 
   @override
+  Future<bool> adopt({
+    required String relativePath,
+    required String localPath,
+  }) async {
+    try {
+      final root = await _ensureRoot();
+      final dest = File('${root.path}/$relativePath');
+      await dest.parent.create(recursive: true);
+      await File(localPath).copy(dest.path);
+      return true;
+    } catch (_) {
+      failureCount++;
+      return false;
+    }
+  }
+
+  @override
   Future<String?> resolve(String relativePath) async {
     final root = await _ensureRoot();
     final file = File('${root.path}/$relativePath');
