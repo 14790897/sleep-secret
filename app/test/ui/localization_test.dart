@@ -7,6 +7,7 @@ import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
+import 'package:sleep_secret/ui/features/recording/views/recording_view.dart';
 import 'package:sleep_secret/ui/features/report/views/report_view.dart';
 import 'package:sleep_secret/ui/features/recording/view_models/recording_view_model.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
@@ -207,6 +208,38 @@ void main() {
       final offenders = texts.where((t) => cjk.hasMatch(t)).toList();
       expect(offenders, isEmpty, reason: _cjkReport('报告页', offenders));
     });
+  });
+
+  _recordingPageCheck();
+}
+
+/// 录音页也要查一遍：它是用户打开 App 看到的第一屏，
+/// 而且有「使用说明」那种整段的文案，最容易漏。
+void _recordingPageCheck() {
+  testWidgets('英文渲染下，录音页不该残留任何中文', (tester) async {
+    final vm = RecordingViewModel(controller: FakeRecordingController());
+    addTearDown(vm.dispose);
+
+    tester.view.physicalSize = const Size(900, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(localizedApp(
+      locale: const Locale('en'),
+      home: RecordingView(viewModel: vm),
+    ));
+    await tester.pumpAndSettle();
+
+    final texts = [
+      for (final t in tester.widgetList<Text>(find.byType(Text)))
+        if (t.data != null) t.data!,
+    ];
+    expect(texts, isNotEmpty, reason: '整棵树没有文字，这条断言会假绿');
+
+    final cjk = RegExp('[一-鿿]');
+    expect(texts.where((t) => cjk.hasMatch(t)).toList(), isEmpty,
+        reason: _cjkReport(
+            '录音页', texts.where((t) => cjk.hasMatch(t)).toList()));
   });
 }
 
