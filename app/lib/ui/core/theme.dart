@@ -40,13 +40,13 @@ class AppColors {
 ///
 /// 蜗牛睡眠的时间线同样只用 3 个颜色，是被同一个约束逼出来的。
 ///
-/// 7 个细类靠**柱高**这个独立通道区分（见 [timelineWeight]），
+/// 细类靠**柱高**这个独立通道区分（见 [timelineWeight]），
 /// 精确类别则由事件列表和点击查看给出。
 enum SoundClass {
   /// 鼾声：最需要被看见的。
   snore(Color(0xFFD95926)),
 
-  /// 其他突发声音：咳嗽、梦话、翻身。
+  /// 其他突发声音：咳嗽、喷嚏、梦话、翻身。
   event(Color(0xFF3987E5)),
 
   /// 背景声：呼吸、环境噪音。
@@ -66,10 +66,14 @@ extension SleepCategoryStyle on SleepCategory {
   SoundClass get soundClass => switch (this) {
         SleepCategory.snore => SoundClass.snore,
         SleepCategory.cough ||
+        SleepCategory.sneeze ||
         SleepCategory.vocal ||
         SleepCategory.movement =>
           SoundClass.event,
-        SleepCategory.breathing || SleepCategory.ambient => SoundClass.background,
+        SleepCategory.breathing ||
+        SleepCategory.ambient ||
+        SleepCategory.deviceNoise =>
+          SoundClass.background,
         SleepCategory.silence => SoundClass.background,
       };
 
@@ -85,8 +89,12 @@ extension SleepCategoryStyle on SleepCategory {
         SleepCategory.snore => 1.0,
         SleepCategory.vocal => 0.82,
         SleepCategory.cough => 0.68,
+        SleepCategory.sneeze => 0.62,
         SleepCategory.movement => 0.55,
         SleepCategory.breathing => 0.45,
+        // 和 ambient 同为背景绿色，所以柱高要拉开——不然时间线上分不出
+        // 「风扇开了一夜」和「一般的环境声」。理由同上面注释里 breathing/ambient 那段。
+        SleepCategory.deviceNoise => 0.3,
         SleepCategory.ambient => 0.2,
         SleepCategory.silence => 0.10,
       };

@@ -125,11 +125,11 @@ class NightAnalysisEngine {
 
   /// 已成立且**最终会被保留**的事件。
   ///
-  /// 这里按 [AnalysisConfig.minEventSeconds] 过滤过，和收尾时落库的口径一致。
+  /// 这里按 [AnalysisConfig.keepsEvent] 过滤过，和收尾时落库的口径一致。
   /// 不过滤的话，录音界面会显示"已检出 N 个事件"，而报告里是 0——
   /// 用户看到中途出现的数字最后消失，会认为应用不可靠。
   List<SoundEvent> get events => _accumulator.eventsSoFar
-      .where((e) => e.durationSeconds >= config.minEventSeconds)
+      .where(config.keepsEvent)
       .toList(growable: false);
 
   int get windowsProcessed => _accumulator.windowCount;
@@ -179,10 +179,13 @@ class NightAnalysisEngine {
     if (store == null) return;
     if (!recordClips) return;
 
-    // 只留鼾声，且只留够长、会被保留成事件的段。
-    // 梦话和咳嗽也录的话，隐私含义不一样，先不做。
-    if (!event.isSnore) return;
-    if (event.durationSeconds < config.minEventSeconds) return;
+    // 只留鼾声和高危信号。梦话和咳嗽也录的话，隐私含义不一样，先不做。
+    //
+    // 高危信号必须留：用户要的就是把那几声倒吸气/喷鼻息翻出来听。
+    // 它们靠 [AnalysisConfig.keepsEvent] 豁免最短时长，不然一两秒的声音
+    // 连事件都成立不了，更别提片段。
+    if (!event.isSnore && !event.isSignal) return;
+    if (!config.keepsEvent(event)) return;
 
     final range = config.clipRangeFor(event.startSeconds, event.endSeconds);
     final startSample = (range.start * config.sampleRate).round();
@@ -289,6 +292,10 @@ class NightAnalysisEngine {
         categories: prediction.probabilities,
         wasInferred: true,
         rms: rms,
+        // 原始标签只留在统计里，不参与建事件——大类才是事件的身份，
+        // 换掉它会让同一段声音在时间线上换颜色。
+        rawLabel:
+            prediction.topLabels.isEmpty ? null : prediction.topLabels.first.label,
       ));
     } catch (_) {
       // 单窗口推理失败不断掉整夜录音，记数继续。

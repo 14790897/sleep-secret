@@ -80,7 +80,10 @@ class _ResultView extends StatelessWidget {
           child: ListTile(
             leading: const Icon(Icons.memory),
             title: Text(context.l10n.diagModel(viewModel.modelName)),
-            subtitle: Text(context.l10n.diagClassMapping(viewModel.classCount)),
+            subtitle: Text(context.l10n.diagClassMapping(
+              viewModel.classCount,
+              SleepCategory.values.length,
+            )),
           ),
         ),
         const SizedBox(height: 8),
@@ -144,7 +147,7 @@ class _ClipCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(context.l10n.diagSevenCategories, style: theme.textTheme.labelLarge),
+            Text(context.l10n.diagCategories, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             for (final category in SleepCategory.values)
               _CategoryBar(

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sleep_secret/data/services/session_database.dart';
+import 'package:sleep_secret/domain/analysis/apnea_signals.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
@@ -51,6 +52,24 @@ CREATE TABLE events (
   snore_probability REAL NOT NULL,
   window_count INTEGER NOT NULL,
   clip_path TEXT,
+  FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
+)''';
+
+/// v3 的建表语句：v2 加上电平列、加上设置表。
+///
+/// 同样**不**从生产代码引用——迁移测试要构造的是"老用户手里那个库"。
+const String _v3Events = '''
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  label TEXT NOT NULL,
+  start_seconds REAL NOT NULL,
+  duration_seconds REAL NOT NULL,
+  confidence REAL NOT NULL,
+  snore_probability REAL NOT NULL,
+  window_count INTEGER NOT NULL,
+  clip_path TEXT,
+  peak_rms REAL,
   FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
 )''';
 
@@ -153,6 +172,138 @@ void main() {
     await db.close();
   }
 
+  /// 造一个 v3 的库：有片段、有电平，但**还没有高危信号**。
+  Future<void> createV3Database() async {
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: 3,
+        onCreate: (db, _) async {
+          await db.execute(_v1Sessions);
+          await db.execute(_v3Events);
+          await db.execute(
+            'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+          );
+        },
+      ),
+    );
+    await db.insert('sessions', {
+      'started_at': DateTime(2026, 10, 6, 23).millisecondsSinceEpoch,
+      'ended_at': DateTime(2026, 10, 7, 7).millisecondsSinceEpoch,
+      'analyzed_seconds': 28800.0,
+      'windows_total': 9600,
+      'windows_inferred': 9600,
+      'windows_vad_skipped': 0,
+      'windows_low_confidence': 0,
+      'event_count': 1,
+      'snore_event_count': 1,
+      'snore_seconds': 240.0,
+    });
+    await db.insert('events', {
+      'session_id': 1,
+      'label': 'snore',
+      'start_seconds': 3600.0,
+      'duration_seconds': 240.0,
+      'confidence': 0.82,
+      'snore_probability': 0.77,
+      'window_count': 80,
+      'clip_path': '1791278973396/3600000.wav',
+      'peak_rms': 0.42,
+    });
+    await db.close();
+  }
+
+  group('v3 -> v4 迁移（加高危信号）', () {
+    test('老库能打开，事件一条不丢，片段和电平都还在', () async {
+      await createV3Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final full = await db.loadSession((await db.listSessions()).single.id!);
+
+      expect(full!.events, hasLength(1));
+      expect(full.events.single.clipPath, '1791278973396/3600000.wav');
+      expect(full.events.single.peakRms, closeTo(0.42, 1e-9));
+      expect(full.events.single.signal, isNull, reason: 'v3 不收集信号');
+    });
+
+    test('老记录读出来是「没查过」，不是「一个都没有」', () async {
+      // ⚠️ 这条是重点。两种状态在界面上长得一模一样，含义却正相反：
+      // 一个是「查了，没有」，一个是「根本没查」。读错的话，用户会拿一份
+      // 空数据的旧报告当作「我一切正常」的证据——那正是这个应用最不该做的事。
+      await createV3Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final full = await db.loadSession((await db.listSessions()).single.id!);
+
+      expect(full!.stats.signalsCollected, isFalse);
+      expect(analyzeApneaSignals(full).collected, isFalse);
+    });
+
+    test('迁移后新写入的信号事件能带 signal', () async {
+      await createV3Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      await db.insertSession(RecordingSession(
+        id: null,
+        startedAt: DateTime(2026, 10, 7, 23),
+        endedAt: DateTime(2026, 10, 8, 7),
+        events: const [
+          SoundEvent(
+            label: SleepCategory.breathing,
+            startSeconds: 100,
+            durationSeconds: 3,
+            confidence: 0.9,
+            snoreProbability: 0.1,
+            windowCount: 1,
+            signal: 'Gasp',
+          ),
+        ],
+        stats: const SessionStats(
+          analyzedSeconds: 28800,
+          windowsTotal: 9600,
+          windowsInferred: 9600,
+          windowsVadSkipped: 0,
+          windowsLowConfidence: 0,
+          eventCount: 1,
+          snoreEventCount: 0,
+          snoreSeconds: 0,
+          categoryDistribution: {},
+          signalsCollected: true,
+        ),
+      ));
+
+      // 按开始时间倒序，刚写进去的那条在最前面
+      final full = await db.loadSession((await db.listSessions()).first.id!);
+
+      expect(full!.events.single.signal, 'Gasp',
+          reason: '新列要真的落盘，不能只是建了列没写');
+      expect(full.stats.signalsCollected, isTrue);
+    });
+
+    test('v1 的老库能一路升到 v4（三步迁移连着跑）', () async {
+      await createV1Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final full = await db.loadSession((await db.listSessions()).single.id!);
+
+      expect(full!.events, hasLength(2), reason: '三步迁移之后事件都该在');
+      for (final e in full.events) {
+        expect(e.clipPath, isNull, reason: 'v1 没有片段');
+        expect(e.peakRms, isNull, reason: 'v1 也没有电平');
+        expect(e.signal, isNull, reason: 'v1 更没有信号');
+      }
+      expect(full.stats.signalsCollected, isFalse);
+    });
+  });
+
   group('v2 -> v3 迁移（加电平列）', () {
     test('老库能打开，事件一条不丢，片段路径还在', () async {
       await createV2Database();
@@ -220,7 +371,7 @@ void main() {
       await db.close();
     });
 
-    test('v1 的老库能一路升到 v3（两步迁移连着跑）', () async {
+    test('v1 的老库能一路升到 v4（三步迁移连着跑）', () async {
       // 这是最容易断的一条：真实用户可能跳过好几个版本。
       // 每步迁移只处理自己那一段，连着跑不能互相踩。
       await createV1Database();

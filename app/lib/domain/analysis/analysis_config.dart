@@ -3,6 +3,10 @@
 /// 默认值与 PC 端参考实现 `ml/infer.py` 的 `analyze_session` 保持一致，
 /// 这样两端的行为可以互相印证。用真实录音核对检出率时，主要调
 /// [vadRms] 这个门限和 [lowConfidenceThreshold] 这条参考线。
+library;
+
+import '../models/sound_event.dart';
+
 class AnalysisConfig {
   const AnalysisConfig({
     this.sampleRate = 16000,
@@ -131,6 +135,14 @@ class AnalysisConfig {
   final double mergeGapSeconds;
 
   // ---------------------------------------------------------------- 音频片段
+
+  /// 这个事件会不会被保留到报告里。
+  ///
+  /// 高危信号（倒吸气、喷鼻息…）**豁免** [minEventSeconds]：一声倒吸气只有
+  /// 一两秒，按普通事件走会被当碎片丢掉——而它恰恰是这份报告里最该留下的
+  /// 东西，丢掉的同时连回放也没了。见 [SoundEvent.signal]。
+  bool keepsEvent(SoundEvent e) =>
+      e.isSignal || e.durationSeconds >= minEventSeconds;
 
   /// 是否为事件保存音频片段。
   ///

@@ -10,16 +10,36 @@ MODELS = pathlib.Path(__file__).resolve().parent.parent / "models"
 
 # 标签名必须与 AudioSet id2label 完全一致（注意逗号后的完整描述）
 SLEEP_MAP = {
-    "snore":     ["Snoring", "Snort"],
-    "breathing":   ["Breathing", "Wheeze", "Gasp", "Sigh"],
-    "cough": ["Cough", "Throat clearing", "Sneeze", "Sniff"],
+    # Sniff 放这儿而不是咳嗽组：吸鼻子和喷鼻息（Snort）一样是**吸气相**的气道声，
+    # 鼻塞越重吸得越用力。放在一起，「这一夜鼻子不通」才看得出来。
+    "snore":     ["Snoring", "Snort", "Sniff"],
+    "breathing":   ["Breathing", "Wheeze", "Gasp", "Sigh",
+                    "Pant"],
+    "cough": ["Cough", "Throat clearing"],
+    # 喷嚏单独一类：它是爆发性的鼻腔冲气，和咳嗽（喉部）声学上不是一回事，
+    # 而且夜间喷嚏往往意味着过敏，和咳嗽指向的原因不同。
+    "sneeze": ["Sneeze"],
     "vocal": ["Speech", "Male speech, man speaking", "Female speech, woman speaking",
                  "Child speech, kid speaking", "Whispering", "Laughter", "Crying, sobbing",
-                 "Groan"],
-    "movement": ["Rustle", "Rustling leaves", "Tap", "Clicking"],
+                 "Groan", "Wail, moan", "Babbling", "Grunt",
+                 "Baby cry, infant cry"],
+    "movement": ["Rustle", "Rustling leaves", "Tap", "Clicking",
+                 "Thump, thud"],
     "ambient": ["Noise", "Environmental noise", "White noise",
-                 "Traffic noise, roadway noise", "Wind", "Rain", "Door", "Music"],
+                 "Traffic noise, roadway noise", "Wind", "Rain", "Door", "Music",
+                 "Purr"],
+    # 这几个是 2026-10-07 逐行读完整张表补的。原来只用正则挑，
+    # 漏掉了「moan」「babbling」这类名字里不带关键词但明显相关的。
     "silence":     ["Silence"],
+    # 机器声和麦克风自身的噪声。**单独分出来是因为它们是打鼾检测最大的误报源**——
+    # 风扇和空调的低频嗡鸣在频谱上极像鼾声。分出来之后界面才能说
+    # 「那是风扇，不是鼾声」，而不是笼统地叫「环境噪音」。
+    #
+    # 「Wind noise (microphone)」不是机器，是手机麦克风被被子/呼吸吹到，
+    # 但它同样表现为持续的低频噪声，归到一类里最好用。
+    "deviceNoise": ["Wind noise (microphone)", "Mechanical fan", "Air conditioning",
+                    "Vacuum cleaner", "Hair dryer", "Electric shaver, electric razor",
+                    "Whir", "Hum", "Mains hum"],
 }
 
 # 判定"这是鼾声事件"时使用的核心类别（用于鼾声指数）

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:sleep_secret/data/repositories/sleep_analysis_repository.dart';
 import 'package:sleep_secret/data/services/onnx_classifier_service.dart';
+import 'package:sleep_secret/domain/models/sleep_category.dart';
 
 /// 端到端验证：Flutter 端跑 ONNX 推理，结果必须与 PC 端（ml/make_testdata.py）一致。
 ///
@@ -44,12 +45,22 @@ void main() {
     final prediction = await repository.classifyAsset('assets/testdata/quiet.wav');
 
     expect(prediction.logits.length, 527);
-    expect(prediction.probabilities.length, 7);
-    // softmax 后 7 大类概率之和应为 1（各类别划分覆盖部分标签，
-    // 这里只检查落在合理区间内，不做严格等于 1 的断言）
-    final total = prediction.probabilities.values.reduce((a, b) => a + b);
-    expect(total, greaterThan(0.0));
-    expect(total, lessThanOrEqualTo(1.0 + 1e-6));
+    // 大类数量按枚举走，不写死数字——不然每加一个大类这条就得跟着改。
+    expect(prediction.probabilities.length, SleepCategory.values.length);
+
+    // ⚠️ **大类得分之间没有「和为 1」的关系**，别在这里断言 Σ≤1。
+    //
+    // 模型的输出是 527 维 **sigmoid**（多标签），每个大类取组内最大值，
+    // 所以几个大类同时很高是正常的——真实鼾声样本上就有 3 个标签 >0.5。
+    // 原来这里写着「softmax 后之和应为 1」，在安静样本上碰巧过得了，
+    // 换成有内容的音频就会红，而那是**测试写错了**，不是模型错了。
+    for (final entry in prediction.probabilities.entries) {
+      expect(
+        entry.value,
+        inInclusiveRange(0.0, 1.0),
+        reason: '${entry.key.name} 的概率必须落在 [0,1]',
+      );
+    }
     expect(prediction.topLabels.length, 5);
   });
 

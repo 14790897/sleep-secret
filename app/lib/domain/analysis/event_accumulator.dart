@@ -2,6 +2,7 @@ import '../models/recording_session.dart';
 import '../models/sleep_category.dart';
 import '../models/sound_event.dart';
 import 'analysis_config.dart';
+import 'apnea_signals.dart';
 
 /// 一个窗口经过两道闸门后的观察结果。
 class WindowObservation {
@@ -14,6 +15,7 @@ class WindowObservation {
     required this.categories,
     required this.wasInferred,
     this.rms,
+    this.rawLabel,
   });
 
   final double startSeconds;
@@ -34,6 +36,14 @@ class WindowObservation {
 
   /// 是否真的送进了模型（false = 被能量门控跳过）。
   final bool wasInferred;
+
+  /// 这一窗**得票最高的 AudioSet 原始标签名**（如 `Gasp`、`Wheeze`）。
+  ///
+  /// 大类会把它盖掉：倒吸气、哮鸣、急促呼吸都归在「呼吸」里。要按整夜统计
+  /// 「模型到底听见过几次倒吸气」，就得在类别之外单独留着它。
+  ///
+  /// 被门控跳过的窗口没有这一项。
+  final String? rawLabel;
 
   double get endSeconds => startSeconds + durationSeconds;
 }
@@ -95,35 +105,52 @@ class EventAccumulator {
     }
 
     // 与上一个事件同类、且间隔不超过 mergeGap 就并进去；否则新开一个。
-    if (_events.isNotEmpty && _events.last.label == label) {
-      final last = _events.last;
-      if (obs.startSeconds - last.endSeconds <= config.mergeGapSeconds) {
-        _events[_events.length - 1] = last.mergedWith(SoundEvent(
-          label: label,
-          startSeconds: obs.startSeconds,
-          durationSeconds: obs.durationSeconds,
-          confidence: obs.confidence,
-          snoreProbability: obs.snoreProbability,
-          windowCount: 1,
-          peakRms: obs.rms,
-        ));
-        return;
-      }
+    //
+    // 「同类」现在包含 `signal`：高危信号只能和**同名**信号合并。一声倒吸气
+    // 夹在一段呼吸中间时，它必须自己成事件——并进那段呼吸里，它的音频就永远
+    // 存不下来了（片段是挂在事件上的）。理由见 [SoundEvent.signal]。
+    final signal = _signalOf(obs);
+    final previous = _events.isEmpty ? null : _events.last;
+
+    if (previous != null &&
+        previous.label == label &&
+        previous.signal == signal &&
+        obs.startSeconds - previous.endSeconds <= config.mergeGapSeconds) {
+      _events[_events.length - 1] =
+          previous.mergedWith(_eventOf(obs, label, signal));
+      return;
     }
 
     // 能走到这里，说明上一个事件不会再长大了——它已经定案。
     _closeLast();
 
-    _events.add(SoundEvent(
-      label: label,
-      startSeconds: obs.startSeconds,
-      durationSeconds: obs.durationSeconds,
-      confidence: obs.confidence,
-      snoreProbability: obs.snoreProbability,
-      windowCount: 1,
-      peakRms: obs.rms,
-    ));
+    _events.add(_eventOf(obs, label, signal));
   }
+
+  /// 这一窗算不算高危信号；不是则为 null。
+  ///
+  /// **要求模型够有把握才认。** 原始标签是在 527 个里取冠军，一个安静的窗口
+  /// 也可能歪打正着地让「Gasp」拿到第一。门槛直接用项目里已有的那条
+  /// 「把握不大」参考线 [AnalysisConfig.lowConfidenceThreshold]，不另立一个数——
+  /// 多一个数就多一处将来没人想得起来为什么是它的地方。
+  String? _signalOf(WindowObservation obs) {
+    if (!obs.wasInferred) return null;
+    if (!isApneaSignalLabel(obs.rawLabel)) return null;
+    if (obs.confidence < config.lowConfidenceThreshold) return null;
+    return obs.rawLabel;
+  }
+
+  SoundEvent _eventOf(WindowObservation obs, SleepCategory label, String? signal) =>
+      SoundEvent(
+        label: label,
+        startSeconds: obs.startSeconds,
+        durationSeconds: obs.durationSeconds,
+        confidence: obs.confidence,
+        snoreProbability: obs.snoreProbability,
+        windowCount: 1,
+        peakRms: obs.rms,
+        signal: signal,
+      );
 
   /// 距离上个事件已经超过 [AnalysisConfig.mergeGapSeconds] 没声音了，
   /// 那就把它定案——**越早定案，片段越可能还在环形缓冲里**。
@@ -155,9 +182,7 @@ class EventAccumulator {
     // 最后一个事件也要定案，否则它的片段不会被写出来。
     _closeLast();
 
-    final kept = _events
-        .where((e) => e.durationSeconds >= config.minEventSeconds)
-        .toList(growable: false);
+    final kept = _events.where(config.keepsEvent).toList(growable: false);
 
     final inferred =
         _observations.where((o) => o.wasInferred).toList(growable: false);
@@ -200,6 +225,7 @@ class EventAccumulator {
         snoreEventCount: snoreEvents.length,
         snoreSeconds: snoreSeconds,
         categoryDistribution: distribution,
+        signalsCollected: true,
       ),
     );
   }

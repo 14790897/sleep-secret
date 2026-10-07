@@ -104,7 +104,7 @@ void main() {
       expect(events.map((e) => e.startSeconds), [1200, 5000, 9000]);
     });
 
-    test('全部 7 个类别都能往返', () async {
+    test('全部类别都能往返', () async {
       final events = [
         for (final category in SleepCategory.values)
           SoundEvent(

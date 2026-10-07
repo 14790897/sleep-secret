@@ -14,7 +14,7 @@ import '../l10n/l10n_context.dart';
 /// 静音不画柱子，只在底部留一层底纹——它是背景，不是事件。
 ///
 /// 颜色只有 3 类（见 [SoundClass] 的说明，这是 CVD 验证器的硬约束），
-/// 7 个细类靠柱高区分；精确类别由点按提示和下方事件列表给出。
+/// 细类靠柱高区分；精确类别由点按提示和下方事件列表给出。
 class SoundTimeline extends StatefulWidget {
   const SoundTimeline({
     super.key,

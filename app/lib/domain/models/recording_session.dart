@@ -13,6 +13,7 @@ class SessionStats {
     required this.snoreEventCount,
     required this.snoreSeconds,
     required this.categoryDistribution,
+    this.signalsCollected = false,
   });
 
   const SessionStats.empty()
@@ -24,7 +25,8 @@ class SessionStats {
         eventCount = 0,
         snoreEventCount = 0,
         snoreSeconds = 0,
-        categoryDistribution = const {};
+        categoryDistribution = const {},
+        signalsCollected = false;
 
   /// 已分析的音频总时长。
   final double analyzedSeconds;
@@ -47,6 +49,13 @@ class SessionStats {
   /// 平均类别分布（仅统计实际推理的窗口）。
   final Map<SleepCategory, double> categoryDistribution;
 
+  /// 这次分析有没有收集**高危信号**（见 `domain/analysis/apnea_signals.dart`）。
+  ///
+  /// 新录音恒为 true——引擎一直在收。它存在的唯一理由是**老记录读回来是
+  /// false**：那时的事件里 `signal` 全是 null，而「没数据」和「一个都没认出来」
+  /// 在界面上必须分得开，否则用户会拿一份空数据的旧报告当作「我一切正常」。
+  final bool signalsCollected;
+
   /// 实际推理比例。这个数直接决定耗电与耗时。
   double get inferenceRatio =>
       windowsTotal == 0 ? 0.0 : windowsInferred / windowsTotal;
@@ -65,6 +74,7 @@ class SessionStats {
     int? snoreEventCount,
     double? snoreSeconds,
     Map<SleepCategory, double>? categoryDistribution,
+    bool? signalsCollected,
   }) =>
       SessionStats(
         analyzedSeconds: analyzedSeconds ?? this.analyzedSeconds,
@@ -76,6 +86,7 @@ class SessionStats {
         snoreEventCount: snoreEventCount ?? this.snoreEventCount,
         snoreSeconds: snoreSeconds ?? this.snoreSeconds,
         categoryDistribution: categoryDistribution ?? this.categoryDistribution,
+        signalsCollected: signalsCollected ?? this.signalsCollected,
       );
 }
 

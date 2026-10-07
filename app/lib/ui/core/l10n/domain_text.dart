@@ -18,11 +18,13 @@ library;
 
 import 'package:flutter/widgets.dart';
 
+import '../../../domain/analysis/apnea_signals.dart';
 import '../../../domain/analysis/recording_diagnosis.dart';
 import '../../../domain/analysis/sleep_score.dart';
 import '../../../domain/analysis/session_insights.dart';
 import '../../../domain/models/recording_state.dart';
 import '../../../domain/models/sleep_category.dart';
+import '../../../domain/models/sound_event.dart';
 import '../theme.dart';
 import 'l10n_context.dart';
 
@@ -34,9 +36,11 @@ extension SleepCategoryText on SleepCategory {
         SleepCategory.snore => context.l10n.categorySnore,
         SleepCategory.breathing => context.l10n.categoryBreathing,
         SleepCategory.cough => context.l10n.categoryCough,
+        SleepCategory.sneeze => context.l10n.categorySneeze,
         SleepCategory.vocal => context.l10n.categoryVocal,
         SleepCategory.movement => context.l10n.categoryMovement,
         SleepCategory.ambient => context.l10n.categoryAmbient,
+        SleepCategory.deviceNoise => context.l10n.categoryDeviceNoise,
         SleepCategory.silence => context.l10n.categorySilence,
       };
 }
@@ -67,6 +71,57 @@ extension DiagnosisText on Diagnosis {
         DiagnosisKind.snoreRatioHigh => context.l10n.diagnosisSnoreRatioDetail,
         DiagnosisKind.noEvents => context.l10n.diagnosisNoEventsDetail,
       };
+}
+
+// ---------------------------------------------------------------- 高危信号
+
+/// AudioSet 的高危信号标签名 → 界面上显示的名字。
+///
+/// **键必须和 [kApneaSignalLabels] 里的字符串一字不差**，那边写错一个字母，
+/// 这里会静默走到兜底分支；`test/domain/apnea_signals_test.dart` 会拦住。
+String apneaSignalName(BuildContext context, String rawLabel) =>
+    switch (rawLabel) {
+      'Gasp' => context.l10n.signalGasp,
+      'Snort' => context.l10n.signalSnort,
+      'Wheeze' => context.l10n.signalWheeze,
+      'Pant' => context.l10n.signalPant,
+      'Sniff' => context.l10n.signalSniff,
+      // 认不出的名字直接显示原文。它不该发生，但真发生了也不能显示成空白——
+      // 「认出来了却没名字」比一个英文标签名更让人困惑。
+      _ => rawLabel,
+    };
+
+extension SoundEventText on SoundEvent {
+  /// 这一行该显示的名字。
+  ///
+  /// **高危信号优先于大类**：用户想知道的正是「具体是哪种声音」，
+  /// 「倒吸气」比「呼吸」有用得多。没有信号时才回落到大类名。
+  String displayName(BuildContext context) =>
+      signal == null ? label.label(context) : apneaSignalName(context, signal!);
+}
+
+extension ApneaSignalSummaryText on ApneaSignalSummary {
+  /// 一样都没认出来时那句话。
+  ///
+  /// **必须把「在盯着哪几样」列出来**，否则「这几样」指的是什么就成了谜——
+  /// 而用户会拿这份没写清楚的东西当作「查过了，没问题」。
+  String emptyNote(BuildContext context) => context.l10n.reportSignalsNone(
+        kApneaSignalLabels
+            .map((l) => apneaSignalName(context, l))
+            .join('、'),
+      );
+
+  /// 这一晚根本没收集这类数据（升级前的记录）。
+  ///
+  /// 和 [emptyNote] 是**两件事**，措辞必须分开：一个是「查过了没有」，
+  /// 一个是「没查」。
+  String notCollectedNote(BuildContext context) =>
+      context.l10n.reportSignalsNotCollected;
+
+  String countNote(BuildContext context) =>
+      context.l10n.reportSignalsCount(totalCount);
+
+  String caveat(BuildContext context) => context.l10n.reportSignalsCaveat;
 }
 
 // -------------------------------------------------------------- 睡眠声音评分

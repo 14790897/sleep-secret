@@ -22,6 +22,7 @@ SoundEvent event({
   double snore = 0.0,
   String? clipPath,
   double? peakRms,
+  String? signal,
 }) =>
     SoundEvent(
       label: label,
@@ -32,6 +33,7 @@ SoundEvent event({
       windowCount: (duration / 3).round(),
       clipPath: clipPath,
       peakRms: peakRms,
+      signal: signal,
     );
 
 RecordingSession buildSession({
@@ -605,6 +607,147 @@ void main() {
 
       expect(find.textContaining('鼾声占比异常高'), findsOneWidget);
       expect(find.textContaining('风扇'), findsWidgets);
+    });
+  });
+
+
+  group('疑似呼吸暂停的信号卡', () {
+    /// 造一晚：普通鼾声 + 指定的几个高危信号。
+    RecordingSession signalsSession(
+      List<({String signal, double start})> signals, {
+      bool collected = true,
+    }) {
+      // 片段要真的"存在"于假存储里，否则 resolve 返回 null，播放键点了没反应
+      clipStore.saved['sess/3600000.wav'] = Float32List(10);
+      for (final s in signals) {
+        clipStore.saved['sess/${s.start.round()}000.wav'] = Float32List(10);
+      }
+      return buildSession(
+          events: [
+            event(
+              label: SleepCategory.snore,
+              start: 3600,
+              duration: 180,
+              snore: 0.8,
+              clipPath: 'sess/3600000.wav',
+            ),
+            for (final s in signals)
+              event(
+                label: SleepCategory.breathing,
+                start: s.start,
+                duration: 3,
+                confidence: 0.9,
+                signal: s.signal,
+                clipPath: 'sess/${s.start.round()}000.wav',
+              ),
+          ],
+          stats: SessionStats(
+            analyzedSeconds: 28800,
+            windowsTotal: 9600,
+            windowsInferred: 9600,
+            windowsVadSkipped: 0,
+            windowsLowConfidence: 0,
+            eventCount: 1 + signals.length,
+            snoreEventCount: 1,
+            snoreSeconds: 180,
+            categoryDistribution: const {},
+            signalsCollected: collected,
+          ),
+        );
+    }
+
+    testWidgets('认出来了就一条一条列出来，名字写的是具体那一声', (tester) async {
+      await pumpReport(tester, signalsSession([
+        (signal: 'Gasp', start: 1000),
+        (signal: 'Gasp', start: 2000),
+        (signal: 'Wheeze', start: 3000),
+      ]));
+
+      final card = ReportKeys.apneaSignals;
+      expect(inCard(card, find.text('疑似呼吸暂停的信号')), findsOneWidget);
+      expect(inCard(card, find.textContaining('整夜共 3 次')), findsOneWidget);
+      // 显示的是「倒吸气」「哮鸣」，不是大类名「呼吸声」
+      expect(inCard(card, find.text('倒吸气')), findsNWidgets(2));
+      expect(inCard(card, find.text('哮鸣')), findsOneWidget);
+      expect(inCard(card, find.text('呼吸声')), findsNothing);
+    });
+
+    testWidgets('每一条都有播放键', (tester) async {
+      await pumpReport(tester, signalsSession([
+        (signal: 'Gasp', start: 1000),
+        (signal: 'Snort', start: 2000),
+      ]));
+
+      // 信号事件的第 1、2 条（第 0 条是默认的鼾声）
+      expect(find.byKey(ReportKeys.signalRow(1)), findsOneWidget);
+      expect(find.byKey(ReportKeys.signalRow(2)), findsOneWidget);
+
+      final play = find.descendant(
+        of: find.byKey(ReportKeys.signalRow(1)),
+        matching: find.byIcon(Icons.play_circle_outline),
+      );
+      expect(play, findsOneWidget);
+
+      await tester.tap(play);
+      await tester.pumpAndSettle();
+      // 点下去真的要放那一段——而且放的是**这一条**的那一段
+      expect(player.playCount, 1);
+      expect(player.currentPath, '/fake/clips/sess/1000000.wav');
+    });
+
+    testWidgets('一条都没认出来时，说清楚在盯着哪几样', (tester) async {
+      await pumpReport(tester, signalsSession(const []));
+
+      final card = ReportKeys.apneaSignals;
+      expect(inCard(card, find.textContaining('整夜没有认出')), findsOneWidget);
+      // 「这几样」必须写明白，否则用户拿这份东西当「查过了，没问题」
+      expect(inCard(card, find.textContaining('倒吸气、喷鼻息、哮鸣、急促呼吸、吸鼻子')),
+          findsOneWidget);
+    });
+
+    testWidgets('老记录说「没收集」，不说「没有」', (tester) async {
+      await pumpReport(tester, signalsSession(const [], collected: false));
+
+      final card = ReportKeys.apneaSignals;
+      expect(inCard(card, find.textContaining('没有收集这类信号')), findsOneWidget);
+      expect(inCard(card, find.textContaining('整夜没有认出')), findsNothing,
+          reason: '没查过就不能说查了没有');
+    });
+
+    testWidgets('信号事件不进「鼾声录音」卡——那张卡说的不是这件事', (tester) async {
+      await pumpReport(tester, signalsSession([
+        (signal: 'Gasp', start: 1000),
+      ]));
+
+      // 鼾声那一张仍然只有默认的那一段鼾声
+      expect(find.byKey(ReportKeys.clipRow(0)), findsOneWidget);
+      final snoreCard = find.byKey(ReportKeys.snoreClips);
+      expect(
+        find.descendant(of: snoreCard, matching: find.text('倒吸气')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('没有分析的记录不出这张卡', (tester) async {
+      await pumpReport(
+        tester,
+        buildSession(
+          events: const [],
+          stats: const SessionStats(
+            analyzedSeconds: 0,
+            windowsTotal: 0,
+            windowsInferred: 0,
+            windowsVadSkipped: 0,
+            windowsLowConfidence: 0,
+            eventCount: 0,
+            snoreEventCount: 0,
+            snoreSeconds: 0,
+            categoryDistribution: {},
+          ),
+        ),
+      );
+
+      expect(find.text('疑似呼吸暂停的信号'), findsNothing);
     });
   });
 

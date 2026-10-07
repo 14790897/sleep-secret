@@ -82,6 +82,7 @@ Map<String, Object?> _encodeStats(SessionStats stats) => {
       'eventCount': stats.eventCount,
       'snoreEventCount': stats.snoreEventCount,
       'snoreSeconds': stats.snoreSeconds,
+      'signalsCollected': stats.signalsCollected,
       // 这一项**数据库里不存**（读回来恒为空表），导出带上是为了让 JSON
       // 本身是一份完整的数据快照；导入时读不出来，会退回空表。
       'categoryDistribution': {
@@ -100,6 +101,12 @@ Map<String, Object?> _encodeEvent(SoundEvent e) => {
       'clipPath': e.clipPath,
       // 存原始 RMS 不存分贝——参考值是个假设，改它不该让历史文件读不出来
       'peakRms': e.peakRms,
+      // 高危信号事件的原始 AudioSet 标签名；普通事件为 null。
+      //
+      // ⚠️ 加这个字段**不用**动 [kArchiveFormat]：它是可选字段，两个方向都安全
+      // ——新版本读旧文件得到 null（= 没记，不是"没有"），旧版本读新文件会
+      // 按名字取键，多出来的键直接忽略。版本号是为**读不了**的变化留的。
+      'signal': e.signal,
     };
 
 List<SoundEvent> _decodeEvents(Object? raw) {
@@ -118,6 +125,8 @@ List<SoundEvent> _decodeEvents(Object? raw) {
           clipPath: item['clipPath'] as String?,
           // 老文件里没有这一项，读出来是 null——那是没记，不是 0
           peakRms: (item['peakRms'] as num?)?.toDouble(),
+          // 同上，老文件没有高危信号这一项
+          signal: item['signal'] as String?,
         ),
   ];
 }
@@ -136,6 +145,8 @@ SessionStats _decodeStats(Object? raw) {
     snoreEventCount: _int(raw['snoreEventCount'], 'snoreEventCount'),
     snoreSeconds: _double(raw['snoreSeconds'], 'snoreSeconds'),
     categoryDistribution: const {},
+    // 老文件没有这一项，读成 false——同数据库那边：没收集 ≠ 没有
+    signalsCollected: raw['signalsCollected'] == true,
   );
 }
 

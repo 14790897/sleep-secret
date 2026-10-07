@@ -11,7 +11,7 @@ class SleepPrediction {
     required this.topLabels,
   });
 
-  /// 7 大类概率，键为类别，值为该类下所有 AudioSet 标签概率之和。
+  /// 各类别概率，键为类别，值为该类下所有 AudioSet 标签概率之和。
   final Map<SleepCategory, double> probabilities;
 
   /// 原始 527 维 logits，用于跨端数值校验。

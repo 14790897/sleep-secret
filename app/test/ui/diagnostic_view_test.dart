@@ -117,10 +117,10 @@ void main() {
 
     expect(find.text('端侧推理诊断'), findsOneWidget);
     expect(find.text('加载模型并运行'), findsOneWidget);
-    expect(find.textContaining('7 大类概率'), findsNothing);
+    expect(find.textContaining('大类概率'), findsNothing);
   });
 
-  testWidgets('点击后完成推理，展示 7 大类与模型信息', (tester) async {
+  testWidgets('点击后完成推理，展示大类与模型信息', (tester) async {
     final vm = buildVm();
     await tester.pumpWidget(wrap(vm));
 

@@ -10,6 +10,7 @@ WindowObservation obs({
   double confidence = 0.8,
   double snore = 0.0,
   bool inferred = true,
+  String? rawLabel,
 }) =>
     WindowObservation(
       startSeconds: start,
@@ -22,9 +23,135 @@ WindowObservation obs({
           c: c == label ? confidence : 0.0,
       },
       wasInferred: inferred,
+      rawLabel: rawLabel,
     );
 
 void main() {
+
+  group('高危信号单独成事件', () {
+    // 这些用例守的是一条产品要求：**认出来的高危信号必须能回放**。
+    // 片段是挂在事件上的，所以信号一旦被并进旁边那段呼吸里，
+    // 它的音频就永远存不下来——这比漏报还糟，因为界面上看起来一切正常。
+
+    test('正常呼吸中间夹一个信号窗口，信号自己成事件', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing));
+      acc.add(obs(start: 3, label: SleepCategory.breathing));
+      acc.add(obs(start: 6, label: SleepCategory.breathing, rawLabel: 'Gasp'));
+      acc.add(obs(start: 9, label: SleepCategory.breathing));
+      acc.add(obs(start: 12, label: SleepCategory.breathing));
+
+      final events = acc.build().events;
+
+      expect(events.map((e) => e.signal), [null, 'Gasp', null]);
+      expect(events.map((e) => e.label),
+          everyElement(SleepCategory.breathing),
+          reason: '大类不变——信号是在大类之外的第二个维度');
+    });
+
+    test('相邻的同名信号窗口合并成一个', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Gasp'));
+      acc.add(obs(start: 3, label: SleepCategory.breathing, rawLabel: 'Gasp'));
+
+      final events = acc.build().events;
+
+      expect(events, hasLength(1));
+      expect(events.single.signal, 'Gasp');
+      expect(events.single.durationSeconds, 6);
+      expect(events.single.windowCount, 2);
+    });
+
+    test('不同的信号不会互相合并', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Gasp'));
+      acc.add(obs(start: 3, label: SleepCategory.breathing, rawLabel: 'Wheeze'));
+
+      expect(acc.build().events.map((e) => e.signal), ['Gasp', 'Wheeze']);
+    });
+
+    test('一声 3 秒的倒吸气能留下——它豁免最短时长', () {
+      // 这是整条链里最关键的一条：minEventSeconds 默认 6 秒，
+      // 而一声倒吸气只有一个窗口（3 秒）。没有豁免，它连事件都成立不了。
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Gasp',
+          confidence: 0.9));
+
+      final events = acc.build().events;
+
+      expect(events, hasLength(1));
+      expect(events.single.isSignal, isTrue);
+    });
+
+    test('对照：同样是 3 秒，普通呼吸事件照样被当碎片丢掉', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing));
+
+      expect(acc.build().events, isEmpty);
+    });
+
+    test('模型没把握时不算信号——原始标签是在 527 个里取冠军', () {
+      // 门槛是 config.lowConfidenceThreshold（0.25）。安静的窗口也可能
+      // 歪打正着地让「Gasp」拿到第一，不设门槛的话每次呼吸都会冒出一个信号。
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Gasp',
+          confidence: 0.2));
+
+      expect(acc.build().events, isEmpty,
+          reason: '既不是信号，又不够 6 秒，什么都不留');
+    });
+
+    test('把握刚好到线就算', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Gasp',
+          confidence: const AnalysisConfig().lowConfidenceThreshold));
+
+      expect(acc.build().events.single.signal, 'Gasp');
+    });
+
+    test('名单外的原始标签不影响合并', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Breathing'));
+      acc.add(obs(start: 3, label: SleepCategory.breathing, rawLabel: 'Wheeze',
+          confidence: 0.1));
+
+      final events = acc.build().events;
+
+      expect(events, hasLength(1), reason: '把握不够的 Wheeze 只是普通窗口');
+      expect(events.single.signal, isNull);
+      expect(events.single.durationSeconds, 6);
+    });
+
+    test('信号事件照常进入统计', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing));
+      acc.add(obs(start: 3, label: SleepCategory.breathing));
+      acc.add(obs(start: 6, label: SleepCategory.breathing, rawLabel: 'Pant',
+          confidence: 0.9));
+
+      final outcome = acc.build();
+
+      expect(outcome.stats.eventCount, 2);
+      expect(outcome.stats.signalsCollected, isTrue,
+          reason: '新分析一律标记为「收集过信号」');
+    });
+
+    test('reset 之后信号痕迹不残留', () {
+      final acc = EventAccumulator();
+      acc.add(obs(start: 0, label: SleepCategory.breathing, rawLabel: 'Gasp',
+          confidence: 0.9));
+      acc.build();
+      acc.reset();
+      acc.add(obs(start: 0, label: SleepCategory.snore));
+      acc.add(obs(start: 3, label: SleepCategory.snore));
+
+      final events = acc.build().events;
+
+      expect(events, hasLength(1));
+      expect(events.single.signal, isNull);
+    });
+  });
+
   group('EventAccumulator 事件合并', () {
     test('相邻同类窗口合并成一个事件', () {
       final acc = EventAccumulator();

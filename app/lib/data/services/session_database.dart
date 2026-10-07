@@ -12,7 +12,7 @@ class SessionDatabase {
   SessionDatabase({DatabaseFactory? factory, this.databasePath})
       : _factory = factory ?? databaseFactory;
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
   static const String _dbName = 'sleep_secret.db';
 
   final DatabaseFactory _factory;
@@ -54,7 +54,10 @@ class SessionDatabase {
         windows_low_confidence INTEGER NOT NULL DEFAULT 0,
         event_count INTEGER NOT NULL DEFAULT 0,
         snore_event_count INTEGER NOT NULL DEFAULT 0,
-        snore_seconds REAL NOT NULL DEFAULT 0
+        snore_seconds REAL NOT NULL DEFAULT 0,
+        -- 这次分析有没有收集高危信号。老记录是 NULL，读回来当 false——
+        -- 「没数据」和「一个都没认出来」在界面上必须分得开。
+        signals_collected INTEGER
       )
     ''');
     await db.execute('''
@@ -71,6 +74,10 @@ class SessionDatabase {
         -- 这个事件里最响那个窗口的 RMS。老记录是 NULL（那时候不记电平）。
         -- 存原始量不存分贝：分贝的参考值是个假设，将来可能会改。
         peak_rms REAL,
+        -- 高危信号事件（倒吸气、喷鼻息…）的 AudioSet 原始标签名。
+        -- 存名字不存索引：和 label 同一个道理，名字是 AudioSet 给的标识，
+        -- 换个模型重编索引不会让历史数据读错。
+        signal TEXT,
         FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
       )
     ''');
@@ -102,6 +109,13 @@ class SessionDatabase {
       // 「这一晚没记电平」和「这一晚很安静」，不能拿 0 当"没有"。
       await db.execute('ALTER TABLE events ADD COLUMN peak_rms REAL');
       await _createSettingsTable(db);
+    }
+    if (from < 4) {
+      // v3 不单独收集高危信号。老记录保留为 NULL——那些夜晚的事件里
+      // 没有信号，界面上不显示这张卡，而不是显示成「0 次」。
+      // 「没数据」和「确实一次都没有」必须分得开，这里同样如此。
+      await db.execute('ALTER TABLE events ADD COLUMN signal TEXT');
+      await db.execute('ALTER TABLE sessions ADD COLUMN signals_collected INTEGER');
     }
   }
 
@@ -160,6 +174,7 @@ class SessionDatabase {
         'event_count': session.stats.eventCount,
         'snore_event_count': session.stats.snoreEventCount,
         'snore_seconds': session.stats.snoreSeconds,
+        'signals_collected': session.stats.signalsCollected ? 1 : 0,
       });
 
       for (final event in session.events) {
@@ -173,6 +188,7 @@ class SessionDatabase {
           'window_count': event.windowCount,
           'clip_path': event.clipPath,
           'peak_rms': event.peakRms,
+          'signal': event.signal,
         });
       }
       return id;
@@ -256,6 +272,8 @@ class SessionDatabase {
         eventCount: row['event_count']! as int,
         snoreEventCount: row['snore_event_count']! as int,
         snoreSeconds: (row['snore_seconds'] as num).toDouble(),
+        // 老记录这一列是 NULL，读成 false——那是「没收集」，不是「没有」
+        signalsCollected: (row['signals_collected'] as int? ?? 0) != 0,
         // 类别分布不落库：它是平均概率，体积大且对"看历史"价值有限，
         // 需要时应重跑分析。
         categoryDistribution: const {},
@@ -272,6 +290,7 @@ class SessionDatabase {
         windowCount: row['window_count']! as int,
         clipPath: row['clip_path'] as String?,
         peakRms: row['peak_rms'] as double?,
+        signal: row['signal'] as String?,
       );
 
   /// 存的是枚举名而不是中文标签——中文改了不影响历史数据可读性。

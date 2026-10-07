@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/analysis/analysis_config.dart';
+import '../../../../domain/analysis/apnea_signals.dart';
 import '../../../../domain/analysis/decibel.dart';
 import '../../../../domain/analysis/recording_diagnosis.dart';
 import '../../../../domain/analysis/session_insights.dart';
@@ -47,6 +48,7 @@ class ReportView extends StatelessWidget {
         final theme = Theme.of(context);
         final started = session.startedAt;
         final diagnoses = diagnoseSession(session);
+        final signals = analyzeApneaSignals(session);
 
         return Scaffold(
           appBar: AppBar(
@@ -83,11 +85,23 @@ class ReportView extends StatelessWidget {
               ],
               const SizedBox(height: 12),
               _ScoreBreakdownCard(session: session),
+              // 高危信号卡排在「鼾声录音」之前：它是这一页里唯一一条和健康
+              // 直接相关的发现，而且**每一条都能点开听**——想听那一声倒吸气
+              // 的人不该先翻过一整屏鼾声。
+              //
+              // 两种情况才出现：新录音（有没有信号都显示），或者老记录但有
+              // 正经分析数据（要解释一句「那一版不记这个」）。
+              if (signals.collected || session.stats.windowsInferred > 0) ...[
+                const SizedBox(height: 12),
+                _ApneaSignalCard(viewModel: viewModel, summary: signals),
+              ],
               // 放在概览区之后、图表之前：想听一段鼾声是打开报告后最直接的
               // 动作，不该让人先翻过八张统计卡才找到播放键。
               //
               // 没打鼾的一晚整张卡不出现——否则列表里会多出一段空白。
-              if (session.events.any((e) => e.hasClip || e.isSnore)) ...[
+              // 高危信号不算「鼾声」：它们有自己那张卡。
+              if (session.events
+                  .any((e) => !e.isSignal && (e.hasClip || e.isSnore))) ...[
                 const SizedBox(height: 12),
                 _ClipListCard(viewModel: viewModel),
               ],
@@ -395,6 +409,85 @@ class _ScoreBreakdownCard extends StatelessWidget {
 ///
 /// **只有鼾声会存片段**（见 `night_analysis_engine._saveClipFor`），
 /// 所以标题直接叫「鼾声录音」。
+/// 「疑似呼吸暂停的信号」卡。
+///
+/// ## 它和「鼾声录音」卡为什么是分开的两张
+///
+/// 两张都能点开听，但说的不是一回事：一张是整夜鼾声的样本，一张是模型认出来
+/// 的几种特定声音。混在一起会有两个后果——「鼾声录音」里冒出「倒吸气」会被
+/// 当成写错了；而真正想找倒吸气的人得在一屏鼾声里翻。
+///
+/// ## 「没数据」和「没有」必须分开说
+///
+/// 升级前的记录里事件的 `signal` 全是 null，和「这一夜确实一个都没认出来」
+/// 长得一模一样。前者说「没查」，后者说「查了没有」，措辞完全不同——
+/// 见 [ApneaSignalSummary.collected]。
+class _ApneaSignalCard extends StatelessWidget {
+  const _ApneaSignalCard({required this.viewModel, required this.summary});
+
+  final ReportViewModel viewModel;
+  final ApneaSignalSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final session = viewModel.session;
+    final note = theme.textTheme.bodySmall
+        ?.copyWith(color: AppColors.textDim, height: 1.7);
+
+    final rows = <int>[
+      for (var i = 0; i < session.events.length; i++)
+        if (session.events[i].isSignal) i,
+    ];
+
+    return SectionCard(
+      key: ReportKeys.apneaSignals,
+      title: context.l10n.reportSignalsTitle,
+      subtitle: context.l10n.reportSignalsSubtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!summary.collected)
+            Text(summary.notCollectedNote(context), style: note)
+          else if (summary.isEmpty)
+            Text(summary.emptyNote(context), style: note)
+          else ...[
+            Text(
+              summary.countNote(context),
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            if (viewModel.error != null) ...[
+              _InlineError(message: viewModel.error!.message(context)),
+              const SizedBox(height: 10),
+            ],
+            for (final i in rows)
+              _EventRow(
+                key: ReportKeys.signalRow(i),
+                event: session.events[i],
+                startedAt: session.startedAt,
+                isPlaying: viewModel.isPlaying(i),
+                isLoading: viewModel.isLoading(i),
+                // 没留下片段就不给播放键——给一个点了没反应的按钮
+                // 比没有按钮更让人以为应用坏了。
+                onPlay: session.events[i].hasClip
+                    ? () => viewModel.togglePlay(i)
+                    : null,
+              ),
+          ],
+          // 认出来了才需要那段说明。什么都没认出来时它只是在解释一个
+          // 还不存在的问题，白占四行。
+          if (summary.collected) ...[
+            const SizedBox(height: 12),
+            Text(summary.caveat(context), style: note),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ClipListCard extends StatelessWidget {
   const _ClipListCard({required this.viewModel});
 
@@ -406,7 +499,9 @@ class _ClipListCard extends StatelessWidget {
     final events = viewModel.session.events;
     final clipIndexes = <int>[
       for (var i = 0; i < events.length; i++)
-        if (events[i].hasClip) i,
+        // 高危信号有自己的那张卡（[_ApneaSignalCard]），不在这儿重复。
+        // 这张卡标题是「鼾声录音」，里面列出「倒吸气」会被当成写错了。
+        if (events[i].hasClip && !events[i].isSignal) i,
     ];
 
     if (clipIndexes.isEmpty) {
@@ -487,6 +582,14 @@ abstract final class ReportKeys {
 
   /// 「事件明细」里第 i 个事件的那一行。
   static ValueKey<String> eventRow(int i) => ValueKey('event-row-$i');
+
+  /// 「疑似呼吸暂停的信号」卡。
+  static const ValueKey<String> apneaSignals = ValueKey('section-apnea-signals');
+
+  /// 「疑似呼吸暂停的信号」卡里第 i 个事件的那一行。
+  /// **i 同样是事件在会话里的原始下标**，和别处指的是同一条。
+  static ValueKey<String> signalRow(int i) => ValueKey('signal-row-$i');
+
 }
 
 /// 片段总时长。
@@ -950,7 +1053,7 @@ class _EventRow extends StatelessWidget {
             child: Row(
               children: [
                 Flexible(
-                  child: Text(event.label.label(context),
+                  child: Text(event.displayName(context),
                       style: theme.textTheme.bodyMedium),
                 ),
                 const SizedBox(width: 6),

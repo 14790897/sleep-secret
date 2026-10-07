@@ -6,6 +6,10 @@ import 'package:sleep_secret/data/models/sleep_class_map.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 
 /// 一份最小合法映射表，用于构造各种畸形输入。
+///
+/// ⚠️ 这里必须**列全 `SleepCategory` 的每一个值**——`fromJson` 要求种类齐全，
+/// 少一个就抛 `FormatException`。所以枚举里加了大类之后，这个 fixture 也要跟着加，
+/// 否则「解析合法映射表」这条会以最不直观的方式变红。
 Map<String, dynamic> validJson() => {
       'model': 'test-model',
       'num_classes': 3,
@@ -15,9 +19,11 @@ Map<String, dynamic> validJson() => {
         'snore': [0],
         'breathing': [1],
         'cough': [2],
+        'sneeze': [0],
         'vocal': [0],
         'movement': [1],
         'ambient': [2],
+        'deviceNoise': [2],
         'silence': [0],
       },
       'core_snore': [0],
@@ -81,7 +87,7 @@ void main() {
   });
 
   group('真实资源文件', () {
-    test('assets/models/sleep_class_map.json 能被解析且覆盖全部 7 大类', () async {
+    test('assets/models/sleep_class_map.json 能被解析且覆盖全部大类', () async {
       final raw = await rootBundle.loadString('assets/models/sleep_class_map.json');
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       final map = SleepClassMap.fromJson(decoded);

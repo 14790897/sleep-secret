@@ -14,6 +14,7 @@ class SoundEvent {
     required this.windowCount,
     this.clipPath,
     this.peakRms,
+    this.signal,
   });
 
   final SleepCategory label;
@@ -49,8 +50,27 @@ class SoundEvent {
   /// 老数据没有这一项（null）——那时候的引擎不记电平。
   final double? peakRms;
 
+  /// 这是个**高危信号**事件时，模型给出的 AudioSet 原始标签名
+  /// （`Gasp` / `Snort` / `Wheeze` / `Pant` / `Sniff`）；不是则为 null。
+  ///
+  /// ## 为什么要单独一条通道，而不是加几个大类
+  ///
+  /// 因为**回放**。片段是挂在事件上的，而事件有最短时长（[AnalysisConfig.minEventSeconds]，
+  /// 默认 6 秒）——一声倒吸气只有一两秒，按普通事件走会被当碎片丢掉，
+  /// 于是那一段音频永远存不下来。高危信号必须能单独成事件、并且豁免最短时长。
+  ///
+  /// 它是**在 [label] 之外**的第二个维度：`label` 仍然是它落在哪个大类
+  /// （倒吸气归呼吸、喷鼻息归鼾声），时间线配色、类别分布都按 `label` 算；
+  /// `signal` 只多回答一句「模型具体听出这是什么」。
+  ///
+  /// 老记录没有这一项（null）——那时候的引擎不收集它。
+  final String? signal;
+
   /// 有没有电平数据。老记录没有，界面上要能区分「没记」和「很安静」。
   bool get hasLevel => peakRms != null;
+
+  /// 是不是高危信号事件。见 [signal]。
+  bool get isSignal => signal != null;
 
   double get endSeconds => startSeconds + durationSeconds;
 
@@ -68,10 +88,12 @@ class SoundEvent {
         windowCount: windowCount,
         clipPath: path,
         peakRms: peakRms,
+        signal: signal,
       );
 
   SoundEvent mergedWith(SoundEvent other) {
     assert(label == other.label, '只能合并同类事件');
+    assert(signal == other.signal, '高危信号只能和同名信号合并');
     final start = startSeconds < other.startSeconds ? startSeconds : other.startSeconds;
     final end = endSeconds > other.endSeconds ? endSeconds : other.endSeconds;
     return SoundEvent(
@@ -88,6 +110,7 @@ class SoundEvent {
       // 峰值取大的。两边都可能是 null（老数据），这时仍然是 null——
       // 不能拿 0 当"没有"，那会在界面上显示成静音。
       peakRms: _maxOrNull(peakRms, other.peakRms),
+      signal: signal,
     );
   }
 

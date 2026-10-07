@@ -7,7 +7,7 @@ import '../../domain/models/sleep_category.dart';
 /// `assets/models/sleep_class_map.json` 的内存表示。
 ///
 /// 该文件由 `ml/sleep_classes.py` 生成，定义 AudioSet 527 细类
-/// 到 7 个睡眠大类的聚合关系。
+/// 到睡眠大类的聚合关系。
 class SleepClassMap {
   const SleepClassMap({
     required this.modelName,

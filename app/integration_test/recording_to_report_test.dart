@@ -235,6 +235,16 @@ void main() {
         written.events.map((e) => e.label).toList(),
         reason: '事件的类别顺序也要一致——时间线是靠顺序还原的',
       );
+      // 高危信号那一列也得真的落盘。这条素材多半一个信号都没有，
+      // 但「有没有都写上」和「写了没读回来」是两回事——
+      // 后者会让报告里那张卡永远显示成「升级前的记录」。
+      expect(reloaded.stats.signalsCollected, isTrue,
+          reason: '新录音一律标成「收集过信号」');
+      expect(
+        reloaded.events.map((e) => e.signal).toList(),
+        written.events.map((e) => e.signal).toList(),
+        reason: '信号要跟着事件一起往返，不然那一声就点不开了',
+      );
 
       final listed = await built.repository.listSessions();
       expect(listed.map((s) => s.id), contains(written.id));
