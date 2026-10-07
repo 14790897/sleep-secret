@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../data/models/audioset_zh.dart';
 import '../../../../domain/analysis/analysis_config.dart';
 import '../../../../domain/analysis/apnea_signals.dart';
 import '../../../../domain/analysis/decibel.dart';
@@ -60,14 +61,22 @@ class ReportView extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    context.l10n.reportHeaderStart(started.year,
-                            started.month, started.day, _hhmm(started)) +
+                    context.l10n.reportHeaderStart(
+                          started.year,
+                          started.month,
+                          started.day,
+                          _hhmm(started),
+                        ) +
                         (session.endedAt != null
-                            ? context.l10n.reportHeaderTotal(formatSpan(
-                                session.duration.inSeconds.toDouble()))
+                            ? context.l10n.reportHeaderTotal(
+                                formatSpan(
+                                  session.duration.inSeconds.toDouble(),
+                                ),
+                              )
                             : ''),
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppColors.textDim),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textDim,
+                    ),
                   ),
                 ),
               ),
@@ -100,8 +109,9 @@ class ReportView extends StatelessWidget {
               //
               // 没打鼾的一晚整张卡不出现——否则列表里会多出一段空白。
               // 高危信号不算「鼾声」：它们有自己那张卡。
-              if (session.events
-                  .any((e) => !e.isSignal && (e.hasClip || e.isSnore))) ...[
+              if (session.events.any(
+                (e) => !e.isSignal && (e.hasClip || e.isSnore),
+              )) ...[
                 const SizedBox(height: 12),
                 _ClipListCard(viewModel: viewModel),
               ],
@@ -183,7 +193,9 @@ class _OverviewCard extends StatelessWidget {
                   MetricTile(
                     value: formatSpan(stats.snoreSeconds),
                     label: context.l10n.reportSnoreTotal,
-                    hint: context.l10n.reportSnoreSegments(stats.snoreEventCount),
+                    hint: context.l10n.reportSnoreSegments(
+                      stats.snoreEventCount,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   MetricTile(
@@ -261,14 +273,17 @@ class _DiagnosisRow extends StatelessWidget {
             children: [
               Text(
                 diagnosis.title(context),
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 diagnosis.detail(context),
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.textDim, height: 1.6),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textDim,
+                  height: 1.6,
+                ),
               ),
             ],
           ),
@@ -293,8 +308,10 @@ class _ScoreBreakdownCard extends StatelessWidget {
         title: context.l10n.reportScoreTitle,
         child: Text(
           context.l10n.reportTooShortBody(kMinScorableDuration.inMinutes),
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: AppColors.textDim, height: 1.6),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: AppColors.textDim,
+            height: 1.6,
+          ),
         ),
       );
     }
@@ -310,7 +327,10 @@ class _ScoreBreakdownCard extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 76,
-                  child: Text(d.label(context), style: theme.textTheme.bodySmall),
+                  child: Text(
+                    d.label(context),
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ),
                 Expanded(
                   child: ClipRRect(
@@ -319,8 +339,7 @@ class _ScoreBreakdownCard extends StatelessWidget {
                       children: [
                         Container(height: 10, color: AppColors.surfaceHigh),
                         FractionallySizedBox(
-                          widthFactor:
-                              (d.points / d.maxPoints).clamp(0.0, 1.0),
+                          widthFactor: (d.points / d.maxPoints).clamp(0.0, 1.0),
                           child: Container(
                             height: 10,
                             color: _deductionColor(d.points / d.maxPoints),
@@ -349,20 +368,28 @@ class _ScoreBreakdownCard extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(left: 76, top: 2, bottom: 10),
-              child: Text(d.detail(context),
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: AppColors.textDim)),
+              child: Text(
+                d.detail(context),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.textDim,
+                ),
+              ),
             ),
           ],
           const Divider(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(context.l10n.reportHundredPoints,
-                  style: theme.textTheme.bodySmall),
-              Text('= ${score.total}',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                context.l10n.reportHundredPoints,
+                style: theme.textTheme.bodySmall,
+              ),
+              Text(
+                '= ${score.total}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -377,13 +404,20 @@ class _ScoreBreakdownCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline,
-                    size: 15, color: AppColors.textDim),
+                const Icon(
+                  Icons.info_outline,
+                  size: 15,
+                  color: AppColors.textDim,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(score.caveat(context),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.textDim, height: 1.6)),
+                  child: Text(
+                    score.caveat(context),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.textDim,
+                      height: 1.6,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -439,8 +473,10 @@ class _ApneaSignalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final session = viewModel.session;
-    final note = theme.textTheme.bodySmall
-        ?.copyWith(color: AppColors.textDim, height: 1.7);
+    final note = theme.textTheme.bodySmall?.copyWith(
+      color: AppColors.textDim,
+      height: 1.7,
+    );
 
     // 判据和 [analyzeApneaSignals] 用同一个函数，不各写一套。
     // 写两套的话，万一将来名单变了，行数和「共 N 次」会对不上。
@@ -463,8 +499,9 @@ class _ApneaSignalCard extends StatelessWidget {
           else ...[
             Text(
               summary.countNote(context),
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 10),
             if (viewModel.error != null) ...[
@@ -521,20 +558,26 @@ class _ClipListCard extends StatelessWidget {
         title: context.l10n.reportClipsTitle,
         child: Text(
           context.l10n.reportClipsNone,
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: AppColors.textDim, height: 1.7),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: AppColors.textDim,
+            height: 1.7,
+          ),
         ),
       );
     }
 
     final totalSeconds = clipIndexes.fold<double>(
-        0, (sum, i) => sum + events[i].durationSeconds);
+      0,
+      (sum, i) => sum + events[i].durationSeconds,
+    );
 
     return SectionCard(
       key: ReportKeys.snoreClips,
       title: context.l10n.reportClipsTitle,
       subtitle: context.l10n.reportClipsSubtitle(
-          clipIndexes.length, _clipDurationLabel(context, totalSeconds)),
+        clipIndexes.length,
+        _clipDurationLabel(context, totalSeconds),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -596,12 +639,13 @@ abstract final class ReportKeys {
   static const ValueKey<String> rawLabels = ValueKey('section-raw-labels');
 
   /// 「疑似呼吸暂停的信号」卡。
-  static const ValueKey<String> apneaSignals = ValueKey('section-apnea-signals');
+  static const ValueKey<String> apneaSignals = ValueKey(
+    'section-apnea-signals',
+  );
 
   /// 「疑似呼吸暂停的信号」卡里第 i 个事件的那一行。
   /// **i 同样是事件在会话里的原始下标**，和别处指的是同一条。
   static ValueKey<String> signalRow(int i) => ValueKey('signal-row-$i');
-
 }
 
 /// 片段总时长。
@@ -655,8 +699,9 @@ class _TimelineCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             context.l10n.reportTimelineHint,
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: AppColors.textDim),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textDim,
+            ),
           ),
         ],
       ),
@@ -681,18 +726,22 @@ class _HourlyCard extends StatelessWidget {
     if (buckets.isEmpty) {
       return SectionCard(
         title: context.l10n.reportHourlyTitle,
-        child: Text(context.l10n.hourlyEmpty,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: AppColors.textDim)),
+        child: Text(
+          context.l10n.hourlyEmpty,
+          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textDim),
+        ),
       );
     }
 
     // 找出鼾声最重的钟点，直接写进副标题——省得读者自己在图上找
-    final peak = buckets.reduce((a, b) =>
-        a.snoreSeconds >= b.snoreSeconds ? a : b);
+    final peak = buckets.reduce(
+      (a, b) => a.snoreSeconds >= b.snoreSeconds ? a : b,
+    );
     final subtitle = peak.snoreSeconds > 0
         ? context.l10n.reportHourlyPeak(
-            peak.hour, formatSpan(peak.snoreSeconds))
+            peak.hour,
+            formatSpan(peak.snoreSeconds),
+          )
         : context.l10n.reportHourlyFlat;
 
     return SectionCard(
@@ -703,15 +752,20 @@ class _HourlyCard extends StatelessWidget {
         children: [
           HourlyChart(buckets: buckets),
           const SizedBox(height: 12),
-          CategoryLegend(entries: {
-            context.l10n.legendSnore: SleepCategory.snore.soundClass.color,
-            context.l10n.legendOther: AppColors.textDim.withValues(alpha: 0.45),
-          }),
+          CategoryLegend(
+            entries: {
+              context.l10n.legendSnore: SleepCategory.snore.soundClass.color,
+              context.l10n.legendOther: AppColors.textDim.withValues(
+                alpha: 0.45,
+              ),
+            },
+          ),
           const SizedBox(height: 8),
           Text(
             context.l10n.reportHourlyHint,
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: AppColors.textDim),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textDim,
+            ),
           ),
         ],
       ),
@@ -737,17 +791,18 @@ class _DurationCard extends StatelessWidget {
     if (total == 0) {
       return SectionCard(
         title: context.l10n.reportDurationTitle,
-        child: Text(context.l10n.histogramEmpty,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: AppColors.textDim)),
+        child: Text(
+          context.l10n.histogramEmpty,
+          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textDim),
+        ),
       );
     }
 
     final longest = session.snoreEvents.isEmpty
         ? 0.0
         : session.snoreEvents
-            .map((e) => e.durationSeconds)
-            .reduce((a, b) => a > b ? a : b);
+              .map((e) => e.durationSeconds)
+              .reduce((a, b) => a > b ? a : b);
 
     return SectionCard(
       title: context.l10n.reportDurationTitle,
@@ -779,9 +834,10 @@ class _DistributionCard extends StatelessWidget {
     if (byCategory.isEmpty) {
       return SectionCard(
         title: context.l10n.reportDistributionTitle,
-        child: Text(context.l10n.reportDistributionEmpty,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: AppColors.textDim)),
+        child: Text(
+          context.l10n.reportDistributionEmpty,
+          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textDim),
+        ),
       );
     }
 
@@ -852,8 +908,9 @@ class _DistributionRow extends StatelessWidget {
           child: Text(
             formatSpan(seconds),
             textAlign: TextAlign.right,
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: AppColors.textDim),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textDim,
+            ),
           ),
         ),
       ],
@@ -882,8 +939,9 @@ class _PipelineCard extends StatelessWidget {
           MetricRow(
             children: [
               MetricTile(
-                  value: '${s.windowsTotal}',
-                  label: context.l10n.recordingWindowsProcessed),
+                value: '${s.windowsTotal}',
+                label: context.l10n.recordingWindowsProcessed,
+              ),
               MetricTile(
                 value: '${s.windowsInferred}',
                 label: context.l10n.recordingWindowsInferred,
@@ -900,9 +958,12 @@ class _PipelineCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              Text(context.l10n.reportInferenceRatio,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: AppColors.textDim)),
+              Text(
+                context.l10n.reportInferenceRatio,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textDim,
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: ClipRRect(
@@ -915,8 +976,10 @@ class _PipelineCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text('${ratio.toStringAsFixed(0)}%',
-                  style: theme.textTheme.bodySmall),
+              Text(
+                '${ratio.toStringAsFixed(0)}%',
+                style: theme.textTheme.bodySmall,
+              ),
             ],
           ),
           if (s.windowsLowConfidence > 0)
@@ -924,10 +987,12 @@ class _PipelineCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 10),
               child: Text(
                 context.l10n.reportLowConfidenceNote(
-                    s.windowsLowConfidence,
-                    AnalysisConfig().lowConfidenceThreshold.toString()),
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: AppColors.textDim),
+                  s.windowsLowConfidence,
+                  AnalysisConfig().lowConfidenceThreshold.toString(),
+                ),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.textDim,
+                ),
               ),
             ),
         ],
@@ -954,17 +1019,31 @@ class _PipelineCard extends StatelessWidget {
 /// ## 排序按次数，不按字母
 ///
 /// 一夜最多几十种标签，按次数排的话，值得看的那几种一定在头几行。
-class _RawLabelsCard extends StatelessWidget {
+class _RawLabelsCard extends StatefulWidget {
   const _RawLabelsCard({required this.viewModel});
 
   final ReportViewModel viewModel;
 
   @override
+  State<_RawLabelsCard> createState() => _RawLabelsCardState();
+}
+
+class _RawLabelsCardState extends State<_RawLabelsCard> {
+  /// **默认收起。**
+  ///
+  /// 一夜几十种标签，展开着会把报告撑长一大截，而正常读报告的人并不需要它。
+  /// 但**摘要和「未映射」那句留在外面**——那是扫一眼就该看见的东西，
+  /// 藏起来等于这张卡白做了。
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final note = theme.textTheme.bodySmall
-        ?.copyWith(color: AppColors.textDim, height: 1.7);
-    final counts = viewModel.session.stats.rawLabelCounts;
+    final note = theme.textTheme.bodySmall?.copyWith(
+      color: AppColors.textDim,
+      height: 1.7,
+    );
+    final counts = widget.viewModel.session.stats.rawLabelCounts;
 
     if (counts.isEmpty) {
       return SectionCard(
@@ -977,47 +1056,75 @@ class _RawLabelsCard extends StatelessWidget {
     // 拿不到映射表就只是不显示对照那一列，报告照常渲染——
     // 这是核查用的附加信息，不该成为打开报告的前提。
     final byCategory =
-        viewModel.classMap?.labelToCategory() ?? const <String, SleepCategory>{};
+        widget.viewModel.classMap?.labelToCategory() ??
+        const <String, SleepCategory>{};
 
     final rows = counts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final total = rows.fold<int>(0, (sum, e) => sum + e.value);
     final unmapped = rows.where((e) => !byCategory.containsKey(e.key)).length;
+    // 中文对照只在中文界面下显示——那张表只有中文（见 audioset_zh.dart）。
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
 
     return SectionCard(
       key: ReportKeys.rawLabels,
       title: context.l10n.reportRawLabelsTitle,
       subtitle: context.l10n.reportRawLabelsSubtitle,
+      onTap: () => setState(() => _expanded = !_expanded),
+      trailing: Icon(
+        _expanded ? Icons.expand_less : Icons.expand_more,
+        color: AppColors.textDim,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             context.l10n.reportRawLabelsSummary(rows.length, total),
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            context.l10n.reportRawLabelsWindowNote(
-                const AnalysisConfig().windowSeconds.round()),
-            style: note,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           if (unmapped > 0) ...[
             const SizedBox(height: 6),
             Text(
               context.l10n.reportRawLabelsUnmappedNote(unmapped),
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: AppColors.statusWarning, height: 1.6),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.statusWarning,
+                height: 1.6,
+              ),
             ),
           ],
-          const SizedBox(height: 12),
-          for (final e in rows)
-            _RawLabelRow(
-              label: e.key,
-              count: e.value,
-              total: total,
-              category: byCategory[e.key],
+          if (!_expanded) ...[
+            const SizedBox(height: 6),
+            Text(context.l10n.reportRawLabelsCollapsed, style: note),
+          ] else ...[
+            const SizedBox(height: 4),
+            Text(
+              context.l10n.reportRawLabelsWindowNote(
+                const AnalysisConfig().windowSeconds.round(),
+              ),
+              style: note,
             ),
+            const SizedBox(height: 12),
+            // 中文对照只在中文界面下显示。那张表**只有中文**——
+            // 英文界面里这些标签本来就是英文，加中文反而是噪音。
+            FutureBuilder<Map<String, String>>(
+              future: loadAudioSetZh(),
+              builder: (context, snap) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final e in rows)
+                    _RawLabelRow(
+                      label: e.key,
+                      zh: isZh ? (snap.data?[e.key]) : null,
+                      count: e.value,
+                      total: total,
+                      category: byCategory[e.key],
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1030,9 +1137,15 @@ class _RawLabelRow extends StatelessWidget {
     required this.count,
     required this.total,
     required this.category,
+    this.zh,
   });
 
   final String label;
+
+  /// 中文对照。没有（老版本资源、或者界面不是中文）时为 null，
+  /// 那一行就只显示英文——**英文才是模型的原话**，中文只是补充。
+  final String? zh;
+
   final int count;
   final int total;
 
@@ -1064,13 +1177,20 @@ class _RawLabelRow extends StatelessWidget {
           // 标签名不截断：这是模型的原话，正是核查要看的东西，
           // 长名字（"Male speech, man speaking"）换行显示，不省略。
           Expanded(
-            child: Text(label, style: theme.textTheme.bodySmall),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: theme.textTheme.bodySmall),
+                if (zh != null) Text(zh!, style: dim?.copyWith(height: 1.4)),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
           SizedBox(
             width: 62,
             child: Text(
-              category?.label(context) ?? context.l10n.reportRawLabelsUnmappedTag,
+              category?.label(context) ??
+                  context.l10n.reportRawLabelsUnmappedTag,
               textAlign: TextAlign.right,
               style: category == null
                   ? dim?.copyWith(color: AppColors.statusWarning)
@@ -1080,9 +1200,7 @@ class _RawLabelRow extends StatelessWidget {
           SizedBox(
             width: 46,
             child: Text(
-              total == 0
-                  ? ''
-                  : '${(count / total * 100).toStringAsFixed(1)}%',
+              total == 0 ? '' : '${(count / total * 100).toStringAsFixed(1)}%',
               textAlign: TextAlign.right,
               style: dim,
             ),
@@ -1107,9 +1225,10 @@ class _EventListCard extends StatelessWidget {
       return SectionCard(
         key: ReportKeys.eventDetail,
         title: context.l10n.reportEventsTitle,
-        child: Text(context.l10n.reportEventsEmpty,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: AppColors.textDim)),
+        child: Text(
+          context.l10n.reportEventsEmpty,
+          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textDim),
+        ),
       );
     }
 
@@ -1159,13 +1278,19 @@ class _InlineError extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline,
-              size: 15, color: AppColors.statusCritical),
+          const Icon(
+            Icons.info_outline,
+            size: 15,
+            color: AppColors.statusCritical,
+          ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(message,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.statusCritical)),
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.statusCritical,
+              ),
+            ),
           ),
         ],
       ),
@@ -1195,18 +1320,21 @@ class _EventRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final at = startedAt.add(Duration(seconds: event.startSeconds.round()));
-    final clock = '${at.hour.toString().padLeft(2, '0')}:'
+    final clock =
+        '${at.hour.toString().padLeft(2, '0')}:'
         '${at.minute.toString().padLeft(2, '0')}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Text(clock,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textDim,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              )),
+          Text(
+            clock,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textDim,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
           const SizedBox(width: 12),
           Container(
             width: 8,
@@ -1221,8 +1349,10 @@ class _EventRow extends StatelessWidget {
             child: Row(
               children: [
                 Flexible(
-                  child: Text(event.displayName(context),
-                      style: theme.textTheme.bodyMedium),
+                  child: Text(
+                    event.displayName(context),
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 // 把把握程度露出来。
@@ -1241,9 +1371,12 @@ class _EventRow extends StatelessWidget {
               ],
             ),
           ),
-          Text('${event.durationSeconds.round()}s',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: AppColors.textDim)),
+          Text(
+            '${event.durationSeconds.round()}s',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textDim,
+            ),
+          ),
           // 分贝。**带波浪号**：那是「约」的意思，而这里的值确实是估算的
           // （手机麦克风没有校准，误差 ±10 分贝）。不带波浪号会读成测量值。
           //
@@ -1251,9 +1384,12 @@ class _EventRow extends StatelessWidget {
           // 不要拿 0 顶上去：0 分贝是"极其安静"，而真相是"那时候没记"。
           if (event.peakRms != null) ...[
             const SizedBox(width: 8),
-            Text('~${estimatedDbSplRounded(event.peakRms!)}dB',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.textDim)),
+            Text(
+              '~${estimatedDbSplRounded(event.peakRms!)}dB',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textDim,
+              ),
+            ),
           ],
           SizedBox(
             width: 40,

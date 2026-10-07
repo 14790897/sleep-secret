@@ -84,8 +84,12 @@ void main() {
         classMap: classMap,
       );
 
-  Widget wrap(RecordingSession session, {SleepClassMap? classMap}) =>
-      localizedApp(home: ReportView(viewModel: buildVm(session, classMap: classMap)));
+  Widget wrap(RecordingSession session,
+          {SleepClassMap? classMap, Locale locale = const Locale('zh')}) =>
+      localizedApp(
+        home: ReportView(viewModel: buildVm(session, classMap: classMap)),
+        locale: locale,
+      );
 
   /// 报告页很长，默认 800x600 的测试视口装不下；ListView 只构建可见区域，
   /// 屏幕外的分区根本不在 widget 树里，断言会找不到。把视口调高即可。
@@ -812,12 +816,75 @@ void main() {
           ),
         );
 
+    /// 展开那张表。**它默认是收起的**，所以断言行内容之前必须先点一下标题。
+    ///
+    /// 点的是标题文字——可点区域只挂在标题那一行上（`SectionCard.onTap`）。
+    /// 整张卡都点的话，用户读正文时随手一碰就收回去了。
+    Future<void> expand(WidgetTester tester) async {
+      await tester.tap(find.text('详细视图'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('默认收起：摘要和「未映射」留在外面，标签行不铺出来', (tester) async {
+      await pumpReport(
+        tester,
+        labelled({'Snoring': 100, 'Thunder': 30}),
+        classMap: tinyMap(),
+      );
+
+      final card = ReportKeys.rawLabels;
+      // 摘要和「未映射」那句是**扫一眼就该看见的**，藏起来等于这张卡白做
+      expect(inCard(card, find.textContaining('共 2 种标签')), findsOneWidget);
+      expect(inCard(card, find.textContaining('没有归进任何大类')), findsOneWidget);
+      // 但标签行不在
+      expect(inCard(card, find.text('Snoring')), findsNothing);
+      expect(inCard(card, find.textContaining('点标题展开')), findsOneWidget);
+    });
+
+    testWidgets('展开后中文对照跟着出来', (tester) async {
+      await pumpReport(
+        tester,
+        labelled({'Mechanical fan': 100, 'Thunder': 30}),
+        classMap: tinyMap(),
+      );
+
+      final card = ReportKeys.rawLabels;
+      await expand(tester);
+
+      // ⚠️ 挑的这两个标签**中文和大类名不重名**。用 `Snoring` 的话，
+      // 它的中文是「鼾声」，而它归的大类也叫「鼾声」——一行里出现两次，
+      // `findsOneWidget` 会红，而那不是 bug 是断言写得不严谨。
+      expect(inCard(card, find.text('Mechanical fan')), findsOneWidget);
+      expect(inCard(card, find.text('机械风扇')), findsOneWidget);
+      expect(inCard(card, find.text('雷声')), findsOneWidget);
+      expect(inCard(card, find.textContaining('点标题展开')), findsNothing);
+    });
+
+    testWidgets('英文界面下不显示中文对照——标签本来就是英文', (tester) async {
+      // 那张表**只有中文**，英文界面里显示它反而是噪音。
+      tester.view.physicalSize = const Size(900, 4200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(wrap(
+        labelled({'Snoring': 100}),
+        classMap: tinyMap(),
+        locale: const Locale('en'),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Detailed view'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Snoring'), findsWidgets);
+      expect(find.text('鼾声'), findsNothing);
+    });
+
     testWidgets('按次数从多到少列，带百分比和大类对照', (tester) async {
       await pumpReport(
         tester,
         labelled({'Snoring': 100, 'Gasp': 50, 'Thunder': 30, 'Alarm': 20}),
         classMap: tinyMap(),
       );
+      await expand(tester);
 
       final card = ReportKeys.rawLabels;
       expect(inCard(card, find.text('详细视图')), findsOneWidget);
@@ -836,6 +903,7 @@ void main() {
         labelled({'Snoring': 100, 'Thunder': 30, 'Alarm': 20}),
         classMap: tinyMap(),
       );
+      await expand(tester);
 
       final card = ReportKeys.rawLabels;
       // Thunder / Alarm 都不在映射表里
@@ -847,6 +915,7 @@ void main() {
     testWidgets('全是已映射的标签时，不提未映射', (tester) async {
       await pumpReport(tester, labelled({'Snoring': 100, 'Gasp': 50}),
           classMap: tinyMap());
+      await expand(tester);
 
       expect(inCard(ReportKeys.rawLabels, find.text('未映射')), findsNothing);
     });
@@ -855,6 +924,7 @@ void main() {
       // 映射表是可选注入的——它拿不到不该让整张卡消失，
       // 更不该让报告打不开。核查信息缺失是缺信息，不是崩溃。
       await pumpReport(tester, labelled({'Snoring': 100, 'Thunder': 30}));
+      await expand(tester);
 
       final card = ReportKeys.rawLabels;
       expect(inCard(card, find.text('Snoring')), findsOneWidget);

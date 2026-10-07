@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
@@ -13,12 +12,18 @@ class SectionCard extends StatelessWidget {
     required this.child,
     this.trailing,
     this.subtitle,
+    this.onTap,
   });
 
   final String title;
   final String? subtitle;
   final Widget? trailing;
   final Widget child;
+
+  /// 给了就**只有标题那一行**可点——不是整张卡。
+  ///
+  /// 用在可折叠的卡上：整张卡可点的话，用户读正文时随手一碰就收回去了。
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -29,37 +34,47 @@ class SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 3,
-                  height: 16,
-                  margin: const EdgeInsets.only(top: 2, right: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(2),
+            InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 3,
+                    height: 16,
+                    margin: const EdgeInsets.only(top: 2, right: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600)),
-                      if (subtitle != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(subtitle!,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: AppColors.textDim)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                    ],
+                        if (subtitle != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              subtitle!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.textDim,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                ?trailing,
-              ],
+                  ?trailing,
+                ],
+              ),
             ),
             const SizedBox(height: 14),
             child,
@@ -113,21 +128,29 @@ class MetricTile extends StatelessWidget {
             if (unit != null)
               Padding(
                 padding: const EdgeInsets.only(left: 2),
-                child: Text(unit!,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppColors.textDim)),
+                child: Text(
+                  unit!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textDim,
+                  ),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 2),
-        Text(label,
-            style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textDim)),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textDim),
+        ),
         if (hint != null)
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text(hint!,
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: AppColors.textDim)),
+            child: Text(
+              hint!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textDim,
+              ),
+            ),
           ),
       ],
     );
@@ -151,7 +174,11 @@ class StatusBadge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontSize: 10,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -169,14 +196,12 @@ class MetricRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final spacing = 8.0;
-        final width =
-            (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
+        final width = (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
         return Wrap(
           spacing: spacing,
           runSpacing: 14,
           children: [
-            for (final child in children)
-              SizedBox(width: width, child: child),
+            for (final child in children) SizedBox(width: width, child: child),
           ],
         );
       },
@@ -207,13 +232,18 @@ class CategoryLegend extends StatelessWidget {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration:
-                      BoxDecoration(color: e.value, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: e.value,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 5),
-                Text(e.key,
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: AppColors.textDim)),
+                Text(
+                  e.key,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.textDim,
+                  ),
+                ),
               ],
             ),
           ),
