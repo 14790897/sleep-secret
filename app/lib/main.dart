@@ -108,7 +108,7 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
   /// 那次录音已经落库，导出的问题由导出页自己显示。
   Future<void> _autoExport(RecordingSession session) async {
     try {
-      await _archiveRepository.exportAll();
+      await _archiveRepository.exportSession(session);
     } catch (_) {
       // 导出页会显示失败原因，这里不重复报
     }
