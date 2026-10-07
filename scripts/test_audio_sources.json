@@ -1,0 +1,54 @@
+{
+  "snore": [
+    {
+      "title": "Snoring",
+      "creator": "poorenglishjuggler",
+      "license": "CC0",
+      "license_version": "1.0",
+      "source": "https://freesound.org/people/poorenglishjuggler/sounds/182758",
+      "snore_score": 0.91
+    },
+    {
+      "title": "Snoring",
+      "creator": "Erik Pritzens",
+      "license": "CC0",
+      "license_version": "1.0",
+      "source": "https://freesound.org/people/Erik%20Pritzens/sounds/151557",
+      "snore_score": 0.965
+    },
+    {
+      "title": "Snoring",
+      "creator": "swapnil_gt",
+      "license": "CC0",
+      "license_version": "1.0",
+      "source": "https://freesound.org/people/swapnil_gt/sounds/370336",
+      "snore_score": 0.823
+    }
+  ],
+  "rain": [
+    {
+      "title": "Rain Sound and Rainforest.mp3",
+      "creator": "INNORECORDS",
+      "license": "CC0",
+      "license_version": "1.0",
+      "source": "https://freesound.org/people/INNORECORDS/sounds/457447",
+      "snore_score": 0.0
+    }
+  ],
+  "rooster": [
+    {
+      "title": "Rooster crow",
+      "creator": "jsbarrett",
+      "license": "CC0",
+      "license_version": "1.0",
+      "source": "https://freesound.org/people/jsbarrett/sounds/200339",
+      "snore_score": 0.0
+    }
+  ],
+  "bandlimited_snore": [
+    {
+      "derived_from": "https://freesound.org/people/poorenglishjuggler/sounds/182758",
+      "note": "削掉 320Hz 以下再压上 -6dB 房间噪声，模拟手机不放在枕边"
+    }
+  ]
+}

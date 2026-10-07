@@ -25,6 +25,17 @@ import 'package:sleep_secret/ui/features/report/view_models/report_view_model.da
 import '../test/helpers/fake_services.dart';
 import '../test/helpers/wav_replay_capture.dart';
 
+/// 截图开关。
+///
+/// 截图**必须从测试内部取**（那时 App 正在真机上渲染），再经 driver 传回主机。
+/// 所以它只在 `flutter drive` + `--dart-define=SHOTS=true` 时打开；
+/// CI 走 `flutter test integration_test/all_tests.dart`，那里没有 driver 接回调。
+///
+///   flutter drive --driver=test_driver/screenshots.dart \
+///     --target=integration_test/recording_to_report_test.dart \
+///     -d emulator-5554 --dart-define=SHOTS=true
+const bool shots = bool.fromEnvironment('SHOTS');
+
 /// 从「采集」到「界面」的整条链路。
 ///
 ///   flutter test integration_test/recording_to_report_test.dart -d <设备>
@@ -50,7 +61,7 @@ import '../test/helpers/wav_replay_capture.dart';
 /// 采集格式本身（16kHz / PCM16 / 单声道）由 `microphone_diagnostic_test.dart`
 /// 在真机上把关，那条测不了的在架构上就该是「真机诊断」而不是「CI 断言」。
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   configureDatabaseFactory();
 
   late OnnxClassifierService classifier;
@@ -84,7 +95,7 @@ void main() {
 
   /// 把素材重复到指定时长。
   ///
-  /// ESC-50 的片段只有 5 秒，而窗口 3 秒、最小事件时长 6 秒——
+  /// 素材只有 5 秒，而窗口 3 秒、最小事件时长 6 秒——
   /// 不拉长的话凑不满一个事件，测出来是假阴性。
   Float32List tile(Float32List src, int seconds) {
     final want = 16000 * seconds;
@@ -209,18 +220,23 @@ void main() {
     });
   });
 
-  group('真实麦克风采到的字节也走得通', () {
-    // 这段是从**真实采集路径**（RecordAudioCapture → record 插件 → 平台音频栈）
-    // dump 出来的字节：笔记本扬声器外放鼾声、USB 麦克风远场拾音。
+  group('低信噪比的劣质输入也走得通', () {
+    // `bandlimited_snore.wav` 是一段 CC0 真实鼾声，**人工做残**之后的结果：
+    // 削掉 320Hz 以下、再压上 -6dB 的房间噪声。
     //
-    // 为什么留着它：它是最难的一档输入。扬声器还原不了鼾声的低频
-    // （鼾声能量集中在 60~300Hz），麦克风听到的是被削掉基频的声音，
-    // 加上房间噪声，信噪比远低于手机放在枕边的情形。
+    // 为什么要专门留着它：鼾声的能量集中在 60~300Hz，一旦这条被削掉，
+    // 模型能拿到的只剩谐波和失真。手机没放在枕边、或者隔着被子，
+    // 拿到的就是这种输入。它是最难的一档。
     //
-    // 因此这里**不断言类别**——那取决于模型能力，不该由这条测试来判对错。
+    // ⚠️ 它是**加工出来的**，不是"拿麦克风隔着房间真录的"——原来那个
+    // `mic_farfield_snore.wav` 确实是真录的，但它是拿 ESC-50（CC BY-NC）
+    // 外放之后再录，属于衍生作品，不能留在仓库里。现在换成从 CC0 素材
+    // 加工，**难点一样，许可干净**。见 `scripts/fetch_test_audio.py`。
+    //
+    // 这里**不断言类别**——那取决于模型能力，不该由这条测试来判对错。
     // 它断言的是：这种输入不会把链路搞崩，产出的东西依然自洽。
-    testWidgets('远场低信噪比的真实录音不会 crash，产出自洽的结果', (tester) async {
-      final audio = await loadWave('assets/testdata/real/mic_farfield_snore.wav');
+    testWidgets('被削掉低频、信噪比很低的鼾声不会 crash，产出自洽的结果', (tester) async {
+      final audio = await loadWave('assets/testdata/real/bandlimited_snore.wav');
       expect(audio.length, greaterThan(16000 * 20),
           reason: 'fixture 应当有足够长度，否则跑不满窗口');
 
@@ -349,6 +365,16 @@ void main() {
       expect(find.text('鼾声录音'), findsOneWidget);
       expect(find.textContaining('共 ${withClip.length} 段 ·'), findsOneWidget,
           reason: '鼾声录音卡应当列出全部 ${withClip.length} 段录音');
+
+      // 截图。**只有 `flutter drive` + `--dart-define=SHOTS=true` 时才走**——
+      // 用 `flutter test` 跑（CI 就是）时没有 driver 来接这个回调。
+      // 见 `test_driver/screenshots.dart`。
+      if (shots) {
+        // Android 上要先切到 ImageReader，否则抓到的是空白
+        await binding.convertFlutterSurfaceToImage();
+        await settle(tester, 500);
+        await binding.takeScreenshot('report-detail');
+      }
 
       expect(tester.takeException(), isNull);
     });
