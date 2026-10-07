@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../domain/analysis/decibel.dart';
 import '../../../core/l10n/domain_text.dart';
 import '../../../core/l10n/l10n_context.dart';
 
@@ -337,12 +338,20 @@ class _LevelMeter extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
+          // 显示分贝而不是原始 RMS。`0.0442` 对用户没有任何意义，
+          // 而分贝至少是个能横向比较的量。
+          //
+          // ⚠️ 是**估算值**（见 `domain/analysis/decibel.dart`），文案里写「约」。
+          // 门控那条线也换算成同一个单位——不然用户没法判断离门槛还差多少。
           t == null
               // 门控关着的时候电平条只剩一个作用：看麦克风有没有在工作
               ? context.l10n.recordingLevelNoGate(
-                  level.toStringAsFixed(4), peak.toStringAsFixed(4))
-              : context.l10n.recordingLevelGated(t.toStringAsFixed(4),
-                  level.toStringAsFixed(4), peak.toStringAsFixed(4)),
+                  '${estimatedDbSplRounded(level)}',
+                  '${estimatedDbSplRounded(peak)}')
+              : context.l10n.recordingLevelGated(
+                  '${estimatedDbSplRounded(t)}',
+                  '${estimatedDbSplRounded(level)}',
+                  '${estimatedDbSplRounded(peak)}'),
           style: theme.textTheme.labelSmall
               ?.copyWith(color: AppColors.textDim, height: 1.5),
         ),
