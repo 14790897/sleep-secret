@@ -86,7 +86,17 @@ class _SyncAppStringsState extends State<_SyncAppStrings> {
 ///
 /// 依赖链只有两条（分析、录音），手工装配比引入 provider/get_it 更直观。
 class SleepSecretApp extends StatefulWidget {
-  const SleepSecretApp({super.key});
+  const SleepSecretApp({super.key, this.localeOverride});
+
+  /// 测试用：把界面语言钉死。
+  ///
+  /// 线上永远是 null（跟随系统）。存在的理由：泵**真 App** 的集成测试
+  /// 没有别的地方能注入 locale，而 CI 的模拟器是 en_US、断言却按中文写。
+  ///
+  /// 试过用 `platformDispatcher.localeTestValue` 钉——那是给 `flutter_test`
+  /// 的假 binding 用的，集成测试跑在真实 dispatcher 上，**不生效**
+  /// （2026-10-07 实测：本机中文 Windows 过、CI 上红）。
+  final Locale? localeOverride;
 
   @override
   State<SleepSecretApp> createState() => _SleepSecretAppState();
@@ -200,7 +210,7 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
       builder: (context, child) => _SyncAppStrings(child: child!),
       // null = 跟随系统。**这个默认值不能改**：钉死成某个语言的话，
       // 用户换系统语言时 App 就不跟着变了。
-      locale: _localeRepository.locale,
+      locale: widget.localeOverride ?? _localeRepository.locale,
       home: HomeView(
         localeController: _localeRepository,
         recordingViewModel: _recordingViewModel,

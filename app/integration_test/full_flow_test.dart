@@ -11,6 +11,7 @@ import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/main.dart';
+
 import 'package:sleep_secret/ui/core/widgets/charts.dart';
 import 'package:sleep_secret/ui/core/widgets/sound_timeline.dart';
 import 'package:sleep_secret/ui/features/recording/views/recording_view.dart';
@@ -58,7 +59,17 @@ void main() {
   }
 
   testWidgets('界面外壳：录音页渲染 + 底部导航切换', (tester) async {
-    await tester.pumpWidget(const SleepSecretApp());
+    // 视口给高：关于页有好几张卡，**ListView 只构建可见区域**，
+    // 屏幕外的部分根本不在 widget 树上。不撑开的话，「数据不出手机」
+    // 那种断言会报「找不到」——而找不到分不清是文案没了还是它在屏幕外。
+    // （加语言选择卡时就是这么红的。）
+    tester.view.physicalSize = const Size(1080, 3600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // 钉死语言：CI 的模拟器是 en_US，而这里的断言是按中文写的
+    await tester.pumpWidget(
+        const SleepSecretApp(localeOverride: Locale('zh')));
     await settle(tester, 1500);
 
     // ---- 1. 录音页渲染 ----
@@ -98,7 +109,8 @@ void main() {
     // 先落库再启动界面，保证报告列表里一定有东西可点
     await seedOneNight(database, clipStore);
 
-    await tester.pumpWidget(const SleepSecretApp());
+    // 钉死语言：CI 的模拟器是 en_US，而这里的断言是按中文写的
+    await tester.pumpWidget(const SleepSecretApp(localeOverride: Locale('zh')));
     await settle(tester, 2000);
 
     await tester.tap(find.text('报告'));
