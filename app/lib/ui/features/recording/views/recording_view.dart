@@ -82,8 +82,13 @@ class RecordingView extends StatelessWidget {
 /// 这是整个 App 的意象（图标就是弯月 + 声波），而「睡前点一下开始」
 /// 这个动作本来就该有个跟睡眠有关的形状，而不是一个通用的麦克风。
 ///
-/// 它是一只**犯困的月亮**：待机时闭着眼、缓慢呼吸；一按下去就睁眼，
-/// 旁边开始飘 Z——那意思是"它在听着你睡"，比一个红点更贴切。
+/// 它是一只月亮，代表**你**：
+///
+/// - **待机**：睁着眼——还没开录，你是醒着的
+/// - **录音中**：闭上眼、旁边飘 Z——你睡了，它在听着
+///
+/// （一开始我做反了：待机闭眼、录音睁眼。用户指出来才对上——
+/// 月亮是"你"，不是"它"。）
 ///
 /// ## 动效为什么不停
 ///
@@ -575,7 +580,8 @@ class _MoonButtonPainter extends CustomPainter {
     canvas.drawPath(moon, Paint()..color = Colors.white);
 
     // 脸画在月亮的厚的那一侧
-    final face = moonCenter + Offset(-r * 0.40, 0);
+    // 脸往上、往左一点：弯月的厚处在左下，脸压在正中间会顶到内缘
+    final face = moonCenter + Offset(-r * 0.38, -r * 0.08);
     final stroke = Paint()
       ..color = _tint
       ..style = PaintingStyle.stroke
@@ -585,10 +591,7 @@ class _MoonButtonPainter extends CustomPainter {
     for (final dx in [-r * 0.28, r * 0.28]) {
       final eye = face + Offset(dx, -r * 0.08);
       if (recording) {
-        // 睁眼：两个点，表示"醒着在听"
-        canvas.drawCircle(eye, r * 0.11, Paint()..color = _tint);
-      } else {
-        // 闭眼：下半圆，像「︶」。睡觉的脸就是这么画的。
+        // 睡着了：闭眼。下半圆，像「︶」——睡觉的脸就是这么画的。
         canvas.drawArc(
           Rect.fromCircle(center: eye + Offset(0, -r * 0.12), radius: r * 0.22),
           0,
@@ -596,16 +599,32 @@ class _MoonButtonPainter extends CustomPainter {
           false,
           stroke,
         );
+      } else {
+        // 醒着：睁眼，两个点
+        canvas.drawCircle(eye, r * 0.11, Paint()..color = _tint);
       }
     }
-    // 嘴：一条小小的弧，跟着眼睛一起笑
-    canvas.drawArc(
-      Rect.fromCircle(center: face + Offset(0, r * 0.32), radius: r * 0.20),
-      0,
-      math.pi,
-      false,
-      stroke,
-    );
+    // 嘴。
+    //
+    // 醒着是一条笑弧；睡着了**微微张开**——睡着的人嘴是松的，而且
+    // 在这个 App 里还有一层意思：那正是在打鼾。三条一样的弧叠在一起
+    // （两闭眼 + 一笑嘴）看着会糊，张开就分得开了。
+    final mouthCenter = face + Offset(0, r * 0.28);
+    if (recording) {
+      canvas.drawOval(
+        Rect.fromCenter(
+            center: mouthCenter, width: r * 0.26, height: r * 0.20),
+        Paint()..color = _tint,
+      );
+    } else {
+      canvas.drawArc(
+        Rect.fromCircle(center: mouthCenter, radius: r * 0.20),
+        0,
+        math.pi,
+        false,
+        stroke,
+      );
+    }
 
     if (!recording) return;
 
