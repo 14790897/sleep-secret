@@ -8,6 +8,7 @@ import 'package:sleep_secret/ui/features/report/view_models/report_view_model.da
 
 import '../helpers/fake_clip_services.dart';
 import '../helpers/fake_recording_controller.dart';
+import '../helpers/fake_services.dart';
 
 RecordingSession night({
   required int id,
@@ -54,6 +55,7 @@ void main() {
 
   Widget build() => localizedApp(
         home: HomeView(
+          localeController: FakeLocaleController(),
           recordingViewModel: recordingVm,
           reportViewModelFactory: (session) => ReportViewModel(
             session: session,

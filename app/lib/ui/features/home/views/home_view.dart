@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/recording_session.dart';
+import '../../../../domain/repositories/locale_controller.dart';
 import '../../../core/l10n/l10n_context.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/score_gauge.dart';
@@ -24,9 +25,13 @@ typedef ReportViewModelFactory = ReportViewModel Function(
 class HomeView extends StatefulWidget {
   const HomeView({
     super.key,
+    required this.localeController,
     required this.recordingViewModel,
     required this.reportViewModelFactory,
   });
+
+  /// 界面语言偏好。关于页上有个选择器。
+  final LocaleController localeController;
 
   final RecordingViewModel recordingViewModel;
   final ReportViewModelFactory reportViewModelFactory;
@@ -52,7 +57,11 @@ class _HomeViewState extends State<HomeView> {
                 viewModel: widget.recordingViewModel,
                 reportViewModelFactory: widget.reportViewModelFactory,
               ),
-              _AboutView(viewModel: widget.recordingViewModel),            ],
+              _AboutView(
+                viewModel: widget.recordingViewModel,
+                localeController: widget.localeController,
+              ),
+            ],
           ),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _tab,
@@ -357,9 +366,10 @@ abstract final class HomeKeys {
 
 /// 关于页：说明 App 做什么、不做什么，以及音频片段的隐私开关。
 class _AboutView extends StatelessWidget {
-  const _AboutView({required this.viewModel});
+  const _AboutView({required this.viewModel, required this.localeController});
 
   final RecordingViewModel viewModel;
+  final LocaleController localeController;
 
   @override
   Widget build(BuildContext context) {
@@ -372,6 +382,8 @@ class _AboutView extends StatelessWidget {
         builder: (context, _) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
+            _LanguageCard(controller: localeController),
+            const SizedBox(height: 12),
             SectionCard(
               title: context.l10n.aboutWhatTitle,
               child: Text(
@@ -476,6 +488,51 @@ class _ClipRecordingCard extends StatelessWidget {
                 ?.copyWith(color: AppColors.textDim, height: 1.6),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 语言选择。
+///
+/// 为什么要这个开关：App 默认跟随系统语言，而**想试另一种语言就得改整个
+/// 手机的系统语言**——那个代价跟"看一下界面长什么样"完全不成比例。
+/// 这个开关只是给那种场合用的覆盖手段，所以默认项必须是「跟随系统」。
+class _LanguageCard extends StatelessWidget {
+  const _LanguageCard({required this.controller});
+
+  final LocaleController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // RadioListTile 的 groupValue 用 languageCode 比较，
+    // null（跟随系统）单独用一个哨兵值，免得和"没选中"撞上。
+    const system = 'system';
+    final current = controller.locale?.languageCode ?? system;
+
+    Widget option(String value, String label) => RadioListTile<String>(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          value: value,
+          title: Text(label, style: theme.textTheme.bodyMedium),
+        );
+
+    return SectionCard(
+      title: context.l10n.languageTitle,
+      subtitle: context.l10n.languageSubtitle,
+      child: RadioGroup<String>(
+        groupValue: current,
+        onChanged: (v) => controller
+            .setLocale(v == null || v == system ? null : Locale(v)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            option(system, context.l10n.languageSystem),
+            option('zh', context.l10n.languageChinese),
+            option('en', context.l10n.languageEnglish),
+          ],
+        ),
       ),
     );
   }

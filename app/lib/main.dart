@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 
 import 'data/repositories/archive_repository.dart';
+import 'data/repositories/locale_repository.dart';
 import 'data/repositories/recording_repository.dart';
 import 'data/repositories/sleep_analysis_repository.dart';
 import 'data/services/archive_service.dart';
@@ -106,6 +109,7 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
   late final JustAudioEventPlayer _player;
 
   late final ArchiveRepository _archiveRepository;
+  late final LocaleRepository _localeRepository;
 
   late final DiagnosticViewModel _diagnosticViewModel;
   late final RecordingViewModel _recordingViewModel;
@@ -146,6 +150,11 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
       analyzer: _analysisRepository,
       fixtures: const AssetDiagnosticFixtures(),
     );
+    _localeRepository = LocaleRepository(database: _database);
+    // 读一次存下来的语言偏好。不 await：界面先按系统语言渲染，
+    // 读到偏好之后 ListenableBuilder 会把它切过去。
+    unawaited(_localeRepository.load());
+
     _recordingViewModel = RecordingViewModel(controller: _recordingRepository);
     _archiveViewModel = ArchiveViewModel(controller: _archiveRepository);
   }
@@ -167,6 +176,7 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
     _diagnosticViewModel.dispose();
     _recordingViewModel.dispose();
     _archiveViewModel.dispose();
+    _localeRepository.dispose();
     _archiveRepository.dispose();
     _recordingRepository.dispose();
     _player.dispose();
@@ -176,7 +186,10 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    // 语言偏好一变，整个 MaterialApp 都得重建 —— locale 是它的参数
+    return ListenableBuilder(
+      listenable: _localeRepository,
+      builder: (context, _) => MaterialApp(
       // 用 onGenerateTitle 而不是 title：title 只在启动时取一次，
       // 系统语言变了不会重算。
       onGenerateTitle: (context) => context.l10n.appTitle,
@@ -185,7 +198,11 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => _SyncAppStrings(child: child!),
+      // null = 跟随系统。**这个默认值不能改**：钉死成某个语言的话，
+      // 用户换系统语言时 App 就不跟着变了。
+      locale: _localeRepository.locale,
       home: HomeView(
+        localeController: _localeRepository,
         recordingViewModel: _recordingViewModel,
         reportViewModelFactory: (session) => ReportViewModel(
           session: session,
@@ -199,6 +216,7 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
         ArchiveView.routeName: (_) =>
             ArchiveView(viewModel: _archiveViewModel),
       },
+      ),
     );
   }
 }
