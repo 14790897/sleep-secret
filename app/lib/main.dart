@@ -129,7 +129,7 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '睡眠录音分析',
+      title: 'Sleep Secret',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       home: HomeView(

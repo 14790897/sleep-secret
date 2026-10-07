@@ -76,7 +76,7 @@ class RecordingRepository implements RecordingController {
   static const String _notificationWarning =
       '通知权限被拒绝，录音期间不会显示常驻通知。录音本身不受影响，'
       '但系统在后台清理时更容易把它一并杀掉。'
-      '建议到「设置 → 应用 → 睡眠录音 → 通知」里允许通知，'
+      '建议到「设置 → 应用 → Sleep Secret → 通知」里允许通知，'
       '并把省电策略改成「无限制」。';
 
   bool _recordClips = true;
