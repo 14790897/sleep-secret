@@ -243,7 +243,11 @@ void main() {
           locale: locale.locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: HomeView(
+          // 关掉 ticker：录音页的月亮是无限动画，pumpAndSettle 会永远等不到静止。
+          // 这条测的是语言切换，跟动效无关。
+          home: TickerMode(
+            enabled: false,
+            child: HomeView(
             localeController: locale,
             recordingViewModel: vm,
             reportViewModelFactory: (session) => ReportViewModel(
@@ -251,6 +255,7 @@ void main() {
               clipStore: FakeAudioClipStore(),
               player: FakeEventPlayer(),
             ),
+          ),
           ),
         ),
       ));

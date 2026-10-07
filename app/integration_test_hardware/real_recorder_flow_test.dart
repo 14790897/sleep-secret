@@ -55,14 +55,10 @@ void main() {
 
     // 底部导航的「睡眠」tab 选中图标也是 Icons.mic，必须限定范围，
     // 否则 tap 会因为找到两个 widget 而报歧义。
-    final micButton = find.descendant(
-      of: find.byType(RecordingView),
-      matching: find.byIcon(Icons.mic),
-    );
-    final stopButton = find.descendant(
-      of: find.byType(RecordingView),
-      matching: find.byIcon(Icons.stop),
-    );
+    // 开始和结束是**同一个按钮**（那颗月亮），所以两个 finder 一样。
+    final heroButton = find.byKey(RecordingKeys.heroButton);
+    final micButton = heroButton;
+    final stopButton = heroButton;
 
     bool recordingNow() => find.text('录音中').evaluate().isNotEmpty;
     bool deniedNow() =>

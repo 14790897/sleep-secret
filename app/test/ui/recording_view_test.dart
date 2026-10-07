@@ -20,10 +20,25 @@ void main() {
 
     expect(find.text('点一下开始'), findsOneWidget);
     expect(find.text('整夜录音、本地分析，早上给出报告'), findsOneWidget);
-    expect(find.byIcon(Icons.mic), findsOneWidget);
+    expect(find.byKey(RecordingKeys.heroButton), findsOneWidget);
     expect(find.text('使用说明'), findsOneWidget);
     // 未录音时不该出现实时统计
     expect(find.text('实时分析'), findsNothing);
+  });
+
+  testWidgets('月亮在动——待机时也在缓慢呼吸', (tester) async {
+    // 这条**故意开着 ticker**（localizedApp 默认关掉，否则 pumpAndSettle 会超时）。
+    // 它守的是"动效没被人顺手删掉"——那是个很容易发生的回归：
+    // 动画不影响任何别的断言，删了不会有测试红。
+    final vm = RecordingViewModel(controller: FakeRecordingController());
+    addTearDown(vm.dispose);
+
+    await tester.pumpWidget(
+        localizedApp(animate: true, home: RecordingView(viewModel: vm)));
+    await tester.pump();
+
+    expect(tester.hasRunningAnimations, isTrue,
+        reason: '待机时月亮也该在呼吸——没有任何动画在跑，说明动效被删了');
   });
 
   testWidgets('点圆形按钮开始录音', (tester) async {
@@ -33,13 +48,15 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
-    await tester.tap(find.byIcon(Icons.mic));
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
     expect(controller.startCount, 1);
     expect(find.text('录音中'), findsOneWidget);
-    expect(find.byIcon(Icons.stop), findsOneWidget);
+    // 原先这里还断言 `find.byIcon(Icons.stop)`——按钮换成自绘的月亮之后
+    // 那个图标没了。状态本身已经由上面那行文案证明了，不必再断言长相:
+    // 长相归截图看，测试管行为。
     expect(find.text('实时分析'), findsOneWidget);
     expect(find.textContaining('再次点击结束并保存'), findsOneWidget);
   });
@@ -111,10 +128,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
-    await tester.tap(find.byIcon(Icons.mic));
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
-    await tester.tap(find.byIcon(Icons.stop));
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
