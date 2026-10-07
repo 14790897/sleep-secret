@@ -126,6 +126,26 @@ void main() {
       expect(clipKeys.length, 1, reason: '只有鼾声那条有片段');
     });
 
+    test('只导指定的那一晚，不把别的重写一遍', () async {
+      // 自动导出走这条。用 exportAll 的话，每录一晚都会把之前每一晚的
+      // 片段重新搬一遍——时间越久越慢，网盘也得重传没变过的文件。
+      await db.open();
+      final night = await seedNight();
+      await db.insertSession(night);
+      await db.insertSession(RecordingSession(
+        id: null,
+        startedAt: DateTime.fromMillisecondsSinceEpoch(_sessionStart + 86400000),
+        endedAt: DateTime.fromMillisecondsSinceEpoch(_sessionStart + 86400000),
+        events: const [],
+        stats: const SessionStats.empty(),
+      ));
+
+      final r = await archive.export(target, sessions: [night]);
+
+      expect(r.sessions, 1);
+      expect(await target.listFiles('sessions'), ['$_sessionStart.json']);
+    });
+
     test('写失败只记问题，不中途崩掉', () async {
       await db.open();
       await db.insertSession(await seedNight());

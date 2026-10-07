@@ -1,3 +1,5 @@
+import '../models/recording_session.dart';
+
 /// 一次导出/导入的结果。
 class ArchiveOutcome {
   const ArchiveOutcome({
@@ -48,8 +50,14 @@ abstract interface class ArchiveController {
   /// 取消配置。
   Future<void> clearExportTarget();
 
-  /// 导出全部会话。没配目录时抛 [StateError]。
+  /// 导出全部会话。
   Future<ArchiveOutcome> exportAll();
+
+  /// 只导出这一晚。**自动导出用这个，不要用 [exportAll]。**
+  ///
+  /// 用 exportAll 的话，每录一晚都会把之前每一晚的片段重新搬一遍——
+  /// 时间越久越慢，网盘那边也得把这些没变过的文件重传一次。
+  Future<ArchiveOutcome> exportSession(RecordingSession session);
 
   /// 从配置的目录导入（已存在的按开始时刻去重）。
   Future<ArchiveOutcome> importAll();

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../domain/models/recording_session.dart';
 import '../../domain/repositories/archive_controller.dart';
 import '../../domain/repositories/export_target.dart';
 import '../services/archive_service.dart';
@@ -118,9 +119,16 @@ class ArchiveRepository implements ArchiveController {
   Future<ArchiveOutcome> exportAll() => _run(isExport: true);
 
   @override
+  Future<ArchiveOutcome> exportSession(RecordingSession session) =>
+      _run(isExport: true, only: [session]);
+
+  @override
   Future<ArchiveOutcome> importAll() => _run(isExport: false);
 
-  Future<ArchiveOutcome> _run({required bool isExport}) async {
+  Future<ArchiveOutcome> _run({
+    required bool isExport,
+    List<RecordingSession>? only,
+  }) async {
     if (_busy) {
       // 并发点两次会让导入的去重判断失效（第二次读到的是第一次还没写完的状态），
       // 结果就是同一晚进来两份。
@@ -145,7 +153,7 @@ class ArchiveRepository implements ArchiveController {
     _emit();
     try {
       _last = isExport
-          ? await _service.export(target)
+          ? await _service.export(target, sessions: only)
           : await _service.import(target);
       return _last!;
     } finally {
