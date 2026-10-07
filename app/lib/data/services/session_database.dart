@@ -12,7 +12,7 @@ class SessionDatabase {
   SessionDatabase({DatabaseFactory? factory, this.databasePath})
       : _factory = factory ?? databaseFactory;
 
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
   static const String _dbName = 'sleep_secret.db';
 
   final DatabaseFactory _factory;
@@ -68,6 +68,9 @@ class SessionDatabase {
         snore_probability REAL NOT NULL,
         window_count INTEGER NOT NULL,
         clip_path TEXT,
+        -- 这个事件里最响那个窗口的 RMS。老记录是 NULL（那时候不记电平）。
+        -- 存原始量不存分贝：分贝的参考值是个假设，将来可能会改。
+        peak_rms REAL,
         FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
       )
     ''');
@@ -93,6 +96,11 @@ class SessionDatabase {
     if (from < 2) {
       // v1 没有音频片段。老记录保留为"无片段"，不影响其他字段。
       await db.execute('ALTER TABLE events ADD COLUMN clip_path TEXT');
+    }
+    if (from < 3) {
+      // v2 不记每个事件的电平。老记录保留为 NULL——界面上要能区分
+      // 「这一晚没记电平」和「这一晚很安静」，不能拿 0 当"没有"。
+      await db.execute('ALTER TABLE events ADD COLUMN peak_rms REAL');
       await _createSettingsTable(db);
     }
   }
@@ -164,6 +172,7 @@ class SessionDatabase {
           'snore_probability': event.snoreProbability,
           'window_count': event.windowCount,
           'clip_path': event.clipPath,
+          'peak_rms': event.peakRms,
         });
       }
       return id;
@@ -262,6 +271,7 @@ class SessionDatabase {
         snoreProbability: (row['snore_probability'] as num).toDouble(),
         windowCount: row['window_count']! as int,
         clipPath: row['clip_path'] as String?,
+        peakRms: row['peak_rms'] as double?,
       );
 
   /// 存的是枚举名而不是中文标签——中文改了不影响历史数据可读性。

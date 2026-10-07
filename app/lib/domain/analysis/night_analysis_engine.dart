@@ -288,6 +288,7 @@ class NightAnalysisEngine {
         snoreProbability: prediction.snoreProbability,
         categories: prediction.probabilities,
         wasInferred: true,
+        rms: rms,
       ));
     } catch (_) {
       // 单窗口推理失败不断掉整夜录音，记数继续。

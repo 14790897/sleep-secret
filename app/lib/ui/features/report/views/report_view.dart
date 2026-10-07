@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/analysis/analysis_config.dart';
+import '../../../../domain/analysis/decibel.dart';
 import '../../../../domain/analysis/recording_diagnosis.dart';
 import '../../../../domain/analysis/session_insights.dart';
 import '../../../../domain/analysis/sleep_score.dart';
@@ -972,6 +973,17 @@ class _EventRow extends StatelessWidget {
           Text('${event.durationSeconds.round()}s',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: AppColors.textDim)),
+          // 分贝。**带波浪号**：那是「约」的意思，而这里的值确实是估算的
+          // （手机麦克风没有校准，误差 ±10 分贝）。不带波浪号会读成测量值。
+          //
+          // 老记录没有电平（`peakRms` 是 null）——那时**什么都不显示**，
+          // 不要拿 0 顶上去：0 分贝是"极其安静"，而真相是"那时候没记"。
+          if (event.peakRms != null) ...[
+            const SizedBox(width: 8),
+            Text('~${estimatedDbSplRounded(event.peakRms!)}dB',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: AppColors.textDim)),
+          ],
           SizedBox(
             width: 40,
             child: onPlay == null

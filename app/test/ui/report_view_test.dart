@@ -21,6 +21,7 @@ SoundEvent event({
   double confidence = 0.7,
   double snore = 0.0,
   String? clipPath,
+  double? peakRms,
 }) =>
     SoundEvent(
       label: label,
@@ -30,6 +31,7 @@ SoundEvent event({
       snoreProbability: snore,
       windowCount: (duration / 3).round(),
       clipPath: clipPath,
+      peakRms: peakRms,
     );
 
 RecordingSession buildSession({
@@ -440,6 +442,34 @@ void main() {
           reason: '标题该是用户看得懂的话，这条是**文案**断言');
       expect(find.textContaining('没有留下录音'), findsOneWidget);
       expect(find.byIcon(Icons.play_circle_outline), findsNothing);
+    });
+  });
+
+  group('每条鼾声的分贝', () {
+    testWidgets('有电平的显示「约」多少分贝', (tester) async {
+      await pumpReport(tester, buildSession(events: [
+        event(
+          label: SleepCategory.snore,
+          start: 100,
+          duration: 12,
+          snore: 0.8,
+          peakRms: 0.3, // 约 84 分贝
+        ),
+      ]));
+
+      expect(find.text('~84dB'), findsOneWidget,
+          reason: '**必须带波浪号**：那是「约」的意思，不带会读成测量值。'
+              '手机麦克风没有校准，这个数误差有 ±10 分贝');
+    });
+
+    testWidgets('老记录没有电平 —— 什么都不显示，也不显示 ~0dB', (tester) async {
+      // ⚠️ 这条是重点。0 分贝是「极其安静」，而真相是「那时候没记电平」。
+      // 用 0 顶上去比不显示更糟——它会让人以为那一夜安静得不正常。
+      await pumpReport(tester, buildSession(events: [
+        event(label: SleepCategory.snore, start: 100, duration: 12, snore: 0.8),
+      ]));
+
+      expect(find.textContaining('dB'), findsNothing);
     });
   });
 

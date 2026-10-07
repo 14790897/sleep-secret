@@ -39,6 +39,21 @@ CREATE TABLE events (
   FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
 )''';
 
+/// v2 的建表语句：v1 加上音频片段那一列。
+const String _v2Events = '''
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  label TEXT NOT NULL,
+  start_seconds REAL NOT NULL,
+  duration_seconds REAL NOT NULL,
+  confidence REAL NOT NULL,
+  snore_probability REAL NOT NULL,
+  window_count INTEGER NOT NULL,
+  clip_path TEXT,
+  FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
+)''';
+
 void main() {
   setUpAll(sqfliteFfiInit);
 
@@ -100,6 +115,131 @@ void main() {
     });
     await db.close();
   }
+
+  /// 造一个 v2 的库：有片段列，但**还没有电平列**。
+  Future<void> createV2Database() async {
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: (db, _) async {
+          await db.execute(_v1Sessions);
+          await db.execute(_v2Events);
+        },
+      ),
+    );
+    await db.insert('sessions', {
+      'started_at': DateTime(2026, 10, 5, 23).millisecondsSinceEpoch,
+      'ended_at': DateTime(2026, 10, 6, 7).millisecondsSinceEpoch,
+      'analyzed_seconds': 28800.0,
+      'windows_total': 9600,
+      'windows_inferred': 3200,
+      'windows_vad_skipped': 6400,
+      'windows_low_confidence': 0,
+      'event_count': 1,
+      'snore_event_count': 1,
+      'snore_seconds': 240.0,
+    });
+    await db.insert('events', {
+      'session_id': 1,
+      'label': 'snore',
+      'start_seconds': 3600.0,
+      'duration_seconds': 240.0,
+      'confidence': 0.82,
+      'snore_probability': 0.77,
+      'window_count': 80,
+      'clip_path': '1791278973396/3600000.wav',
+    });
+    await db.close();
+  }
+
+  group('v2 -> v3 迁移（加电平列）', () {
+    test('老库能打开，事件一条不丢，片段路径还在', () async {
+      await createV2Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      await db.open();
+      final sessions = await db.listSessions();
+      expect(sessions.length, 1);
+
+      final full = await db.loadSession(sessions.single.id!);
+      expect(full!.events.length, 1);
+      expect(full.events.single.label, SleepCategory.snore);
+      expect(full.events.single.clipPath, '1791278973396/3600000.wav',
+          reason: '加新列不该动到已有的列');
+
+      await db.close();
+    });
+
+    test('老事件的 peakRms 是 null，不是 0', () async {
+      // ⚠️ 这条是重点。0 会在界面上显示成"这一声是 0 分贝"——
+      // 而真相是"那时候根本没记电平"。用 0 当"没有"，用户会以为
+      // 那一晚安静得不正常。
+      await createV2Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      await db.open();
+      final sessions = await db.listSessions();
+      final full = await db.loadSession(sessions.single.id!);
+
+      expect(full!.events.single.peakRms, isNull);
+      expect(full.events.single.hasLevel, isFalse);
+
+      await db.close();
+    });
+
+    test('迁移后新写入的事件能带电平', () async {
+      await createV2Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      await db.open();
+      await db.insertSession(RecordingSession(
+        id: null,
+        startedAt: DateTime(2026, 10, 6, 23),
+        endedAt: DateTime(2026, 10, 7, 7),
+        events: const [
+          SoundEvent(
+            label: SleepCategory.snore,
+            startSeconds: 100,
+            durationSeconds: 12,
+            confidence: 0.8,
+            snoreProbability: 0.8,
+            windowCount: 4,
+            peakRms: 0.31,
+          ),
+        ],
+        stats: SessionStats.empty(),
+      ));
+
+      // 按开始时间**倒序**，所以刚写进去的那条在最前面。
+      // （第一版写成了 .last，取到的是 v2 那条老记录——被这条测试抓到了。）
+      final full = await db.loadSession((await db.listSessions()).first.id!);
+      expect(full!.events.single.peakRms, closeTo(0.31, 1e-9),
+          reason: '新列要真的落盘，不能只是建了列没写');
+
+      await db.close();
+    });
+
+    test('v1 的老库能一路升到 v3（两步迁移连着跑）', () async {
+      // 这是最容易断的一条：真实用户可能跳过好几个版本。
+      // 每步迁移只处理自己那一段，连着跑不能互相踩。
+      await createV1Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      await db.open();
+      final sessions = await db.listSessions();
+      expect(sessions.length, 1);
+
+      final full = await db.loadSession(sessions.single.id!);
+      expect(full!.events.length, 2, reason: 'v1 的两条事件在两步迁移之后都该在');
+      for (final e in full.events) {
+        expect(e.clipPath, isNull, reason: 'v1 没有片段');
+        expect(e.peakRms, isNull, reason: 'v1 也没有电平');
+      }
+
+      await db.close();
+    });
+  });
 
   group('v1 -> v2 迁移', () {
     test('老库能打开，原有记录一条不丢', () async {
