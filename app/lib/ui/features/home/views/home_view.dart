@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/recording_session.dart';
+import '../../../core/l10n/l10n_context.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/score_gauge.dart';
 import '../../../core/widgets/section_card.dart';
@@ -57,10 +58,10 @@ class _HomeViewState extends State<HomeView> {
             selectedIndex: _tab,
             onDestinationSelected: (i) => setState(() => _tab = i),
             destinations: [
-              const NavigationDestination(
-                icon: Icon(Icons.mic_none),
-                selectedIcon: Icon(Icons.mic),
-                label: '睡眠',
+              NavigationDestination(
+                icon: const Icon(Icons.mic_none),
+                selectedIcon: const Icon(Icons.mic),
+                label: context.l10n.tabSleep,
               ),
               NavigationDestination(
                 icon: Badge(
@@ -69,12 +70,12 @@ class _HomeViewState extends State<HomeView> {
                   child: const Icon(Icons.bar_chart_outlined),
                 ),
                 selectedIcon: const Icon(Icons.bar_chart),
-                label: '报告',
+                label: context.l10n.tabReport,
               ),
-              const NavigationDestination(
-                icon: Icon(Icons.info_outline),
-                selectedIcon: Icon(Icons.info),
-                label: '关于',
+              NavigationDestination(
+                icon: const Icon(Icons.info_outline),
+                selectedIcon: const Icon(Icons.info),
+                label: context.l10n.tabAbout,
               ),
             ],
           ),
@@ -119,7 +120,7 @@ class _ReportListViewState extends State<_ReportListView> {
     final vm = widget.viewModel;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('睡眠报告')),
+      appBar: AppBar(title: Text(context.l10n.reportTitle)),
       body: vm.loadingSessions
           ? const Center(child: CircularProgressIndicator())
           : vm.sessions.isEmpty
@@ -134,7 +135,7 @@ class _ReportListViewState extends State<_ReportListView> {
                       const SizedBox(height: 20),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: Text('历史记录',
+                        child: Text(context.l10n.historyTitle,
                             style: Theme.of(context).textTheme.titleSmall),
                       ),
                       for (final s in vm.sessions)
@@ -179,10 +180,10 @@ class _EmptyReports extends StatelessWidget {
             Icon(Icons.nightlight_outlined,
                 size: 56, color: AppColors.textDim.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            Text('还没有睡眠报告', style: theme.textTheme.titleMedium),
+            Text(context.l10n.noReportsTitle, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
-              '到「睡眠」页点开始录音，\n第二天早上这里就会出现这一晚的分析。',
+              context.l10n.noReportsBody,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: AppColors.textDim, height: 1.6),
@@ -244,16 +245,20 @@ class _ReportCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${started.month}月${started.day}日  '
-                      '${started.hour.toString().padLeft(2, '0')}:'
-                      '${started.minute.toString().padLeft(2, '0')}',
+                      // 整句交给 ARB：中文是「10月7日」，英文不能照拼
+                      context.l10n.reportCardTime(
+                        started.month,
+                        started.day,
+                        '${started.hour.toString().padLeft(2, '0')}:'
+                        '${started.minute.toString().padLeft(2, '0')}',
+                      ),
                       style: theme.textTheme.titleSmall
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '鼾声 ${s.snoreEventCount} 段 · ${formatSpan(s.snoreSeconds)}'
-                      ' · ${s.eventCount} 个事件',
+                      context.l10n.reportCardSummary(s.snoreEventCount,
+                          formatSpan(s.snoreSeconds), s.eventCount),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall
@@ -265,7 +270,7 @@ class _ReportCard extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
                 color: AppColors.textDim,
-                tooltip: '删除',
+                tooltip: context.l10n.delete,
                 onPressed: () => _confirmDelete(context),
               ),
             ],
@@ -279,16 +284,16 @@ class _ReportCard extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除这条记录？'),
-        content: const Text('删除后无法恢复。'),
+        title: Text(context.l10n.deleteConfirmTitle),
+        content: Text(context.l10n.deleteConfirmBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -341,6 +346,15 @@ class _MiniRingPainter extends CustomPainter {
   bool shouldRepaint(_MiniRingPainter old) => old.progress != progress;
 }
 
+/// 测试锚点。和 `ReportKeys` 一个规矩：**定位用 key，文案用 text**。
+abstract final class HomeKeys {
+  /// 关于页整棵子树。
+  ///
+  /// `_AboutView` 是私有的，测试没法按类型找它；而"这一页有没有混进中文"
+  /// 这种检查需要能把它单独圈出来——整棵树里还混着别的页面。
+  static const ValueKey<String> aboutView = ValueKey('home-about-view');
+}
+
 /// 关于页：说明 App 做什么、不做什么，以及音频片段的隐私开关。
 class _AboutView extends StatelessWidget {
   const _AboutView({required this.viewModel});
@@ -351,17 +365,17 @@ class _AboutView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('关于')),
+      key: HomeKeys.aboutView,
+      appBar: AppBar(title: Text(context.l10n.tabAbout)),
       body: ListenableBuilder(
         listenable: viewModel,
         builder: (context, _) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
             SectionCard(
-              title: '这个应用做什么',
+              title: context.l10n.aboutWhatTitle,
               child: Text(
-                '整夜录音，在手机本地识别睡眠中的声音类型——鼾声、呼吸声、'
-                '咳嗽、梦话、翻身、环境噪音——并生成一晚的时间线和统计。',
+                context.l10n.aboutWhatBody,
                 style: theme.textTheme.bodySmall?.copyWith(height: 1.7),
               ),
             ),
@@ -369,21 +383,18 @@ class _AboutView extends StatelessWidget {
             _ClipRecordingCard(viewModel: viewModel),
             const SizedBox(height: 12),
             SectionCard(
-              title: '数据不出手机',
-              subtitle: '所有分析都在设备本地完成',
+              title: context.l10n.aboutPrivacyTitle,
+              subtitle: context.l10n.aboutPrivacySubtitle,
               child: Text(
-                '录音不会上传。原始音频在分析后即丢弃，只保留事件的时间点、'
-                '类别，以及（如果你开着上面的开关）鼾声片段。',
+                context.l10n.aboutPrivacyBody,
                 style: theme.textTheme.bodySmall?.copyWith(height: 1.7),
               ),
             ),
             const SizedBox(height: 12),
             SectionCard(
-              title: '它不是什么',
+              title: context.l10n.aboutNotTitle,
               child: Text(
-                '不是医疗器械，不能用于诊断睡眠呼吸暂停或其他疾病。'
-                '识别结果来自通用的音频事件模型，没有针对你本人做过校准。'
-                '身体不适请就医。',
+                context.l10n.aboutNotBody,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(height: 1.7, color: AppColors.textDim),
               ),
@@ -393,8 +404,8 @@ class _AboutView extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.cloud_upload_outlined,
                     color: AppColors.accent),
-                title: const Text('数据导出'),
-                subtitle: Text('导出到网盘同步目录，换设备可以再导回来',
+                title: Text(context.l10n.archiveEntry),
+                subtitle: Text(context.l10n.archiveEntrySubtitle,
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppColors.textDim)),
                 trailing: const Icon(Icons.chevron_right),
@@ -407,8 +418,8 @@ class _AboutView extends StatelessWidget {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.memory, color: AppColors.accent),
-                title: const Text('端侧推理诊断'),
-                subtitle: Text('开发者选项：验证模型加载与推理',
+                title: Text(context.l10n.diagnosticEntry),
+                subtitle: Text(context.l10n.diagnosticEntrySubtitle,
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppColors.textDim)),
                 trailing: const Icon(Icons.chevron_right),
@@ -439,8 +450,8 @@ class _ClipRecordingCard extends StatelessWidget {
     final enabled = viewModel.recordClips;
 
     return SectionCard(
-      title: '录音片段',
-      subtitle: '为鼾声事件保留一段可回放的音频',
+      title: context.l10n.clipCardTitle,
+      subtitle: context.l10n.clipCardSubtitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -448,22 +459,19 @@ class _ClipRecordingCard extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             value: enabled,
             onChanged: (v) => viewModel.setRecordClips(v),
-            title: Text(enabled ? '保留鼾声片段' : '不保留任何音频',
+            title: Text(enabled ? context.l10n.clipOn : context.l10n.clipOff,
                 style: theme.textTheme.bodyMedium),
             subtitle: Text(
               enabled
-                  ? '每晚约几 MB，存在应用私有目录里'
-                  : '分析完即丢弃，历史记录里无法试听',
+                  ? context.l10n.clipOnSubtitle
+                  : context.l10n.clipOffSubtitle,
               style: theme.textTheme.labelSmall
                   ?.copyWith(color: AppColors.textDim),
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            enabled
-                ? '只会保留鼾声，不会保留梦话等其他声音。片段存在应用私有目录，'
-                    '其他应用读不到；删除某晚记录时会连同片段一起删掉。'
-                : '关掉之后 App 不写出任何音频文件，只保留事件的时间点和类别。',
+            enabled ? context.l10n.clipOnBody : context.l10n.clipOffBody,
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: AppColors.textDim, height: 1.6),
           ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
-import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
 import 'package:sleep_secret/ui/features/recording/view_models/recording_view_model.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
@@ -52,8 +52,7 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  Widget build() => MaterialApp(
-        theme: buildAppTheme(),
+  Widget build() => localizedApp(
         home: HomeView(
           recordingViewModel: recordingVm,
           reportViewModelFactory: (session) => ReportViewModel(

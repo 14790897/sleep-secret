@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# 多语言的生成物。pubspec 里开了 generate: true，构建前一定会重新生成，
+# 所以不进版本库 —— 它跟 .g.dart 是一类东西。
+lib/l10n/app_localizations*.dart

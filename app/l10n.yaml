@@ -1,0 +1,22 @@
+# 多语言的生成配置。`flutter pub get` / `flutter build` 会自动跑，
+# 也可以手动 `flutter gen-l10n`。
+#
+# ⚠️ **模板语言是中文**（template-arb-file）。Flutter 的默认习惯是拿
+# app_en.arb 当模板，但这边的源语言就是中文——文案是先有中文、再有英文。
+# 反过来标会让每个 `@key` 的描述和 placeholder 元数据都挤在英文那份里，
+# 而真正改文案的人在改中文那份。源在哪，模板就在哪。
+
+arb-dir: lib/l10n
+
+# 生成到同一个目录，import 路径就是 package:sleep_secret/l10n/...。
+# 生成物不进版本库，见 .gitignore —— pubspec 里开了 generate: true，
+# 构建时一定会先生成，不会出现"clone 下来编译不过"。
+output-dir: lib/l10n
+
+template-arb-file: app_zh.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+
+# 哪个 key 忘了翻译就在这儿列出来。英文没写全时构建不报错（这符合预期，
+# 缺的会退回模板语言），但这份清单让"漏了"变成看得见的东西。
+untranslated-messages-file: build/untranslated.json
