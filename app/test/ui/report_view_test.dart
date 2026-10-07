@@ -701,7 +701,7 @@ void main() {
       final card = ReportKeys.apneaSignals;
       expect(inCard(card, find.textContaining('整夜没有认出')), findsOneWidget);
       // 「这几样」必须写明白，否则用户拿这份东西当「查过了，没问题」
-      expect(inCard(card, find.textContaining('倒吸气、喷鼻息、哮鸣、急促呼吸、吸鼻子')),
+      expect(inCard(card, find.textContaining('倒吸气、喷鼻息、哮鸣、急促呼吸')),
           findsOneWidget);
     });
 

@@ -206,7 +206,6 @@
   "signalSnort": "Snort",
   "signalWheeze": "Wheeze",
   "signalPant": "Panting",
-  "signalSniff": "Sniffing",
   "reportSignalsTitle": "Possible apnoea signals",
   "reportSignalsSubtitle": "Sounds the model recognised overnight that relate to upper-airway obstruction",
   "reportSignalsCount": "{count} in the night, tap one to hear it",
