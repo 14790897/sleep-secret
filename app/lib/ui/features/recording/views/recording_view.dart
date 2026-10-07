@@ -578,31 +578,42 @@ class _MoonButtonPainter extends CustomPainter {
     // 所以桌面图标和这个按钮是同一个形状。
     final r = size.width * 0.195 * breathe;
     final moonCenter = center + Offset(-2, -4);
+    // ⚠️ **缺口的大小和位置受脸的约束**，不是随便调的。
+    //
+    // 脸只能用和背景同色的笔画，所以画到白色之外就等于**没画**——
+    // 而且不报错、不崩、测试也不会红。第一版就是这样：
+    // 缺口半径 0.88r、偏移 0.62r，白色厚处只到 x = -0.26r，
+    // 而右眼在 -0.10r，**落在了缺口里**，于是待机时只看得见一只眼睛，
+    // 录音时两只闭眼糊成一条波浪线——整张脸读起来像「逗号加一条线」。
+    // 改这四个数（r、缺口偏移、缺口半径、脸的偏移）时，
+    // 拿 `test/_scratch_capture_test.dart` 那种一次性脚本把两态渲染出来看一眼。
     final moon = Path.combine(
       PathOperation.difference,
       Path()..addOval(Rect.fromCircle(center: moonCenter, radius: r)),
       Path()
         ..addOval(Rect.fromCircle(
-            center: moonCenter + Offset(r * 0.62, -r * 0.16),
-            radius: r * 0.88)),
+            center: moonCenter + Offset(r * 0.72, -r * 0.18),
+            radius: r * 0.80)),
     );
     canvas.drawPath(moon, Paint()..color = Colors.white);
 
-    // 脸画在月亮的厚的那一侧
-    // 脸往上、往左一点：弯月的厚处在左下，脸压在正中间会顶到内缘
-    final face = moonCenter + Offset(-r * 0.38, -r * 0.08);
+    // 脸画在月亮的厚的那一侧（左下）。**必须整张脸都在白色里**，
+    // 理由见上面那段——越界等于没画。
+    final face = moonCenter + Offset(-r * 0.50, -r * 0.02);
     final stroke = Paint()
       ..color = _tint
       ..style = PaintingStyle.stroke
       ..strokeWidth = r * 0.15
       ..strokeCap = StrokeCap.round;
 
-    for (final dx in [-r * 0.28, r * 0.28]) {
-      final eye = face + Offset(dx, -r * 0.08);
+    // 眼距 0.52r，比弧的直径（0.28r）留出明显间隙——
+    // 挨在一起会糊成一条波浪线，那就不是脸了。
+    for (final dx in [-r * 0.26, r * 0.26]) {
+      final eye = face + Offset(dx, -r * 0.05);
       if (recording) {
         // 睡着了：闭眼。下半圆，像「︶」——睡觉的脸就是这么画的。
         canvas.drawArc(
-          Rect.fromCircle(center: eye + Offset(0, -r * 0.12), radius: r * 0.22),
+          Rect.fromCircle(center: eye + Offset(0, -r * 0.06), radius: r * 0.14),
           0,
           math.pi,
           false,
@@ -610,7 +621,7 @@ class _MoonButtonPainter extends CustomPainter {
         );
       } else {
         // 醒着：睁眼，两个点
-        canvas.drawCircle(eye, r * 0.11, Paint()..color = _tint);
+        canvas.drawCircle(eye, r * 0.115, Paint()..color = _tint);
       }
     }
     // 嘴。
@@ -618,16 +629,16 @@ class _MoonButtonPainter extends CustomPainter {
     // 醒着是一条笑弧；睡着了**微微张开**——睡着的人嘴是松的，而且
     // 在这个 App 里还有一层意思：那正是在打鼾。三条一样的弧叠在一起
     // （两闭眼 + 一笑嘴）看着会糊，张开就分得开了。
-    final mouthCenter = face + Offset(0, r * 0.28);
+    final mouthCenter = face + Offset(0, r * 0.22);
     if (recording) {
       canvas.drawOval(
         Rect.fromCenter(
-            center: mouthCenter, width: r * 0.26, height: r * 0.20),
+            center: mouthCenter, width: r * 0.22, height: r * 0.26),
         Paint()..color = _tint,
       );
     } else {
       canvas.drawArc(
-        Rect.fromCircle(center: mouthCenter, radius: r * 0.20),
+        Rect.fromCircle(center: mouthCenter, radius: r * 0.18),
         0,
         math.pi,
         false,
