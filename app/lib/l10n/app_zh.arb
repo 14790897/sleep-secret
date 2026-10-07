@@ -379,7 +379,7 @@
   "recordingInputLevel": "输入电平",
   "recordingLoud": "有声音",
   "recordingQuiet": "太安静",
-  "recordingLevelNoGate": "所有声音都会送进模型分析。当前 {level}，峰值 {peak}",
+  "recordingLevelNoGate": "所有声音都会送进模型分析。当前约 {level} 分贝，峰值约 {peak} 分贝",
   "@recordingLevelNoGate": {
     "placeholders": {
       "level": {
@@ -390,16 +390,16 @@
       }
     }
   },
-  "recordingLevelGated": "红线是识别门槛（现在 {threshold}，会随环境噪声自动调整）。电平要越过去才会被分析。当前 {level}，峰值 {peak}",
+  "recordingLevelGated": "红线是识别门槛（现在约 {threshold} 分贝，会随环境噪声自动调整）。电平要越过去才会被分析。当前约 {level} 分贝，峰值约 {peak} 分贝",
   "@recordingLevelGated": {
     "placeholders": {
-      "threshold": {
-        "type": "String"
-      },
       "level": {
         "type": "String"
       },
       "peak": {
+        "type": "String"
+      },
+      "threshold": {
         "type": "String"
       }
     }
@@ -667,5 +667,6 @@
   "languageSubtitle": "默认跟随系统",
   "languageSystem": "跟随系统",
   "languageChinese": "简体中文",
-  "languageEnglish": "English"
+  "languageEnglish": "English",
+  "levelApproxNote": "分贝是估算的：手机麦克风没有校准过，误差可能有 ±10 分贝。它适合拿来比较「今晚比昨晚吵」或者「这一声比那一声响」，不适合当作声级计的读数。"
 }

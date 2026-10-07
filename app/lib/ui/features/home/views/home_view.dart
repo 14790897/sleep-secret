@@ -19,7 +19,8 @@ import '../../trend/views/trend_card.dart';
 /// 外壳不需要知道片段存储和播放器怎么装配，只要求"给一个会话，
 /// 还我一个能用的报告 ViewModel"。
 typedef ReportViewModelFactory = ReportViewModel Function(
-    RecordingSession session);
+  RecordingSession session,
+);
 
 /// 应用外壳：底部导航 + 三个页面。
 class HomeView extends StatefulWidget {
@@ -52,7 +53,10 @@ class _HomeViewState extends State<HomeView> {
           body: IndexedStack(
             index: _tab,
             children: [
-              RecordingView(viewModel: widget.recordingViewModel, embedded: true),
+              RecordingView(
+                viewModel: widget.recordingViewModel,
+                embedded: true,
+              ),
               _ReportListView(
                 viewModel: widget.recordingViewModel,
                 reportViewModelFactory: widget.reportViewModelFactory,
@@ -133,32 +137,34 @@ class _ReportListViewState extends State<_ReportListView> {
       body: vm.loadingSessions
           ? const Center(child: CircularProgressIndicator())
           : vm.sessions.isEmpty
-              ? _EmptyReports()
-              : RefreshIndicator(
-                  onRefresh: vm.loadSessions,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    children: [
-                      // 趋势放在最上面：只有一晚时它自己会退化成一句提示
-                      TrendCard(sessions: vm.sessions),
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(context.l10n.historyTitle,
-                            style: Theme.of(context).textTheme.titleSmall),
-                      ),
-                      for (final s in vm.sessions)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _ReportCard(
-                            session: s,
-                            onTap: () => _openReport(s),
-                            onDelete: () => vm.deleteSession(s.id!),
-                          ),
-                        ),
-                    ],
+          ? _EmptyReports()
+          : RefreshIndicator(
+              onRefresh: vm.loadSessions,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                children: [
+                  // 趋势放在最上面：只有一晚时它自己会退化成一句提示
+                  TrendCard(sessions: vm.sessions),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      context.l10n.historyTitle,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                   ),
-                ),
+                  for (final s in vm.sessions)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _ReportCard(
+                        session: s,
+                        onTap: () => _openReport(s),
+                        onDelete: () => vm.deleteSession(s.id!),
+                      ),
+                    ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -168,9 +174,9 @@ class _ReportListViewState extends State<_ReportListView> {
     if (!mounted || full == null) return;
 
     final reportVm = widget.reportViewModelFactory(full);
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ReportView(viewModel: reportVm)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ReportView(viewModel: reportVm)));
     // 退出报告页要停掉播放并释放资源，否则声音会继续响。
     reportVm.dispose();
   }
@@ -186,16 +192,24 @@ class _EmptyReports extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.nightlight_outlined,
-                size: 56, color: AppColors.textDim.withValues(alpha: 0.5)),
+            Icon(
+              Icons.nightlight_outlined,
+              size: 56,
+              color: AppColors.textDim.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 16),
-            Text(context.l10n.noReportsTitle, style: theme.textTheme.titleMedium),
+            Text(
+              context.l10n.noReportsTitle,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Text(
               context.l10n.noReportsBody,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: AppColors.textDim, height: 1.6),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textDim,
+                height: 1.6,
+              ),
             ),
           ],
         ),
@@ -261,17 +275,22 @@ class _ReportCard extends StatelessWidget {
                         '${started.hour.toString().padLeft(2, '0')}:'
                         '${started.minute.toString().padLeft(2, '0')}',
                       ),
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      context.l10n.reportCardSummary(s.snoreEventCount,
-                          formatSpan(s.snoreSeconds), s.eventCount),
+                      context.l10n.reportCardSummary(
+                        s.snoreEventCount,
+                        formatSpan(s.snoreSeconds),
+                        s.eventCount,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: AppColors.textDim),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.textDim,
+                      ),
                     ),
                   ],
                 ),
@@ -327,8 +346,8 @@ class _MiniRingPainter extends CustomPainter {
     final color = progress < 0.15
         ? AppColors.statusGood
         : progress < 0.35
-            ? AppColors.statusWarning
-            : AppColors.statusCritical;
+        ? AppColors.statusWarning
+        : AppColors.statusCritical;
 
     canvas.drawCircle(
       rect.center,
@@ -405,25 +424,46 @@ class _AboutView extends StatelessWidget {
             const SizedBox(height: 12),
             SectionCard(
               title: context.l10n.aboutNotTitle,
-              child: Text(
-                context.l10n.aboutNotBody,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(height: 1.7, color: AppColors.textDim),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.aboutNotBody,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      height: 1.7,
+                      color: AppColors.textDim,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // 分贝是估算的，这条必须在用户看得到的地方说清楚——
+                  // 不然他会拿它跟真的声级计比，然后发现对不上。
+                  Text(
+                    context.l10n.levelApproxNote,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      height: 1.6,
+                      color: AppColors.textDim,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
             Card(
               child: ListTile(
-                leading: const Icon(Icons.cloud_upload_outlined,
-                    color: AppColors.accent),
-                title: Text(context.l10n.archiveEntry),
-                subtitle: Text(context.l10n.archiveEntrySubtitle,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppColors.textDim)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).pushNamed(
-                  ArchiveView.routeName,
+                leading: const Icon(
+                  Icons.cloud_upload_outlined,
+                  color: AppColors.accent,
                 ),
+                title: Text(context.l10n.archiveEntry),
+                subtitle: Text(
+                  context.l10n.archiveEntrySubtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textDim,
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.of(context).pushNamed(ArchiveView.routeName),
               ),
             ),
             const SizedBox(height: 12),
@@ -431,13 +471,15 @@ class _AboutView extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.memory, color: AppColors.accent),
                 title: Text(context.l10n.diagnosticEntry),
-                subtitle: Text(context.l10n.diagnosticEntrySubtitle,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppColors.textDim)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).pushNamed(
-                  DiagnosticView.routeName,
+                subtitle: Text(
+                  context.l10n.diagnosticEntrySubtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textDim,
+                  ),
                 ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.of(context).pushNamed(DiagnosticView.routeName),
               ),
             ),
           ],
@@ -471,21 +513,26 @@ class _ClipRecordingCard extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             value: enabled,
             onChanged: (v) => viewModel.setRecordClips(v),
-            title: Text(enabled ? context.l10n.clipOn : context.l10n.clipOff,
-                style: theme.textTheme.bodyMedium),
+            title: Text(
+              enabled ? context.l10n.clipOn : context.l10n.clipOff,
+              style: theme.textTheme.bodyMedium,
+            ),
             subtitle: Text(
               enabled
                   ? context.l10n.clipOnSubtitle
                   : context.l10n.clipOffSubtitle,
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: AppColors.textDim),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textDim,
+              ),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             enabled ? context.l10n.clipOnBody : context.l10n.clipOffBody,
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: AppColors.textDim, height: 1.6),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textDim,
+              height: 1.6,
+            ),
           ),
         ],
       ),
@@ -512,19 +559,19 @@ class _LanguageCard extends StatelessWidget {
     final current = controller.locale?.languageCode ?? system;
 
     Widget option(String value, String label) => RadioListTile<String>(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          value: value,
-          title: Text(label, style: theme.textTheme.bodyMedium),
-        );
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      value: value,
+      title: Text(label, style: theme.textTheme.bodyMedium),
+    );
 
     return SectionCard(
       title: context.l10n.languageTitle,
       subtitle: context.l10n.languageSubtitle,
       child: RadioGroup<String>(
         groupValue: current,
-        onChanged: (v) => controller
-            .setLocale(v == null || v == system ? null : Locale(v)),
+        onChanged: (v) =>
+            controller.setLocale(v == null || v == system ? null : Locale(v)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

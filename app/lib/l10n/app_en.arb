@@ -139,8 +139,8 @@
   "recordingInputLevel": "Input level",
   "recordingLoud": "Sound",
   "recordingQuiet": "Too quiet",
-  "recordingLevelNoGate": "Everything goes to the model. Now {level}, peak {peak}",
-  "recordingLevelGated": "The red line is the detection threshold ({threshold} right now, and it tracks the room's noise floor). Level has to cross it to be analysed. Now {level}, peak {peak}",
+  "recordingLevelNoGate": "Everything goes to the model. Now about {level} dB, peak about {peak} dB",
+  "recordingLevelGated": "The red line is the detection threshold (about {threshold} dB right now, and it tracks the room's noise floor). Level has to cross it to be analysed. Now about {level} dB, peak about {peak} dB",
   "recordingLiveTitle": "Live analysis",
   "recordingLiveSubtitle": "Quiet stretches are skipped and never reach the model",
   "recordingWindowsProcessed": "Windows",
@@ -230,5 +230,6 @@
   "languageSubtitle": "Follows your system by default",
   "languageSystem": "System default",
   "languageChinese": "简体中文",
-  "languageEnglish": "English"
+  "languageEnglish": "English",
+  "levelApproxNote": "Decibels here are estimated: a phone microphone is never calibrated, so the error can be ±10 dB. They are fine for comparing nights or telling one snore from another — not for reading as a sound level meter."
 }
