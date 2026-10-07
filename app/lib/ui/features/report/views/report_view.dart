@@ -402,6 +402,7 @@ class _ClipListCard extends StatelessWidget {
       // 走到这儿说明这一晚检出了鼾声、但一段录音都没留下。
       // 说清楚为什么，不然「怎么没有」会变成一个谜。
       return SectionCard(
+        key: ReportKeys.snoreClips,
         title: '鼾声录音',
         child: Text(
           '这一晚没有留下录音。到「关于」页打开「保留鼾声片段」，'
@@ -416,6 +417,7 @@ class _ClipListCard extends StatelessWidget {
         0, (sum, i) => sum + events[i].durationSeconds);
 
     return SectionCard(
+      key: ReportKeys.snoreClips,
       title: '鼾声录音',
       subtitle: '共 ${clipIndexes.length} 段 · '
           '${_clipDurationLabel(totalSeconds)}，点一下试听',
@@ -428,6 +430,7 @@ class _ClipListCard extends StatelessWidget {
           ],
           for (final i in clipIndexes)
             _EventRow(
+              key: ReportKeys.clipRow(i),
               event: events[i],
               startedAt: viewModel.session.startedAt,
               isPlaying: viewModel.isPlaying(i),
@@ -438,6 +441,42 @@ class _ClipListCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 报告页的测试锚点。
+///
+/// ## 为什么要有这个东西
+///
+/// 原来测试是**按标题文字**找卡片的：
+///
+///     find.ancestor(of: find.text('事件明细'), matching: find.byType(SectionCard))
+///
+/// 那是拿用户可见的文案当结构标识。改一次措辞，一堆断言就散架；
+/// 而且失败信息只会说「找不到」，看不出是文案改了还是卡片真的没了。
+/// 这一场里已经咬到两次：`textContaining('共 2 段')` 撞上「鼾声段时长」卡里的
+/// 同一句话；上面那种按文字定位的写法到处都是。
+///
+/// ## 分工
+///
+/// - **定位用 key**：这张卡、这一行在哪儿 → [snoreClips] / [clipRow] 等
+/// - **文案用 text**：用户看到的是不是这句话 → `find.text('鼾声录音')`
+///
+/// 两者都要有，但不能混。断言「标题写的是不是『鼾声录音』」就该用 text——
+/// 那句话变了本来就该有人看一眼。反过来，`_EventRow` 的播放键用 key 定位，
+/// 就没人会因为改了个字而挂掉。
+abstract final class ReportKeys {
+  /// 「鼾声录音」卡。
+  static const ValueKey<String> snoreClips = ValueKey('section-snore-clips');
+
+  /// 「事件明细」卡。
+  static const ValueKey<String> eventDetail = ValueKey('section-event-detail');
+
+  /// 「鼾声录音」卡里第 i 个事件的那一行。**i 是事件在会话里的原始下标**，
+  /// 和「事件明细」里指的是同一条。
+  static ValueKey<String> clipRow(int i) => ValueKey('clip-row-$i');
+
+  /// 「事件明细」里第 i 个事件的那一行。
+  static ValueKey<String> eventRow(int i) => ValueKey('event-row-$i');
 }
 
 /// 片段总时长。
@@ -781,6 +820,7 @@ class _EventListCard extends StatelessWidget {
 
     if (events.isEmpty) {
       return SectionCard(
+        key: ReportKeys.eventDetail,
         title: '事件明细',
         child: Text('没有检出声音事件',
             style: theme.textTheme.bodySmall
@@ -791,6 +831,7 @@ class _EventListCard extends StatelessWidget {
     final playable = events.where((e) => e.hasClip).length;
 
     return SectionCard(
+      key: ReportKeys.eventDetail,
       title: '事件明细',
       subtitle: playable > 0
           ? '共 ${events.length} 条，其中 $playable 条可以试听'
@@ -804,6 +845,7 @@ class _EventListCard extends StatelessWidget {
           ],
           for (var i = 0; i < events.length; i++)
             _EventRow(
+              key: ReportKeys.eventRow(i),
               event: events[i],
               startedAt: viewModel.session.startedAt,
               isPlaying: viewModel.isPlaying(i),
@@ -848,6 +890,7 @@ class _InlineError extends StatelessWidget {
 
 class _EventRow extends StatelessWidget {
   const _EventRow({
+    super.key,
     required this.event,
     required this.startedAt,
     required this.isPlaying,
