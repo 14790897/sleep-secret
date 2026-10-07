@@ -76,6 +76,14 @@ class ReportView extends StatelessWidget {
               ],
               const SizedBox(height: 12),
               _ScoreBreakdownCard(session: session),
+              // 放在概览区之后、图表之前：想听一段鼾声是打开报告后最直接的
+              // 动作，不该让人先翻过八张统计卡才找到播放键。
+              //
+              // 没打鼾的一晚整张卡不出现——否则列表里会多出一段空白。
+              if (session.events.any((e) => e.hasClip || e.isSnore)) ...[
+                const SizedBox(height: 12),
+                _ClipListCard(viewModel: viewModel),
+              ],
               const SizedBox(height: 12),
               _TimelineCard(session: session),
               const SizedBox(height: 12),
@@ -358,6 +366,90 @@ class _ScoreBreakdownCard extends StatelessWidget {
     if (ratio < 0.4) return AppColors.statusWarning;
     return AppColors.statusCritical;
   }
+}
+
+/// 把**带录音的片段**单独收到一张卡里。
+///
+/// ## 为什么要单独一张卡
+///
+/// 这些片段原本只出现在「事件明细」里，而那里是按时间排的**全部**事件。
+/// 实测一晚 81 条事件里只有 9 条带音频——播放键夹在环境噪音、呼吸声、
+/// 翻身中间，想听一段得先一段一段找过去。
+///
+/// ## 和「事件明细」的关系
+///
+/// 用的是**原来的事件下标**（`viewModel.togglePlay(i)` 认的就是它），
+/// 所以两处共享同一套播放状态：在任何一处点了播放，另一处也跟着变。
+/// 这也是为什么不新造一个行控件——用同一个 [_EventRow]，两处长得一致。
+///
+/// **只有鼾声会存片段**（见 `night_analysis_engine._saveClipFor`），
+/// 所以标题直接叫「鼾声录音」。
+class _ClipListCard extends StatelessWidget {
+  const _ClipListCard({required this.viewModel});
+
+  final ReportViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final events = viewModel.session.events;
+    final clipIndexes = <int>[
+      for (var i = 0; i < events.length; i++)
+        if (events[i].hasClip) i,
+    ];
+
+    if (clipIndexes.isEmpty) {
+      // 走到这儿说明这一晚检出了鼾声、但一段录音都没留下。
+      // 说清楚为什么，不然「怎么没有」会变成一个谜。
+      return SectionCard(
+        title: '鼾声录音',
+        child: Text(
+          '这一晚没有留下录音。到「关于」页打开「保留鼾声片段」，'
+          '之后录的就会留下——只留鼾声，梦话和咳嗽不录。',
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: AppColors.textDim, height: 1.7),
+        ),
+      );
+    }
+
+    final totalSeconds = clipIndexes.fold<double>(
+        0, (sum, i) => sum + events[i].durationSeconds);
+
+    return SectionCard(
+      title: '鼾声录音',
+      subtitle: '共 ${clipIndexes.length} 段 · '
+          '${_clipDurationLabel(totalSeconds)}，点一下试听',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (viewModel.error != null) ...[
+            _InlineError(message: viewModel.error!),
+            const SizedBox(height: 10),
+          ],
+          for (final i in clipIndexes)
+            _EventRow(
+              event: events[i],
+              startedAt: viewModel.session.startedAt,
+              isPlaying: viewModel.isPlaying(i),
+              isLoading: viewModel.isLoading(i),
+              onPlay: () => viewModel.togglePlay(i),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 片段总时长。
+///
+/// **不能直接用 [formatSpan]**——它只精确到分钟，一段 30 秒的鼾声会显示成
+/// 「0m」。鼾声片段本来就常常只有几十秒，那个精度在这儿等于没写。
+String _clipDurationLabel(double seconds) {
+  final total = seconds.round();
+  if (total < 60) return '$total 秒';
+  final minutes = total ~/ 60;
+  final rest = total % 60;
+  return rest == 0 ? '$minutes 分' : '$minutes 分 $rest 秒';
 }
 
 /// 整夜声音时间线 + 图例。
