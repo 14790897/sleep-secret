@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sleep_secret/domain/analysis/analysis_config.dart';
+import 'package:sleep_secret/domain/analysis/energy_vad.dart';
 import 'package:sleep_secret/domain/analysis/night_analysis_engine.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 
@@ -50,6 +53,46 @@ void main() {
       expect(store.saved.length, 1);
       expect(outcome.events.first.clipPath, isNotNull,
           reason: '写完片段必须回填路径，否则数据库里存的是空');
+      expect(engine.clipsSaved, 1);
+      expect(engine.clipsSkipped, 0);
+    });
+
+    test('鼾声之后接着长时间安静，片段照样要能切出来', () async {
+      // 这条来自真实整夜数据：9 段鼾声只有 3 段能回放。
+      //
+      // 根因是「没有类别的窗口不关事件」——一段鼾声后面接着安静时，
+      // 那个事件会一直"开着"，直到下一个**有类别**的窗口到来才定案。
+      // 而片段是从 60 秒的环形缓冲里回溯切的，定案时音频早被覆盖了。
+      final engine = engineWith(
+        analyzer: FakeSleepAnalyzer(
+          responder: (s) => EnergyVad.rms(s) > 0.1
+              ? FakeSleepAnalyzer.snoreDominated()
+              : FakeSleepAnalyzer.prediction(
+                  categories: const {SleepCategory.silence: 0.9}),
+        ),
+      );
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      // ⚠️ 必须按小块喂，模拟真实采集（record 每次给约 2048 个采样点）。
+      // 一次性喂 2 分钟会让环形缓冲**在窗口被处理之前**就写满，
+      // 那是测试自己造出来的假象，真实路径上不会发生。
+      Future<void> feedInChunks(Float32List audio, {int chunk = 2048}) async {
+        for (var at = 0; at < audio.length; at += chunk) {
+          final end = (at + chunk) > audio.length ? audio.length : at + chunk;
+          await engine.feedSamples(Float32List.sublistView(audio, at, end));
+        }
+      }
+
+      await feedInChunks(tone(amplitude: loud, length: 16000 * 6));
+      // 2 分钟安静，远超 60 秒的环形缓冲
+      await feedInChunks(tone(amplitude: quiet, length: 16000 * 120));
+
+      final outcome = await engine.finish();
+
+      expect(outcome.events, isNotEmpty);
+      expect(outcome.events.first.clipPath, isNotNull,
+          reason: '安静自己不产生事件，但必须能**结束**上一个事件——'
+              '否则定案时那段鼾声已经被环形缓冲覆盖，就没法回放了');
       expect(engine.clipsSaved, 1);
       expect(engine.clipsSkipped, 0);
     });

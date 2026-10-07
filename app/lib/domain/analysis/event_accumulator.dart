@@ -70,7 +70,23 @@ class EventAccumulator {
   void add(WindowObservation obs) {
     _observations.add(obs);
     final label = obs.label;
-    if (label == null) return;
+
+    if (label == null) {
+      // 没有分类结果的窗口（判为静音、或被能量门控跳过）自己不产生事件，
+      // 但它**能结束**上一个事件。
+      //
+      // ⚠️ 这里原本是直接 return，不关事件。后果很隐蔽：
+      // 一段鼾声后面接着安静时，那个鼾声事件会一直"开着"，
+      // 直到下一个**有类别**的窗口到来才定案——可能是几分钟以后。
+      // 而片段是从 60 秒的环形缓冲里回溯切的，定案时音频早被覆盖了，
+      // 于是那段鼾声**没法回放**。
+      //
+      // 真实整夜数据上就是这样：9 段鼾声只有 3 段能播。
+      // 补上这道检查之后，事件在安静超过 mergeGap 时立刻定案，
+      // 音频还在缓冲里。
+      _closeIfStale(obs.startSeconds);
+      return;
+    }
 
     // 与上一个事件同类、且间隔不超过 mergeGap 就并进去；否则新开一个。
     if (_events.isNotEmpty && _events.last.label == label) {
@@ -99,6 +115,18 @@ class EventAccumulator {
       snoreProbability: obs.snoreProbability,
       windowCount: 1,
     ));
+  }
+
+  /// 距离上个事件已经超过 [AnalysisConfig.mergeGapSeconds] 没声音了，
+  /// 那就把它定案——**越早定案，片段越可能还在环形缓冲里**。
+  ///
+  /// 阈值和合并用的是同一个：不超过它说明后面可能还有同类的窗口要并进来，
+  /// 那就先不关。
+  void _closeIfStale(double nextStartSeconds) {
+    if (_events.isEmpty) return;
+    if (nextStartSeconds - _events.last.endSeconds > config.mergeGapSeconds) {
+      _closeLast();
+    }
   }
 
   void _closeLast() {
