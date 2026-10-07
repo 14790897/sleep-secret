@@ -39,8 +39,12 @@ RecordingSession night(List<SoundEvent> events, {double hours = 8}) {
   );
 }
 
-ScoreDeduction pick(SleepScore s, String label) =>
-    s.deductions.firstWhere((d) => d.label == label);
+/// 按**是哪一项**取，不按它的显示名取。
+///
+/// 加多语言之后 `ScoreDeduction` 不再自带名字和说明——那是界面层按语言
+/// 渲染的（见 `lib/ui/core/l10n/domain_text.dart`）。所以这里按 kind 取。
+ScoreDeduction pick(SleepScore s, DeductionKind kind) =>
+    s.deductions.firstWhere((d) => d.kind == kind);
 
 void main() {
   group('评分门槛', () {
@@ -57,7 +61,7 @@ void main() {
       final s = scoreSession(night(const []))!;
 
       expect(s.total, 100);
-      expect(s.grade, '很安静');
+      expect(s.grade, ScoreGrade.quiet);
     });
   });
 
@@ -71,17 +75,18 @@ void main() {
 
     test('鼾声占到 25% 时扣满该项', () {
       final s = scoreSession(night([ev(SleepCategory.snore, 100, 7200)]))!;
-      final d = pick(s, '鼾声占比');
+      final d = pick(s, DeductionKind.snoreRatio);
 
       expect(d.points, closeTo(d.maxPoints, 1e-9));
-      expect(d.detail, contains('25.0%'));
+      // 数值在 params 里，句子在 ARB 里。断言数值 —— 那才是这条测试该管的。
+      expect(d.params['ratio'], closeTo(25.0, 0.05));
     });
 
     test('超出标尺上限也不会扣成负分', () {
       final s = scoreSession(night([ev(SleepCategory.snore, 0, 20000)]))!;
 
       expect(s.total, greaterThanOrEqualTo(0));
-      expect(pick(s, '鼾声占比').points, closeTo(60, 1e-9));
+      expect(pick(s, DeductionKind.snoreRatio).points, closeTo(60, 1e-9));
     });
 
     test('重度打鼾不会因为"没有别的噪音"而被托底', () {
@@ -91,7 +96,7 @@ void main() {
 
       expect(s.total, lessThan(35),
           reason: '69% 的时间在打鼾，不该被评为"鼾声明显"以上');
-      expect(s.grade, '鼾声很重');
+      expect(s.grade, ScoreGrade.heavy);
     });
   });
 
@@ -105,25 +110,25 @@ void main() {
         ev(SleepCategory.snore, 2000, 900),
       ]);
 
-      final a = pick(scoreSession(fragmented)!, '鼾声连续性');
-      final b = pick(scoreSession(continuous)!, '鼾声连续性');
+      final a = pick(scoreSession(fragmented)!, DeductionKind.snoreContinuity);
+      final b = pick(scoreSession(continuous)!, DeductionKind.snoreContinuity);
 
       expect(b.points, greaterThan(a.points));
     });
 
     test('全是长段时该项扣满', () {
       final s = scoreSession(night([ev(SleepCategory.snore, 0, 3600)]))!;
-      final d = pick(s, '鼾声连续性');
+      final d = pick(s, DeductionKind.snoreContinuity);
 
       expect(d.points, closeTo(d.maxPoints, 1e-9));
     });
 
     test('没有鼾声时不扣这项', () {
       final s = scoreSession(night([ev(SleepCategory.cough, 100, 60)]))!;
-      final d = pick(s, '鼾声连续性');
+      final d = pick(s, DeductionKind.snoreContinuity);
 
       expect(d.points, 0);
-      expect(d.detail, '没有检出鼾声');
+      expect(d.params['hasSnore'], isFalse);
     });
   });
 
@@ -132,14 +137,14 @@ void main() {
       final s = scoreSession(night([
         for (var i = 0; i < 170; i++) ev(SleepCategory.cough, i * 150.0, 18),
       ]))!;
-      final d = pick(s, '干扰频次');
+      final d = pick(s, DeductionKind.disturbances);
 
       expect(d.points, closeTo(d.maxPoints, 1e-9));
     });
 
     test('没有干扰事件时不扣这项', () {
       final s = scoreSession(night(const []))!;
-      expect(pick(s, '干扰频次').points, 0);
+      expect(pick(s, DeductionKind.disturbances).points, 0);
     });
   });
 
@@ -155,7 +160,7 @@ void main() {
         for (var i = 0; i < 80; i++) ev(SleepCategory.ambient, i * 350.0, 15),
       ]))!;
 
-      expect(pick(s, '干扰频次').points, 0,
+      expect(pick(s, DeductionKind.disturbances).points, 0,
           reason: '环境噪音是背景不是事件——它已经在「环境噪音占比」'
               '那一项里扣过分了，不该在这里再扣一次');
     });
@@ -165,7 +170,7 @@ void main() {
         for (var i = 0; i < 80; i++) ev(SleepCategory.breathing, i * 350.0, 15),
       ]))!;
 
-      expect(pick(s, '干扰频次').points, 0,
+      expect(pick(s, DeductionKind.disturbances).points, 0,
           reason: '呼吸是睡眠本来的样子，不是打断');
     });
 
@@ -179,8 +184,8 @@ void main() {
           for (var i = 0; i < 120; i++) ev(c, i * 200.0, 15),
         ]))!;
 
-        expect(pick(s, '干扰频次').points, greaterThan(0),
-            reason: '${c.label} 是可能打断睡眠的声音，应当扣分');
+        expect(pick(s, DeductionKind.disturbances).points, greaterThan(0),
+            reason: '${c.name} 是可能打断睡眠的声音，应当扣分');
       }
     });
   });
@@ -188,7 +193,7 @@ void main() {
   group('环境噪音', () {
     test('环境噪音占到 40% 时扣满', () {
       final s = scoreSession(night([ev(SleepCategory.ambient, 0, 11520)]))!;
-      final d = pick(s, '环境噪音');
+      final d = pick(s, DeductionKind.ambient);
 
       expect(d.points, closeTo(d.maxPoints, 1e-9));
     });
@@ -235,29 +240,30 @@ void main() {
       final s = scoreSession(night([ev(SleepCategory.snore, 100, 1800)]))!;
 
       for (final d in s.deductions) {
-        expect(d.detail, isNotEmpty,
-            reason: '${d.label} 缺说明，用户验算不了分数怎么来的');
+        // 原先断言的是"每项都有一句说明，用户能验算分数怎么来的"。
+        // 说明现在在 ARB 里，领域层这边该保证的是**数值都在**——
+        // 少了参数，界面那边渲染出来就是一句缺数的空话。
+        expect(d.params, isNotEmpty,
+            reason: '${d.kind.name} 没有给出数值，界面渲染出来会缺数');
         expect(d.points, inInclusiveRange(0.0, d.maxPoints));
       }
     });
   });
 
   group('档位', () {
-    test('按分数给不同描述', () {
-      expect(scoreSession(night(const []))!.grade, '很安静');
+    test('按分数给不同档', () {
+      // 断言的是**档位**不是那句话。档位是数据，措辞在 ARB 里
+      // （`gradeQuiet` / `gradeHeavy` …），由 `domain_text.dart` 渲染。
+      expect(scoreSession(night(const []))!.grade, ScoreGrade.quiet);
       expect(
         scoreSession(night([ev(SleepCategory.snore, 0, 20000)]))!.grade,
-        '鼾声很重',
+        ScoreGrade.heavy,
       );
     });
   });
 
-  group('免责说明', () {
-    test('始终附上"这不是睡眠质量"的说明', () {
-      final s = scoreSession(night(const []))!;
-
-      expect(s.caveat, contains('不反映你的睡眠分期'));
-      expect(s.caveat, contains('整夜安静但没睡好的人'));
-    });
-  });
+  // 原先这里还有一组「免责说明」，断言那段"这不是睡眠质量"的文案写了什么。
+  // 那段说明现在是 ARB 里的 `scoreCaveat`——一个跟分数无关的常量，
+  // 挂在每个实例上只是让每个实例都背一遍同样的话。
+  // 渲染出来对不对由 `report_view_test` 的「原样展示…」那条守着。
 }

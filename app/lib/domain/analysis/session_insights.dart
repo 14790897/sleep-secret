@@ -68,16 +68,31 @@ List<HourBucket> hourlyBreakdown(RecordingSession session) {
   ];
 }
 
+/// 鼾声单次时长落在哪一档。
+///
+/// **领域层说"落在哪一档"，不说"这一档怎么写"**——轴上的文字在界面层按语言
+/// 生成，见 `lib/ui/core/l10n/domain_text.dart`。
+///
+/// 曾经这里是个中文字符串（'<15秒' / '2–5分'），直接画进直方图横轴。
+enum DurationBinKind {
+  under15s,
+  s15to30,
+  s30to60,
+  m1to2,
+  m2to5,
+  over5m,
+}
+
 /// 鼾声单次时长的一个分箱。
 class DurationBin {
   const DurationBin({
-    required this.label,
+    required this.kind,
     required this.count,
     required this.minSeconds,
     required this.maxSeconds,
   });
 
-  final String label;
+  final DurationBinKind kind;
   final int count;
   final double minSeconds;
 
@@ -89,13 +104,15 @@ class DurationBin {
 ///
 /// 分箱边界按实际意义取（半分钟、一分钟、两分钟），不是等宽——
 /// 鼾声段从几秒到几分钟跨两个数量级，等宽分箱会把短段全挤在第一格。
-const List<(String, double, double?)> _durationBins = [
-  ('<15秒', 0, 15),
-  ('15–30秒', 15, 30),
-  ('30–60秒', 30, 60),
-  ('1–2分', 60, 120),
-  ('2–5分', 120, 300),
-  ('>5分', 300, null),
+/// 只留**数值边界**，不留文字。边界按实际意义取（半分钟、一分钟、两分钟），
+/// 不是等宽——鼾声段从几秒到几分钟跨两个数量级，等宽分箱会把短段全挤在第一格。
+const List<(DurationBinKind, double, double?)> _durationBins = [
+  (DurationBinKind.under15s, 0, 15),
+  (DurationBinKind.s15to30, 15, 30),
+  (DurationBinKind.s30to60, 30, 60),
+  (DurationBinKind.m1to2, 60, 120),
+  (DurationBinKind.m2to5, 120, 300),
+  (DurationBinKind.over5m, 300, null),
 ];
 
 List<DurationBin> snoreDurationHistogram(List<SoundEvent> events) {
@@ -117,7 +134,7 @@ List<DurationBin> snoreDurationHistogram(List<SoundEvent> events) {
   return [
     for (var i = 0; i < _durationBins.length; i++)
       DurationBin(
-        label: _durationBins[i].$1,
+        kind: _durationBins[i].$1,
         count: counts[i],
         minSeconds: _durationBins[i].$2,
         maxSeconds: _durationBins[i].$3,

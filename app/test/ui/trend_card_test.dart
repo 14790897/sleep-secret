@@ -166,7 +166,11 @@ void main() {
           body: DurationHistogram(
             bins: [
               for (var i = 0; i < 6; i++)
-                DurationBin(label: 'b$i', count: 0, minSeconds: 0, maxSeconds: null),
+                DurationBin(
+                    kind: DurationBinKind.values[i],
+                    count: 0,
+                    minSeconds: 0,
+                    maxSeconds: null),
             ],
           ),
         ),

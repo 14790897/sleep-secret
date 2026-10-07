@@ -10,6 +10,7 @@ import 'package:sleep_secret/domain/models/sleep_prediction.dart';
 import 'package:sleep_secret/domain/repositories/sleep_analyzer.dart';
 import 'package:sleep_secret/ui/features/diagnostic/view_models/diagnostic_view_model.dart';
 import 'package:sleep_secret/ui/features/diagnostic/views/diagnostic_view.dart';
+import 'package:sleep_secret/ui/core/l10n/domain_text.dart';
 
 const _clips = ['quiet', 'noise', 'tone', 'pulse'];
 
@@ -128,8 +129,13 @@ void main() {
 
     expect(vm.status, DiagnosticStatus.ready);
     expect(find.text('模型：fake-model'), findsOneWidget);
+    // 类别名现在按当前语言渲染（测试跑在中文下）。
+    // 从树上取一份 context 来对照，而不是写死中文字符串——
+    // 那样以后改文案这条测试不用跟着改。
+    final ctx = tester.element(find.byType(DiagnosticView));
     for (final category in SleepCategory.values) {
-      expect(find.text(category.label), findsWidgets, reason: category.label);
+      final name = category.label(ctx);
+      expect(find.text(name), findsWidgets, reason: name);
     }
     expect(vm.results.length, _clips.length);
   });

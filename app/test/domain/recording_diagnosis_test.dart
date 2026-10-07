@@ -33,9 +33,13 @@ RecordingSession sessionWith({
       ),
     );
 
-Diagnosis? find(List<Diagnosis> list, String keyword) {
+/// 按**是哪一条**找，不按标题文字找。
+///
+/// 加多语言之后 `Diagnosis` 不再自带句子（那是界面层按语言渲染的），
+/// 所以「有没有报这一条」只能靠 kind 判断——这也本来就是这条测试该问的问题。
+Diagnosis? find(List<Diagnosis> list, DiagnosisKind kind) {
   for (final d in list) {
-    if (d.title.contains(keyword)) return d;
+    if (d.kind == kind) return d;
   }
   return null;
 }
@@ -46,7 +50,7 @@ void main() {
       final out = diagnoseSession(sessionWith());
       expect(hasWarnings(out), isFalse,
           reason: '数据都正常时不该给用户制造焦虑，实际: '
-              '${out.map((d) => d.title).toList()}');
+              '${out.map((d) => d.kind).toList()}');
     });
 
     test('很安静的一夜也不该报警告', () {
@@ -69,11 +73,15 @@ void main() {
         eventCount: 0,
       ));
 
-      final d = find(out, '几乎没有触发分析');
+      final d = find(out, DiagnosisKind.noInference);
       expect(d, isNotNull);
       expect(d!.level, DiagnosisLevel.warning);
-      // 报告是空的，但原因不是"我没打鼾"——必须说清楚这个区别
-      expect(d.detail, contains('挡住'));
+      // 报告是空的，但原因不是"我没打鼾"——这条诊断存在的全部意义就是
+      // 把这个区别做出来。按 kind 找到它，就已经证明了这一点。
+      //
+      // ⚠️ 原先这里还断言了文案里有没有"挡住"两个字。加多语言之后，
+      // 具体的措辞归 ARB 管（`diagnosisNoInferenceDetail`），领域层只说
+      // "报了哪一条"。措辞本身由 `localization_test` 的对 key 那条守着。
     });
 
     test('只有 1% 的窗口进了模型', () {
@@ -82,7 +90,7 @@ void main() {
         windowsInferred: 96,
         eventCount: 0,
       ));
-      expect(find(out, '极少窗口')?.level, DiagnosisLevel.warning);
+      expect(find(out, DiagnosisKind.tooFewInferred)?.level, DiagnosisLevel.warning);
     });
 
     test('触发率 5% 不报——留够余量，不制造误报', () {
@@ -91,7 +99,7 @@ void main() {
         windowsInferred: 480,
         windowsLowConfidence: 100,
       ));
-      expect(find(out, '极少窗口'), isNull);
+      expect(find(out, DiagnosisKind.tooFewInferred), isNull);
     });
   });
 
@@ -102,10 +110,10 @@ void main() {
         windowsInferred: 8000, // 83% 的窗口越过门控 —— 整晚很吵
         windowsLowConfidence: 7600,
       ));
-      final d = find(out, '没把握');
+      final d = find(out, DiagnosisKind.lowConfidence);
       expect(d?.level, DiagnosisLevel.warning);
-      expect(d!.detail, contains('风扇'),
-          reason: '要给出最可能的原因，不能只说"认不出"');
+      // 原先断言文案里给了"风扇"这个最可能的原因。那种措辞上的要求在
+      // ARB 里（`diagnosisLowConfidenceDetail`），这里只保证报了这条。
     });
 
     test('安静的一夜低置信度也很高，但这不是异常', () {
@@ -117,7 +125,7 @@ void main() {
         windowsLowConfidence: 290, // 但其中 97% 没把握
         eventCount: 1,
       ));
-      expect(find(out, '没把握'), isNull,
+      expect(find(out, DiagnosisKind.lowConfidence), isNull,
           reason: '低置信度比例高本身不是问题——只有"整晚都吵"才是');
     });
 
@@ -128,7 +136,7 @@ void main() {
         windowsLowConfidence: 200,
         analyzedSeconds: 10 * 60,
       ));
-      expect(find(out, '没把握'), isNull,
+      expect(find(out, DiagnosisKind.lowConfidence), isNull,
           reason: '样本不足时下结论比不下更糟');
     });
   });
@@ -140,10 +148,11 @@ void main() {
         analyzedSeconds: 8 * 3600,
         snoreSeconds: 0.65 * 8 * 3600,
       ));
-      final d = find(out, '鼾声占比');
+      final d = find(out, DiagnosisKind.snoreRatioHigh);
       expect(d?.level, DiagnosisLevel.warning);
-      expect(d!.title, contains('65%'));
-      expect(d.detail, contains('风扇'));
+      // 这个数是这条诊断的关键——它要出现在**标题**里，用户第一眼就看到。
+      // 断言的是数值，不是"标题字符串里有没有 65%"：措辞归 ARB。
+      expect(d!.params['percent'], closeTo(65, 1));
     });
 
     test('占比 30% 不报', () {
@@ -151,7 +160,7 @@ void main() {
         analyzedSeconds: 8 * 3600,
         snoreSeconds: 0.3 * 8 * 3600,
       ));
-      expect(find(out, '鼾声占比'), isNull);
+      expect(find(out, DiagnosisKind.snoreRatioHigh), isNull);
     });
   });
 
@@ -167,7 +176,7 @@ void main() {
         windowsLowConfidence: 0,
         eventCount: 0,
       ));
-      expect(find(out, '几乎没有触发分析'), isNull,
+      expect(find(out, DiagnosisKind.noInference), isNull,
           reason: '整夜性质的判断不该套用在 20 分钟的录音上——'
               '短录音本来就可能什么都还没发生');
     });
@@ -179,7 +188,7 @@ void main() {
         windowsInferred: 200,
         snoreSeconds: 15 * 60, // 75%
       ));
-      expect(find(out, '鼾声占比'), isNull);
+      expect(find(out, DiagnosisKind.snoreRatioHigh), isNull);
     });
   });
 
@@ -201,7 +210,7 @@ void main() {
         windowsLowConfidence: 500,
         eventCount: 0,
       ));
-      final d = find(out, '没有检出任何声音事件');
+      final d = find(out, DiagnosisKind.noEvents);
       expect(d?.level, DiagnosisLevel.info,
           reason: '安静的一夜本来就可能没有事件，不该报警告');
     });

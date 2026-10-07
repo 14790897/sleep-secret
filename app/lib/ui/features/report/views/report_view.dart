@@ -11,6 +11,7 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/charts.dart';
 import '../../../core/widgets/score_gauge.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../../core/l10n/domain_text.dart';
 import '../../../core/widgets/sound_timeline.dart';
 import '../view_models/report_view_model.dart';
 
@@ -130,7 +131,7 @@ class _OverviewCard extends StatelessWidget {
               ScoreGauge(
                 value: score.total.toDouble(),
                 label: '睡眠声音评分',
-                subLabel: score.grade,
+                subLabel: score.gradeLabel(context),
                 higherIsBetter: true,
               )
             else
@@ -230,13 +231,13 @@ class _DiagnosisRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                diagnosis.title,
+                diagnosis.title(context),
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(
-                diagnosis.detail,
+                diagnosis.detail(context),
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: AppColors.textDim, height: 1.6),
               ),
@@ -281,7 +282,7 @@ class _ScoreBreakdownCard extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 76,
-                  child: Text(d.label, style: theme.textTheme.bodySmall),
+                  child: Text(d.label(context), style: theme.textTheme.bodySmall),
                 ),
                 Expanded(
                   child: ClipRRect(
@@ -318,7 +319,7 @@ class _ScoreBreakdownCard extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(left: 76, top: 2, bottom: 10),
-              child: Text(d.detail,
+              child: Text(d.detail(context),
                   style: theme.textTheme.labelSmall
                       ?.copyWith(color: AppColors.textDim)),
             ),
@@ -349,7 +350,7 @@ class _ScoreBreakdownCard extends StatelessWidget {
                     size: 15, color: AppColors.textDim),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(score.caveat,
+                  child: Text(score.caveat(context),
                       style: theme.textTheme.labelSmall?.copyWith(
                           color: AppColors.textDim, height: 1.6)),
                 ),
@@ -671,7 +672,7 @@ class _DistributionCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _DistributionRow(
-                label: entry.key.label,
+                label: entry.key.label(context),
                 seconds: entry.value,
                 fraction: maxValue <= 0 ? 0 : entry.value / maxValue,
                 color: entry.key.soundClass.color,
@@ -936,7 +937,7 @@ class _EventRow extends StatelessWidget {
             child: Row(
               children: [
                 Flexible(
-                  child: Text(event.label.label,
+                  child: Text(event.label.label(context),
                       style: theme.textTheme.bodyMedium),
                 ),
                 const SizedBox(width: 6),

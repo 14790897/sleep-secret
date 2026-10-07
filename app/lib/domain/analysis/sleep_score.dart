@@ -1,17 +1,34 @@
 import '../models/recording_session.dart';
 import '../models/sleep_category.dart';
 
+/// 这是哪一项扣分。
+///
+/// **领域层只说"是哪一项、数值多少"，不说"这句话怎么写"**——措辞在界面层
+/// 按语言渲染，见 `lib/ui/core/l10n/domain_text.dart`。
+enum DeductionKind {
+  /// 鼾声占整夜的多少。
+  snoreRatio,
+
+  /// 长时间连续鼾声占鼾声总时长的多少。
+  snoreContinuity,
+
+  /// 咳嗽 / 梦话 / 翻身平均每小时多少次。
+  disturbances,
+
+  /// 环境声占整夜的多少。
+  ambient,
+}
+
 /// 评分里的一个扣分项。
 class ScoreDeduction {
   const ScoreDeduction({
-    required this.label,
+    required this.kind,
     required this.maxPoints,
     required this.points,
-    required this.detail,
+    this.params = const {},
   });
 
-  /// 项名，如「鼾声占比」。
-  final String label;
+  final DeductionKind kind;
 
   /// 这项最多能扣多少分。
   final double maxPoints;
@@ -19,8 +36,28 @@ class ScoreDeduction {
   /// 实际扣了多少分。
   final double points;
 
-  /// 一句话说明这项的原始数值，让用户看得出分数怎么来的。
-  final String detail;
+  /// 渲染这句话需要的数值。键名和渲染方（`domain_text.dart`）是一对。
+  final Map<String, Object?> params;
+}
+
+/// 分数落在哪一档。
+///
+/// 以前是个中文字符串（'很安静' / '鼾声很重'），同样是领域层在写展示文本。
+enum ScoreGrade {
+  /// 很安静。
+  quiet,
+
+  /// 比较安静。
+  good,
+
+  /// 有些声音。
+  fair,
+
+  /// 鼾声明显。
+  noisy,
+
+  /// 鼾声很重。
+  heavy,
 }
 
 /// 基于**声音**的睡眠评分。
@@ -38,7 +75,6 @@ class SleepScore {
     required this.total,
     required this.deductions,
     required this.grade,
-    required this.caveat,
   });
 
   /// 总分 0–100。
@@ -46,11 +82,12 @@ class SleepScore {
 
   final List<ScoreDeduction> deductions;
 
-  /// 档位描述，如「安静」「鼾声很重」。
-  final String grade;
+  /// 落在哪一档。
+  final ScoreGrade grade;
 
-  /// 为什么这个分数不能当作睡眠质量——界面要原样展示。
-  final String caveat;
+  // 原先这里还有个 `caveat`——一段解释「这个分数不是睡眠质量」的长文案。
+  // 它是常量，跟分数无关，所以搬进 ARB 了（`scoreCaveat`）。
+  // 一句话说明挂在每个实例上，只是让每个实例都背一遍同样的话。
 }
 
 /// 低于这个分析时长就不给分。
@@ -129,30 +166,28 @@ SleepScore? scoreSession(RecordingSession session) {
 
   final deductions = [
     ScoreDeduction(
-      label: '鼾声占比',
+      kind: DeductionKind.snoreRatio,
       maxPoints: _maxSnoreDeduction,
       points: snoreDeduction,
-      detail: '鼾声占整夜的 ${(snoreRatio * 100).toStringAsFixed(1)}%',
+      params: {'ratio': snoreRatio * 100},
     ),
     ScoreDeduction(
-      label: '鼾声连续性',
+      kind: DeductionKind.snoreContinuity,
       maxPoints: _maxContinuityDeduction,
       points: continuityDeduction,
-      detail: totalSnoreSeconds <= 0
-          ? '没有检出鼾声'
-          : '超过 2 分钟的鼾声占鼾声总时长的 ${(longRatio * 100).toStringAsFixed(0)}%',
+      params: {'hasSnore': totalSnoreSeconds > 0, 'longRatio': longRatio * 100},
     ),
     ScoreDeduction(
-      label: '干扰频次',
+      kind: DeductionKind.disturbances,
       maxPoints: _maxDisturbanceDeduction,
       points: disturbanceDeduction,
-      detail: '咳嗽、梦话、翻身等平均每小时 ${perHour.toStringAsFixed(1)} 次',
+      params: {'perHour': perHour},
     ),
     ScoreDeduction(
-      label: '环境噪音',
+      kind: DeductionKind.ambient,
       maxPoints: _maxAmbientDeduction,
       points: ambientDeduction,
-      detail: '环境声占整夜的 ${(ambientRatio * 100).toStringAsFixed(1)}%',
+      params: {'ratio': ambientRatio * 100},
     ),
   ];
 
@@ -164,9 +199,6 @@ SleepScore? scoreSession(RecordingSession session) {
     total: total,
     deductions: deductions,
     grade: _gradeFor(total),
-    caveat: '这个分数只看声音：鼾声、连续时长、打断次数、环境噪音。'
-        '它不反映你的睡眠分期或觉醒次数——那需要体动或心率数据，'
-        '麦克风测不出来。整夜安静但没睡好的人，在这里也会拿到高分。',
   );
 }
 
@@ -177,10 +209,10 @@ double _ramp(double value, double full) {
   return r < 0 ? 0.0 : (r > 1 ? 1.0 : r);
 }
 
-String _gradeFor(int total) {
-  if (total >= 85) return '很安静';
-  if (total >= 70) return '比较安静';
-  if (total >= 55) return '有些声音';
-  if (total >= 35) return '鼾声明显';
-  return '鼾声很重';
+ScoreGrade _gradeFor(int total) {
+  if (total >= 85) return ScoreGrade.quiet;
+  if (total >= 70) return ScoreGrade.good;
+  if (total >= 55) return ScoreGrade.fair;
+  if (total >= 35) return ScoreGrade.noisy;
+  return ScoreGrade.heavy;
 }

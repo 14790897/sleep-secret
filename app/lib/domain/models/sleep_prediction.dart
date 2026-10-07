@@ -42,6 +42,6 @@ class SleepPrediction {
 
   @override
   String toString() =>
-      'SleepPrediction(dominant: ${dominant.label}, '
+      'SleepPrediction(dominant: ${dominant.name}, '
       'confidence: ${confidence.toStringAsFixed(4)})';
 }
