@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
-        android:label="睡眠录音"
+        android:label="Sleep Secret"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
