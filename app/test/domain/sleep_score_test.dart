@@ -143,6 +143,48 @@ void main() {
     });
   });
 
+  group('什么才算干扰', () {
+    // 这些用例来自真实整夜数据。那一晚 81 个事件里绝大多数是低置信度的
+    // 环境噪音碎片，而当时的实现是「非鼾声、非静音」全都算干扰，
+    // 于是「9.4 次/小时」直接扣掉 7 分——**那一晚其实几乎没被打断过**。
+    //
+    // 界面上那行字一直写着「咳嗽、梦话、翻身等」，文案本来就对，
+    // 是实现在扣不该扣的分。
+    test('一堆环境噪音碎片不算干扰', () {
+      final s = scoreSession(night([
+        for (var i = 0; i < 80; i++) ev(SleepCategory.ambient, i * 350.0, 15),
+      ]))!;
+
+      expect(pick(s, '干扰频次').points, 0,
+          reason: '环境噪音是背景不是事件——它已经在「环境噪音占比」'
+              '那一项里扣过分了，不该在这里再扣一次');
+    });
+
+    test('呼吸声不算干扰', () {
+      final s = scoreSession(night([
+        for (var i = 0; i < 80; i++) ev(SleepCategory.breathing, i * 350.0, 15),
+      ]))!;
+
+      expect(pick(s, '干扰频次').points, 0,
+          reason: '呼吸是睡眠本来的样子，不是打断');
+    });
+
+    test('咳嗽、梦话、翻身才算', () {
+      for (final c in [
+        SleepCategory.cough,
+        SleepCategory.vocal,
+        SleepCategory.movement,
+      ]) {
+        final s = scoreSession(night([
+          for (var i = 0; i < 120; i++) ev(c, i * 200.0, 15),
+        ]))!;
+
+        expect(pick(s, '干扰频次').points, greaterThan(0),
+            reason: '${c.label} 是可能打断睡眠的声音，应当扣分');
+      }
+    });
+  });
+
   group('环境噪音', () {
     test('环境噪音占到 40% 时扣满', () {
       final s = scoreSession(night([ev(SleepCategory.ambient, 0, 11520)]))!;
