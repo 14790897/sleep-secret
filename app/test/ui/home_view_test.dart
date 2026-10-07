@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
@@ -134,6 +135,57 @@ void main() {
     expect(find.textContaining('10月5日'), findsOneWidget);
     // 两晚以上要出趋势图
     expect(find.text('鼾声指数趋势'), findsOneWidget);
+  });
+
+  /// 打开「关于」页，并把视口调高。
+  ///
+  /// ⚠️ 视口一定要调：关于页很长，而 `ListView` **只构建可见区域**——
+  /// 默认 800x600 下底部那行版本号根本不在树里，
+  /// 于是「找不到」和「没渲染」分不开，断言就变成了在测浏览器而不是测代码。
+  Future<void> pumpAbout(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1000, 3400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关于'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('拿不到版本号时这一行不出现，也不报错', (tester) async {
+    // ⚠️ **这条必须跑在上面那条前面。** `PackageInfo` 的 mock 是**静态**的，
+    // 一旦被 setMockInitialValues 设过就留在那里，没法清掉——
+    // 放到后面的话它测的就是被 mock 过的路径，等于没测。
+    //
+    // 平台通道失败在真机上不是不可能（定制 ROM）。版本号是补充信息，
+    // 不是这一页的内容——为它显示一行错误只会让人以为应用坏了。
+    await pumpAbout(tester);
+
+    expect(find.byKey(HomeKeys.version), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('关于页底部显示版本号，而且是**系统里那个**', (tester) async {
+    // 真机/真桌面上这一行来自 PackageInfo（读的是系统里已经装好的那个包），
+    // 测试环境没有平台通道，所以喂一组假的。
+    //
+    // **这正是要测的路径**：显示的是系统给的那个版本，不是代码里某个常量。
+    // 写死常量的话发版时一定会漂——semantic-release 是自动改 pubspec.yaml 的，
+    // 人根本不经过那行代码。
+    PackageInfo.setMockInitialValues(
+      appName: 'Sleep Secret',
+      packageName: 'com.sleepsecret.sleep_secret',
+      version: '9.9.9',
+      buildNumber: '99999',
+      buildSignature: '',
+    );
+
+    await pumpAbout(tester);
+
+    expect(find.byKey(HomeKeys.version), findsOneWidget);
+    expect(find.text('版本 9.9.9 · build 99999'), findsOneWidget,
+        reason: '显示的必须是 PackageInfo 给的那一版');
   });
 
   testWidgets('关于页的片段开关能改状态', (tester) async {

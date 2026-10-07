@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../domain/models/recording_session.dart';
 import '../../../../domain/repositories/locale_controller.dart';
@@ -381,6 +382,9 @@ abstract final class HomeKeys {
   /// `_AboutView` 是私有的，测试没法按类型找它；而"这一页有没有混进中文"
   /// 这种检查需要能把它单独圈出来——整棵树里还混着别的页面。
   static const ValueKey<String> aboutView = ValueKey('home-about-view');
+
+  /// 「关于」页底部那行版本号。
+  static const ValueKey<String> version = ValueKey('home-version');
 }
 
 /// 关于页：说明 App 做什么、不做什么，以及音频片段的隐私开关。
@@ -482,9 +486,57 @@ class _AboutView extends StatelessWidget {
                     Navigator.of(context).pushNamed(DiagnosticView.routeName),
               ),
             ),
+            const _VersionFooter(),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 「关于」页最底下那行版本号。
+///
+/// ## 为什么从系统读，而不是写个常量
+///
+/// 版本号在这里是**给用户验货用的**：他刚装完一版，想知道「我装的是新的吗」。
+/// 写死常量的话每次发版都得记得改，而发版是 `semantic-release` **自动**去改
+/// `pubspec.yaml` 的，人根本不经过这里，迟早漂掉。
+/// `package_info_plus` 读的是**系统里那个已经装好的包**，显示的一定是真正
+/// 在跑的那一版。
+class _VersionFooter extends StatefulWidget {
+  const _VersionFooter();
+
+  @override
+  State<_VersionFooter> createState() => _VersionFooterState();
+}
+
+class _VersionFooterState extends State<_VersionFooter> {
+  /// 只解析一次。`IndexedStack` 会让这个 State 长期活着，但别指望这件事——
+  /// 每次 build 都去问一遍平台通道是白花力气。
+  late final Future<PackageInfo> _info = PackageInfo.fromPlatform();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: _info,
+      builder: (context, snap) {
+        final info = snap.data;
+        // 拿不到就什么都不显示。版本号是补充信息，不是这一页的内容——
+        // 为它显示一行错误，只会让人以为应用坏了。
+        if (info == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: Text(
+            context.l10n.aboutVersion(info.version, info.buildNumber),
+            key: HomeKeys.version,
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .labelSmall
+                ?.copyWith(color: AppColors.textDim),
+          ),
+        );
+      },
     );
   }
 }

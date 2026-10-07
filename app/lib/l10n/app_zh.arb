@@ -51,6 +51,13 @@
   "aboutPrivacyBody": "录音不会上传。原始音频在分析后即丢弃，只保留事件的时间点、类别，以及（如果你开着上面的开关）鼾声与呼吸信号的片段。",
   "aboutNotTitle": "它不是什么",
   "aboutNotBody": "不是医疗器械，不能用于诊断睡眠呼吸暂停或其他疾病。识别结果来自通用的音频事件模型，没有针对你本人做过校准。身体不适请就医。",
+  "aboutVersion": "版本 {version} · build {build}",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {"type": "String"},
+      "build": {"type": "String"}
+    }
+  },
   "archiveEntry": "数据导出",
   "archiveEntrySubtitle": "导出到网盘同步目录，换设备可以再导回来",
   "diagnosticEntry": "端侧推理诊断",

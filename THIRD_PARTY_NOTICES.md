@@ -69,4 +69,5 @@ jayfrosting 的 *Gasp 4.wav*，CC0）。它**不能用鼾声那套判据挑**：
 
 Flutter / Dart 包的许可见 `app/pubspec.lock`；
 Android 侧依赖的许可见 Gradle 依赖树（`flutter build apk` 会汇总）。
-其中 ONNX Runtime 为 MIT 许可。
+其中 ONNX Runtime 为 MIT 许可，`package_info_plus` 为 BSD-3-Clause
+（「关于」页底部那行版本号读的是它）。
