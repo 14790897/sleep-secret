@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sleep_secret/data/repositories/recording_repository.dart';
 import 'package:sleep_secret/data/services/session_database.dart';
 import 'package:sleep_secret/domain/analysis/analysis_config.dart';
+import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -306,6 +308,74 @@ void main() {
 
       expect(seen, contains(true));
       expect(seen.last, isFalse);
+    });
+  });
+
+  group('录完自动导出', () {
+    /// setUp 里那个仓库没配回调，这里单独造一个。
+    RecordingRepository withAutoExport(
+      Future<void> Function(RecordingSession) onExport,
+    ) =>
+        RecordingRepository(
+          capture: capture,
+          analyzer: analyzer,
+          database: database,
+          foregroundService: foreground,
+          config: testConfig,
+          clock: () => fakeNow,
+          autoExport: onExport,
+        );
+
+    test('导出拿到的是**落库之后**的那一晚', () async {
+      final exported = <RecordingSession>[];
+      final repo = withAutoExport((s) async => exported.add(s));
+      addTearDown(repo.dispose);
+
+      await repo.start();
+      pushSeconds(capture, 4, amplitude: 0.5);
+      await pumpEventQueue();
+      final session = await repo.stop();
+      await pumpEventQueue();
+
+      expect(exported, hasLength(1));
+      // id 是关键：导出用的时间戳和片段目录名都来自这一晚，
+      // 拿到落库前的对象说明这里传错了
+      expect(exported.single.id, isNotNull,
+          reason: '传进去的应当是 insertSession 之后、带 id 的那一份');
+      expect(exported.single.id, session!.id);
+      expect(exported.single.startedAt, startedAt);
+      expect(exported.single.events.length, session.events.length);
+    });
+
+    test('导出慢的时候「结束」不会卡住', () async {
+      // 搬片段可能要好几秒（几十兆的 WAV）。用户点完「结束」
+      // 不该干等在那儿——所以这里刻意是 unawaited 而不是 await。
+      final gate = Completer<void>();
+      final repo = withAutoExport((_) => gate.future);
+      addTearDown(repo.dispose);
+
+      await repo.start();
+      pushSeconds(capture, 4, amplitude: 0.5);
+      await pumpEventQueue();
+
+      // 导出还挂着没完成，stop 也必须立刻回来
+      final session =
+          await repo.stop().timeout(const Duration(seconds: 3));
+      expect(session, isNotNull, reason: '导出没完成不该拖住结束');
+      expect(repo.state.isRecording, isFalse);
+
+      gate.complete();
+    });
+
+    test('没配导出回调时，录音照常走完', () async {
+      await repository.start();
+      pushSeconds(capture, 4, amplitude: 0.5);
+      await pumpEventQueue();
+
+      final session = await repository.stop();
+
+      expect(session, isNotNull);
+      expect(session!.id, isNotNull);
     });
   });
 }
