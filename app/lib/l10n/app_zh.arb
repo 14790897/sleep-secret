@@ -662,5 +662,10 @@
   },
   "reportStop": "停止",
   "reportListen": "试听",
-  "archivePickerConfirm": "选这个目录"
+  "archivePickerConfirm": "选这个目录",
+  "languageTitle": "语言",
+  "languageSubtitle": "默认跟随系统",
+  "languageSystem": "跟随系统",
+  "languageChinese": "简体中文",
+  "languageEnglish": "English"
 }

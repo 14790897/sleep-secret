@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
+import 'package:sleep_secret/l10n/app_localizations.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
@@ -14,6 +15,7 @@ import 'package:sleep_secret/ui/features/report/view_models/report_view_model.da
 
 import '../helpers/fake_clip_services.dart';
 import '../helpers/fake_recording_controller.dart';
+import '../helpers/fake_services.dart';
 import '../helpers/pump_app.dart';
 
 /// 多语言管线的把关测试。
@@ -66,6 +68,7 @@ void main() {
     tearDown(() => recordingVm.dispose());
 
     Widget homeView() => HomeView(
+          localeController: FakeLocaleController(),
           recordingViewModel: recordingVm,
           reportViewModelFactory: (session) => ReportViewModel(
             session: session,
@@ -166,19 +169,16 @@ void main() {
 
       // 中日韩统一表意文字。这个 App 只可能中英混，查这个范围就够。
       final cjk = RegExp('[一-鿿]');
-      final offenders =
-          aboutTexts(tester).where((t) => cjk.hasMatch(t)).toList();
+      final offenders = aboutTexts(tester)
+          .where((t) => cjk.hasMatch(t) && !intentionallyChinese.contains(t))
+          .toList();
 
       // 先确认子树真的建出来了 —— 空集合上做 isEmpty 永远是 true，
       // 那就是一条永远绿、也永远没用的断言
       expect(aboutTexts(tester), isNotEmpty,
           reason: '关于页的子树是空的，这条断言会假绿');
 
-      expect(offenders, isEmpty,
-          reason: '这些文案没有英文翻译，正在回退显示中文：\n'
-              '${offenders.map((t) => '  - $t').join('\n')}\n'
-              '（缺翻译时 Flutter 静默退回模板语言，不会报错——'
-              '所以这类断言是唯一能发现它的地方）');
+      expect(offenders, isEmpty, reason: _cjkReport('关于页', offenders));
     });
   });
 
@@ -224,6 +224,55 @@ void main() {
   });
 
   _recordingPageCheck();
+
+  group('手动切换语言', () {
+    testWidgets('在关于页选 English，整个界面立刻跟着变', (tester) async {
+      final locale = FakeLocaleController();
+      final vm = RecordingViewModel(controller: FakeRecordingController());
+      addTearDown(vm.dispose);
+
+      tester.view.physicalSize = const Size(900, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // 接线方式和 main.dart 一致：MaterialApp.locale 绑在控制器上，
+      // null 表示跟随系统。这条测的就是那根线接没接对。
+      await tester.pumpWidget(ListenableBuilder(
+        listenable: locale,
+        builder: (context, _) => MaterialApp(
+          locale: locale.locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: HomeView(
+            localeController: locale,
+            recordingViewModel: vm,
+            reportViewModelFactory: (session) => ReportViewModel(
+              session: session,
+              clipStore: FakeAudioClipStore(),
+              player: FakeEventPlayer(),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // 测试环境的系统语言是 en_US，先手动钉成中文再试切换，
+      // 否则一上来就是英文，看不出"切换"有没有生效
+      await locale.setLocale(const Locale('zh'));
+      await tester.pumpAndSettle();
+      expect(find.text('睡眠'), findsOneWidget);
+
+      // 进关于页，选 English
+      await tester.tap(find.byIcon(Icons.info_outline));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('English'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sleep'), findsOneWidget,
+          reason: '选了 English 之后底部导航该是英文——那根线没接上的话这里会红');
+      expect(find.text('睡眠'), findsNothing);
+    });
+  });
 }
 
 /// 录音页也要查一遍：它是用户打开 App 看到的第一屏，
@@ -255,6 +304,13 @@ void _recordingPageCheck() {
             '录音页', texts.where((t) => cjk.hasMatch(t)).toList()));
   });
 }
+
+/// **有意保留中文**的文案。
+///
+/// 语言选择器里的「简体中文」就该用中文写——把语言名翻成
+/// "Simplified Chinese"，只看得懂中文的人反而找不到自己那一项。
+/// 这是少数几个"不该翻译"的地方，所以显式列出来，而不是放宽整条断言。
+const Set<String> intentionallyChinese = {'简体中文'};
 
 /// 拼出一份看得懂的中文残留报告。
 String _cjkReport(String where, List<String> offenders) =>

@@ -278,6 +278,7 @@ void main() {
       // 区别只有 locale 钉死（测试默认 en_US，不钉会渲染成英文）。
       await tester.pumpWidget(localizedApp(
         home: HomeView(
+          localeController: FakeLocaleController(),
           recordingViewModel: RecordingViewModel(controller: built.repository),
           reportViewModelFactory: (session) => ReportViewModel(
             session: session,

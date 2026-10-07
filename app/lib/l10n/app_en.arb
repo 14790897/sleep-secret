@@ -225,5 +225,10 @@
   "reportEventsSubtitlePlain": "{count} events",
   "reportStop": "Stop",
   "reportListen": "Listen",
-  "archivePickerConfirm": "Use this folder"
+  "archivePickerConfirm": "Use this folder",
+  "languageTitle": "Language",
+  "languageSubtitle": "Follows your system by default",
+  "languageSystem": "System default",
+  "languageChinese": "简体中文",
+  "languageEnglish": "English"
 }

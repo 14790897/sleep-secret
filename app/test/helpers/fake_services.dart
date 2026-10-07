@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'dart:async';
-import 'dart:typed_data';
+
+import 'package:sleep_secret/domain/repositories/locale_controller.dart';
 
 import 'package:sleep_secret/data/services/audio_capture_service.dart';
 import 'package:sleep_secret/data/services/foreground_service_controller.dart';
@@ -113,4 +116,24 @@ class FakeForegroundServiceController implements ForegroundServiceController {
 
   @override
   Future<bool> get isRunning async => running;
+}
+
+/// 只记状态的假语言控制器。
+///
+/// 真实现要落库、还要过滤不支持的语言；widget 测试只关心
+/// 「选完之后界面有没有跟着变」，不需要那两件事。
+class FakeLocaleController extends ChangeNotifier implements LocaleController {
+  Locale? _locale;
+
+  @override
+  Locale? get locale => _locale;
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> setLocale(Locale? value) async {
+    _locale = value;
+    notifyListeners();
+  }
 }
