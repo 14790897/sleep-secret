@@ -137,6 +137,19 @@ void main() {
           reason: '切到英文了，中文那份不该还在');
     });
 
+    testWidgets('系统语言不在支持列表里时，回退到英文', (tester) async {
+      // ⚠️ supportedLocales 的顺序是**代码生成时按 arb 文件名排的**（en, zh），
+      // 不是我们定的。但落点正好是对的：中文用户匹配 zh，其余语言落到 en
+      // ——那正是这个 App 想要的国际回退。
+      //
+      // 这条断言把它钉住：哪天加了第三种语言、生成顺序变了，
+      // 会有人立刻发现，而不是等一个德国用户来报「界面怎么变中文了」。
+      await pumpAbout(tester, 'de');
+
+      expect(find.text('Sleep'), findsOneWidget);
+      expect(find.text('睡眠'), findsNothing);
+    });
+
     testWidgets('切到英文，关于页整页文案跟着变', (tester) async {
       await pumpAbout(tester, 'zh');
       expect(aboutTexts(tester), contains('这个应用做什么'));
