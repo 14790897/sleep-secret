@@ -57,10 +57,14 @@ class ArchiveRepository implements ArchiveController {
 
   @override
   Future<void> load() async {
-    if (_loaded) return;
-    _loaded = true;
     await _database.open();
-    _serialized = await _database.readStringSetting(_kExportTarget);
+    if (!_loaded) {
+      _loaded = true;
+      _serialized = await _database.readStringSetting(_kExportTarget);
+    }
+    // 可用性**每次都重查**，不能只查第一次。
+    // 用户在应用开着的时候把网盘目录删了/改名了是很常见的，
+    // 只查一次的话页面会一直显示「可用」，直到他点下去才报错。
     await _refreshUsable();
     _emit();
   }
