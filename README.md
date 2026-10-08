@@ -4,9 +4,11 @@
 
 整夜录音，在手机本地把声音分成鼾声、呼吸、咳嗽、梦话等类别，早上给出时间线和统计。
 
-**音频不出设备。** 没有账号、没有上传、没有云端。
+**默认音频不出设备。** 没有账号、没有服务器——装完就能用，分析全在手机上。
 
-<img src="docs/screenshots/1-recording-idle.png" width="200"> <img src="docs/screenshots/2-recording-active.png" width="200"> <img src="docs/screenshots/3-reports.png" width="200"> <img src="docs/screenshots/4-report-detail.png" width="200">
+唯一的例外是**你自己**去「导出数据」页配上坚果云 / WebDAV：那之后每晚录完会传到**你自己名下**的网盘。这个项目没有自己的服务器，也不会有。
+
+<img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分与逐项扣分"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图：模型给出的原始 AudioSet 标签与中文对照">
 
 </div>
 

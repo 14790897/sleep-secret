@@ -60,7 +60,7 @@ void main() {
 
   testWidgets('界面外壳：录音页渲染 + 底部导航切换', (tester) async {
     // 视口给高：关于页有好几张卡，**ListView 只构建可见区域**，
-    // 屏幕外的部分根本不在 widget 树上。不撑开的话，「数据不出手机」
+    // 屏幕外的部分根本不在 widget 树上。不撑开的话，「数据默认不出手机」
     // 那种断言会报「找不到」——而找不到分不清是文案没了还是它在屏幕外。
     // （加语言选择卡时就是这么红的。）
     tester.view.physicalSize = const Size(1080, 3600);
@@ -86,7 +86,7 @@ void main() {
     // ---- 2. 底部导航可切换 ----
     await tester.tap(find.text('关于'));
     await settle(tester);
-    expect(find.textContaining('数据不出手机'), findsOneWidget);
+    expect(find.textContaining('数据默认不出手机'), findsOneWidget);
 
     await tester.tap(find.text('报告'));
     await settle(tester);

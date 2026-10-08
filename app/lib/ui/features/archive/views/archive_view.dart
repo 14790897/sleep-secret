@@ -426,7 +426,7 @@ class _OutcomeLine extends StatelessWidget {
 
 /// 明确说清楚导出了什么——**包括音频**。
 ///
-/// App 自己的说法是「音频不出设备」，而这里导出的文件里**是有音频的**。
+/// App 自己的说法是「默认音频不出设备」，而这里导出的文件里**是有音频的**——
 /// 用户把目录放进网盘，音频就跟着上云了。这是用户自己的选择，
 /// 但他必须知道自己在选什么。
 class _WhatGetsExportedCard extends StatelessWidget {
