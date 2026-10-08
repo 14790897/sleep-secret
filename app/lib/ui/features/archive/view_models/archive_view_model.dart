@@ -73,6 +73,13 @@ class ArchiveViewModel extends ChangeNotifier {
   /// 存下连接信息、切成 WebDAV 目标，然后**立刻测一次**。
   ///
   /// 一填完就知道通不通，比让人配好、等明早才发现传不上去强得多。
+  ///
+  /// ⚠️ 整个流程必须在 try/finally 里：这条链路上有**会抛的地方**
+  /// （地址不合法时 `WebDavClient` 的构造函数就抛），而 `_webDavBusy`
+  /// 一旦留在 true，界面上的表现是**看着像网络卡住**——按钮一直灰着、
+  /// 一直写「正在测试连接…」，其实一个包都没发出去；而且这个 ViewModel
+  /// 是 `main.dart` 里建一次活整个进程的，**退出页面再进来也复位不了**，
+  /// 用户只能重启应用自救。2026-10-08 真机上就是这样卡住的。
   Future<void> saveAndUseWebDav(WebDavSettings settings) async {
     final store = _webDavStore;
     if (store == null) return;
@@ -82,13 +89,22 @@ class ArchiveViewModel extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    await store.write(settings);
-    _webDav = settings;
-    await _controller.useWebDavTarget();
-    await _testConnection(settings);
-
-    _webDavBusy = false;
-    notifyListeners();
+    try {
+      await store.write(settings);
+      _webDav = settings;
+      await _controller.useWebDavTarget();
+      await _testConnection(settings);
+    } on WebDavException catch (e) {
+      // 这是「地址看起来不对：…」那类**给人看的**话，原样显示即可
+      _webDavOk = false;
+      _webDavMessage = e.message;
+    } catch (e) {
+      _webDavOk = false;
+      _webDavMessage = '$e';
+    } finally {
+      _webDavBusy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> clearWebDav() async {

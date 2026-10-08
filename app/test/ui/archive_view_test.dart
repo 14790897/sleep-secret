@@ -6,6 +6,8 @@ import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/ui_message.dart';
 import 'package:sleep_secret/data/repositories/archive_repository.dart';
+import 'package:sleep_secret/data/services/webdav_client.dart';
+import 'package:sleep_secret/data/services/webdav_settings.dart';
 import 'package:sleep_secret/domain/repositories/archive_controller.dart';
 import 'package:sleep_secret/ui/features/archive/view_models/archive_view_model.dart';
 import 'package:sleep_secret/ui/features/archive/views/archive_view.dart';
@@ -146,6 +148,27 @@ class FakeArchiveController implements ArchiveController {
 
   @override
   void dispose() => _changes.close();
+}
+
+/// 切换 WebDAV 目标时抛错——真机上就是「地址那一栏还是空的」那一次。
+class _FailingWebDavController extends FakeArchiveController {
+  @override
+  Future<void> useWebDavTarget() async {
+    throw WebDavException('地址看起来不对：（应当形如 https://dav.jianguoyun.com/dav/）');
+  }
+}
+
+class _MemoryWebDavStore implements WebDavSettingsStore {
+  WebDavSettings? stored;
+
+  @override
+  Future<WebDavSettings?> read() async => stored;
+
+  @override
+  Future<void> write(WebDavSettings settings) async => stored = settings;
+
+  @override
+  Future<void> clear() async => stored = null;
 }
 
 void main() {
@@ -350,6 +373,49 @@ void main() {
       expect(enabled(tester, '换一个'), isFalse,
           reason: '忙的时候不该还能改目录');
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+  });
+
+  group('保存并测试连接', () {
+    /// 2026-10-08 在真机上撞到的那个 bug。
+    ///
+    /// 地址那一栏还是空的时候点「保存并测试」：`WebDavClient` 的构造函数
+    /// 会因为地址不合法抛异常，而当时 `saveAndUseWebDav` **没有
+    /// try/finally** —— 异常直接漏出去，`_webDavBusy` 就永远停在 true。
+    ///
+    /// 表现是**看起来像网络卡住**：按钮一直灰着、页面一直写着
+    /// 「正在测试连接…」，其实一个包都没发出去。
+    ///
+    /// 更要命的是 `ArchiveViewModel` 在 `main.dart` 里建一次、活整个进程，
+    /// **退出这一页再进来也复位不了**——用户唯一的自救手段是重启应用。
+    testWidgets('目标切不过去时：说清楚原因，并且让按钮回来', (tester) async {
+      final failing = _FailingWebDavController();
+      addTearDown(failing.dispose);
+      final vm = ArchiveViewModel(
+        controller: failing,
+        webDavSettings: _MemoryWebDavStore(),
+      );
+
+      tester.view.physicalSize = const Size(900, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(localizedApp(home: ArchiveView(viewModel: vm)));
+      await tester.pumpAndSettle();
+
+      await vm.saveAndUseWebDav(const WebDavSettings(
+        baseUrl: '',
+        username: 'u',
+        password: 'p',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(vm.webDavBusy, isFalse,
+          reason: '修复前这里永远是 true —— 界面只能靠重启应用恢复');
+      expect(vm.webDavMessage, isNotNull, reason: '失败原因不能被吞掉');
+      expect(vm.webDavMessage, contains('地址'));
+      expect(enabled(tester, '保存并测试'), isTrue,
+          reason: '按钮得能再点，否则用户没有任何自救手段');
+      expect(find.text('正在测试连接…'), findsNothing);
     });
   });
 }
