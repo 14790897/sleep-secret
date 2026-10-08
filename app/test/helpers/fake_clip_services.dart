@@ -124,5 +124,43 @@ class FakeEventPlayer implements EventPlayer {
     disposed = true;
     _completePlayback();
     await _controller.close();
+    await _positions.close();
+  }
+
+  // ------------------------------------------------------------ 位置与跳转
+  //
+  // 播放面板要靠这两样：进度条跟着 positionStream 走，拖动时调 seek。
+
+  final _positions = StreamController<Duration>.broadcast();
+
+  int pauseCount = 0;
+  int resumeCount = 0;
+  int seekCount = 0;
+  Duration? lastSeek;
+
+  @override
+  Stream<Duration> get positionStream => _positions.stream;
+
+  /// 手动推一个位置，模拟 just_audio 的 positionStream。
+  void emitPosition(Duration position) {
+    if (!_positions.isClosed) _positions.add(position);
+  }
+
+  @override
+  Future<void> pause() async {
+    pauseCount++;
+    if (!_controller.isClosed) _controller.add(false);
+  }
+
+  @override
+  Future<void> resume() async {
+    resumeCount++;
+    if (!_controller.isClosed) _controller.add(true);
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    seekCount++;
+    lastSeek = position;
   }
 }

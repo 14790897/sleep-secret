@@ -576,14 +576,29 @@
   "reportHundredPoints": "100 分逐项扣完",
   "reportClipsTitle": "鼾声录音",
   "reportClipsNone": "这一晚没有留下录音。到「关于」页打开「保留鼾声与呼吸信号片段」，之后录的就会留下——梦话和咳嗽不录。",
-  "reportClipsSubtitle": "共 {count} 段 · {duration}，点一下试听",
+  "reportClipsSubtitle": "共 {count} 段 · 每段最多 {maxSeconds} 秒，点一下试听",
   "@reportClipsSubtitle": {
+    "description": "⚠️ 这里原来放的是**事件总时长**（Σ 事件秒数），而每段片段其实被 maxClipSeconds 封顶了——两个数差一个数量级，看起来就像「写着 43 秒却只响 20 秒」。现在只说段数和上限。",
     "placeholders": {
       "count": {
         "type": "int"
       },
-      "duration": {
-        "type": "String"
+      "maxSeconds": {
+        "type": "int"
+      }
+    }
+  },
+  "clipPlayerClose": "关闭",
+  "clipPlayerUnreadable": "这段音频读不出来——文件可能已经不在了",
+  "clipPlayerExcerpt": "这一段声音全长 {total} 秒，上面放的是末尾 {clip} 秒的摘录——拖波形可以跳着听。",
+  "@clipPlayerExcerpt": {
+    "description": "片段是摘录（末尾若干秒），而列表里那个数字是事件总长。只有事件明显更长时才显示这句。",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "clip": {
+        "type": "int"
       }
     }
   },

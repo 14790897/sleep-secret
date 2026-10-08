@@ -55,25 +55,26 @@ class ReportViewModel extends ChangeNotifier {
   bool isPlaying(int index) => index == _playingIndex;
   bool isLoading(int index) => index == _loadingIndex;
 
-  /// 点同一个事件是"停"，点别的会切换过去。
-  Future<void> togglePlay(int index) async {
-    if (index < 0 || index >= _session.events.length) return;
+  /// 播放面板要用它来放、暂停、拖进度。
+  EventPlayer? get player => _player;
+
+  /// 打开某个事件的片段：解析路径、开始播放，再把面板要的两样东西给它。
+  ///
+  /// 返回 null 表示这个事件现在放不了——没有片段，或者文件已经不在了
+  /// （后者会顺带把错误挂到 [error] 上，界面照常显示原因）。
+  ///
+  /// ⚠️ 这里**没有**「再点一次就停」：播放面板是模态的，盖住列表之后
+  /// 根本点不到第二下，停由面板自己负责（关面板就停）。
+  Future<({String path, double eventSeconds})?> openClip(int index) async {
+    if (index < 0 || index >= _session.events.length) return null;
     final player = _player;
-    if (player == null) return;
-
-    _error = null;
-
-    if (_playingIndex == index) {
-      await player.stop();
-      _playingIndex = -1;
-      notifyListeners();
-      return;
-    }
+    if (player == null) return null;
 
     final event = _session.events[index];
     final relative = event.clipPath;
-    if (relative == null || relative.isEmpty) return;
+    if (relative == null || relative.isEmpty) return null;
 
+    _error = null;
     _loadingIndex = index;
     notifyListeners();
 
@@ -84,7 +85,7 @@ class ReportViewModel extends ChangeNotifier {
       _loadingIndex = -1;
       _error = const UiMessage(UiMessageKind.reportClipMissing);
       notifyListeners();
-      return;
+      return null;
     }
 
     // 不能 await play()。just_audio 的 play() 返回的 Future 要等到**播放结束**
@@ -95,6 +96,7 @@ class ReportViewModel extends ChangeNotifier {
     _loadingIndex = -1;
     _playingIndex = index;
     notifyListeners();
+    return (path: absolute, eventSeconds: event.durationSeconds);
   }
 
   Future<void> stopPlayback() async {

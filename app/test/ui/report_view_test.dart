@@ -11,6 +11,7 @@ import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/ui/core/widgets/score_gauge.dart';
 import 'package:sleep_secret/ui/core/widgets/sound_timeline.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
+import 'package:sleep_secret/ui/features/report/views/clip_player_sheet.dart';
 import 'package:sleep_secret/ui/features/report/views/report_view.dart';
 
 import '../helpers/fake_clip_services.dart';
@@ -307,19 +308,30 @@ void main() {
           findsNWidgets(2));
     });
 
-    testWidgets('点另一条会切过去而不是叠加播放', (tester) async {
+    testWidgets('点播放会打开播放面板，并且只放这一条', (tester) async {
+      await pumpReport(tester, withClips());
+
+      await tester.tap(find.byIcon(Icons.play_circle_outline).last);
+      await tester.pumpAndSettle();
+
+      // 面板出来了——波形和可拖的进度都在它里面
+      expect(find.byType(ClipPlayerSheet), findsOneWidget);
+
+      // 而且放的是点中那一条
+      expect(player.playCount, 1);
+      expect(player.currentPath, '/fake/clips/sess/200000.wav');
+    });
+
+    testWidgets('关掉面板会把声音停掉，不留在后台继续响', (tester) async {
       await pumpReport(tester, withClips());
 
       await tester.tap(find.byIcon(Icons.play_circle_outline).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.play_circle_outline).last);
+      await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
-      expect(player.playCount, 2);
-      expect(player.currentPath, '/fake/clips/sess/200000.wav');
-      // 同一时刻只有一条在播
-      expect(inCard(ReportKeys.eventDetail, find.byIcon(Icons.stop_circle_outlined)),
-          findsOneWidget);
+      expect(find.byType(ClipPlayerSheet), findsNothing);
+      expect(player.stopCount, greaterThan(0));
     });
 
     testWidgets('播放自然结束后按钮回到可播放态', (tester) async {
@@ -384,27 +396,14 @@ void main() {
               '而这张卡存在的理由就是播放键夹在它们中间找不到');
     });
 
-    testWidgets('段数和总时长直接写出来，不用自己数', (tester) async {
+    testWidgets('段数和每段上限直接写出来——不能把事件总长当成音频时长', (tester) async {
       await pumpReport(tester, mixed());
 
-      // 30 + 20 = 50 秒。整句精确比——「共 2 段」这几个字在
-      // 「鼾声段时长」卡里也有，containing 会撞上。
-      expect(find.text('共 2 段 · 50 秒，点一下试听'), findsOneWidget);
-    });
-
-    testWidgets('只有一段时也按秒显示——不能写成「0m」', (tester) async {
-      clipStore.saved['sess/100000.wav'] = Float32List(10);
-      await pumpReport(tester, buildSession(events: [
-        event(
-            label: SleepCategory.snore,
-            start: 100,
-            duration: 45,
-            snore: 0.8,
-            clipPath: 'sess/100000.wav'),
-      ]));
-
-      // formatSpan 只到分钟，直接用它的话这一段会显示成「0m」
-      expect(find.text('共 1 段 · 45 秒，点一下试听'), findsOneWidget);
+      // ⚠️ 这里曾经是「共 2 段 · 50 秒」（30 + 20，**事件**时长之和），
+      // 而每段片段被 maxClipSeconds 封顶成 20 秒——两个数差一个数量级，
+      // 用户看到 50 秒却发现每段只响 20 秒，只会觉得播放器坏了。
+      // 整句精确比：「共 2 段」这几个字在「鼾声段时长」卡里也有，containing 会撞上。
+      expect(find.text('共 2 段 · 每段最多 20 秒，点一下试听'), findsOneWidget);
     });
 
     testWidgets('排在「事件明细」前面', (tester) async {
