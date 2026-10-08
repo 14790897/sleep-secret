@@ -11,6 +11,12 @@ abstract interface class SleepAnalyzer {
   /// 加载模型与类别映射表。幂等。
   Future<void> initialize();
 
+  /// 只加载类别映射表（不加载模型）。
+  ///
+  /// 报告页要它把原始 AudioSet 标签对照到大类，而这件事**不该等模型**——
+  /// 模型 6.6MB、映射表 15KB，分开加载能让报告页一打开就有那一列。
+  Future<void> loadClassMap();
+
   /// 模型与类别映射表是否已就绪。
   bool get isReady;
 

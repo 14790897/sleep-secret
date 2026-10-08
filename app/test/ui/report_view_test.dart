@@ -920,7 +920,7 @@ void main() {
       expect(inCard(ReportKeys.rawLabels, find.text('未映射')), findsNothing);
     });
 
-    testWidgets('拿不到映射表时照常列出标签，只是那一列全空', (tester) async {
+    testWidgets('拿不到映射表时列标签，但**不标「未映射」**', (tester) async {
       // 映射表是可选注入的——它拿不到不该让整张卡消失，
       // 更不该让报告打不开。核查信息缺失是缺信息，不是崩溃。
       await pumpReport(tester, labelled({'Snoring': 100, 'Thunder': 30}));
@@ -929,6 +929,13 @@ void main() {
       final card = ReportKeys.rawLabels;
       expect(inCard(card, find.text('Snoring')), findsOneWidget);
       expect(inCard(card, find.text('Thunder')), findsOneWidget);
+
+      // ⚠️ 这几条是重点。第一版把「没有映射表」和「未映射」画成了同一个样子：
+      // 拿不到表时整个列表全标成「未映射」，顶上还说「其中 N 种没有归进任何
+      // 大类」——那是**假消息**。刚装好的 App 就是这样（映射表原来跟着模型
+      // 懒加载，没录过音就还没读），报告页上一条真话都没有。
+      expect(inCard(card, find.text('未映射')), findsNothing);
+      expect(inCard(card, find.textContaining('没有归进任何大类')), findsNothing);
     });
 
     testWidgets('老记录（没有计数）明说是没收集，不列空表', (tester) async {

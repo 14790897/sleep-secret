@@ -41,13 +41,24 @@ class SleepAnalysisRepository implements SleepAnalyzer {
   @override
   bool get isReady => _classMap != null && _classifier.isReady;
 
+  /// 只加载类别映射表。重复调用是幂等的。
+  ///
+  /// **和模型分开**是有意的：映射表 15KB，模型 6.6MB。
+  /// 报告页要用映射表把原始标签对照到大类，而**没录过音的用户也该看得到那一列**——
+  /// 第一版把两者捆在一起，于是刚装好的 App 打开历史报告时，
+  /// 那一列会全部显示成「未映射」（映射表还是 null），而那是个假消息。
+  @override
+  Future<void> loadClassMap() async {
+    if (_classMap != null) return;
+    final raw = await rootBundle.loadString(classMapAsset);
+    _classMap = await decodeSleepClassMap(raw);
+  }
+
   /// 加载模型与类别映射表。重复调用是幂等的。
   @override
   Future<void> initialize() async {
     if (isReady) return;
-
-    final raw = await rootBundle.loadString(classMapAsset);
-    _classMap = await decodeSleepClassMap(raw);
+    await loadClassMap();
     await _classifier.load();
   }
 

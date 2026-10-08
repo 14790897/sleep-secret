@@ -1053,16 +1053,26 @@ class _RawLabelsCardState extends State<_RawLabelsCard> {
       );
     }
 
-    // 拿不到映射表就只是不显示对照那一列，报告照常渲染——
-    // 这是核查用的附加信息，不该成为打开报告的前提。
+    // ⚠️ **「没有映射表」和「未映射」必须分得开。**
+    //
+    // 上面那句话以前就写在这儿，但代码把两者画成了同一个样子：拿不到映射表时
+    // `byCategory[e.key]` 也是 null，于是**整张列表全被标成「未映射」**，
+    // 顶上还说「其中 13 种没有归进任何大类」——一条十足的假消息。
+    // 真话是「我们不知道」，因为表还没加载。
+    //
+    // 刚装好的 App 就是这样：映射表原本和 6.6MB 的模型捆在一起懒加载，
+    // 没录过音就还没读。现在映射表改成启动时单独加载（15KB）。
+    final classMap = widget.viewModel.classMap;
+    final hasMap = classMap != null;
     final byCategory =
-        widget.viewModel.classMap?.labelToCategory() ??
-        const <String, SleepCategory>{};
+        classMap?.labelToCategory() ?? const <String, SleepCategory>{};
 
     final rows = counts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final total = rows.fold<int>(0, (sum, e) => sum + e.value);
-    final unmapped = rows.where((e) => !byCategory.containsKey(e.key)).length;
+    final unmapped = hasMap
+        ? rows.where((e) => !byCategory.containsKey(e.key)).length
+        : 0;
     // 中文对照只在中文界面下显示——那张表只有中文（见 audioset_zh.dart）。
     final isZh = Localizations.localeOf(context).languageCode == 'zh';
 
@@ -1084,7 +1094,7 @@ class _RawLabelsCardState extends State<_RawLabelsCard> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (unmapped > 0) ...[
+          if (hasMap && unmapped > 0) ...[
             const SizedBox(height: 6),
             Text(
               context.l10n.reportRawLabelsUnmappedNote(unmapped),
@@ -1120,6 +1130,7 @@ class _RawLabelsCardState extends State<_RawLabelsCard> {
                       count: e.value,
                       total: total,
                       category: byCategory[e.key],
+                      showCategory: hasMap,
                     ),
                 ],
               ),
@@ -1137,6 +1148,7 @@ class _RawLabelRow extends StatelessWidget {
     required this.count,
     required this.total,
     required this.category,
+    required this.showCategory,
     this.zh,
   });
 
@@ -1151,6 +1163,12 @@ class _RawLabelRow extends StatelessWidget {
 
   /// 未映射时为 null——那一行会有个「未映射」的标记。
   final SleepCategory? category;
+
+  /// 要不要显示「大类 / 未映射」那一列。
+  ///
+  /// 为 false 时**整列不渲染**（不只是留空）：映射表没加载出来的时候，
+  /// 「未映射」是假消息，而空着那一列又把宽度白占了。
+  final bool showCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -1185,18 +1203,20 @@ class _RawLabelRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 62,
-            child: Text(
-              category?.label(context) ??
-                  context.l10n.reportRawLabelsUnmappedTag,
-              textAlign: TextAlign.right,
-              style: category == null
-                  ? dim?.copyWith(color: AppColors.statusWarning)
-                  : dim,
+          if (showCategory) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 62,
+              child: Text(
+                category?.label(context) ??
+                    context.l10n.reportRawLabelsUnmappedTag,
+                textAlign: TextAlign.right,
+                style: category == null
+                    ? dim?.copyWith(color: AppColors.statusWarning)
+                    : dim,
+              ),
             ),
-          ),
+          ],
           SizedBox(
             width: 46,
             child: Text(

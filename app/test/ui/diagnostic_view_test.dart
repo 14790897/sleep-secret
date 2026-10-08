@@ -33,7 +33,12 @@ class FakeSleepAnalyzer implements SleepAnalyzer {
   @override
   bool isReady = false;
 
+    // 报告页只要映射表就能工作，所以它和模型分开加载。
+
   @override
+
+  Future<void> loadClassMap() => initialize();
+@override
   Future<void> initialize() async {
     initializeCount++;
     if (failOnInitialize) {

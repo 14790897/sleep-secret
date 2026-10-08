@@ -185,6 +185,10 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
     // 上次没传上去的，趁现在再试一遍。不 await：它要走网络，
     // 卡着启动流程的话，用户会以为 App 打不开了。
     unawaited(_archiveRepository.flushRetries());
+
+    // 先把类别映射表（15KB）读了——报告页的「详细视图」要靠它把原始标签
+    // 对照到大类。**不加载模型**：那 6.6MB 留到真要用的时候。
+    unawaited(_analysisRepository.loadClassMap());
   }
 
   /// 录音落库之后自动导出到用户配的目录。
