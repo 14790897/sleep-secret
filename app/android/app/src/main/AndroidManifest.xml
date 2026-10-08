@@ -9,6 +9,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- 坚果云 / WebDAV 导出要联网。
+         ⚠️ 必须显式写在这里：Flutter 只把 INTERNET 加进 **debug/profile**
+         的清单（给 Dart VM 调试用），release 清单不会加。不写的话就是
+         「调试时好用、装出去的包连不上」——而所有测试跑的都是 debug，
+         本地全绿也看不出来。test/android/android_manifest_test.dart 盯着这一条。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="Sleep Secret"
         android:name="${applicationName}"
