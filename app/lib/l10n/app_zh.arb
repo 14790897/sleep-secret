@@ -415,7 +415,8 @@
     }
   },
   "recordingLiveTitle": "实时分析",
-  "recordingLiveSubtitle": "安静片段会被直接跳过，不送进模型",
+  "recordingLiveSubtitleGated": "安静片段会被直接跳过，不送进模型",
+  "recordingLiveSubtitleNoGate": "每一段都会送进模型，安静的也不跳过",
   "recordingWindowsProcessed": "处理窗口",
   "recordingWindowsInferred": "送进模型",
   "recordingWindowsSkipped": "跳过",

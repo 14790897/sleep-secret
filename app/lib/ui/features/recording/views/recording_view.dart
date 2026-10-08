@@ -374,7 +374,12 @@ class _LiveStatsCard extends StatelessWidget {
 
     return SectionCard(
       title: context.l10n.recordingLiveTitle,
-      subtitle: context.l10n.recordingLiveSubtitle,
+      // 和下面电平条那句用**同一个判据**。两句话在同一张卡片上，
+      // 用两个来源判断迟早会打起来——已经打过一次：门控默认是关的，
+      // 副标题却一直说"安静片段会被跳过"。
+      subtitle: s.vadThreshold == null
+          ? context.l10n.recordingLiveSubtitleNoGate
+          : context.l10n.recordingLiveSubtitleGated,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
