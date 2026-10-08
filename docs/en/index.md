@@ -3,11 +3,11 @@
 Records all night, classifies the sounds of sleep on the phone itself, and gives you
 a report in the morning: when there was sound, what it was, and how long it lasted.
 
-<img src="../screenshots/1-recording-idle.png" width="170" alt="Sleep tab, idle">
-<img src="../screenshots/2-recording-active.png" width="170" alt="Recording">
-<img src="../screenshots/3-reports.png" width="170" alt="Report list">
-<img src="../screenshots/4-report-detail.png" width="170" alt="One night's report">
-<img src="../screenshots/5-detailed-view.png" width="170" alt="Detailed view">
+<img src="screenshots/1-recording-idle.png" width="170" alt="Sleep tab, idle">
+<img src="screenshots/2-recording-active.png" width="170" alt="Recording">
+<img src="screenshots/3-reports.png" width="170" alt="Report list">
+<img src="screenshots/4-report-detail.png" width="170" alt="One night's report">
+<img src="screenshots/5-detailed-view.png" width="170" alt="Detailed view">
 
 ## Three things worth knowing
 
