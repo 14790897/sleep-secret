@@ -1,0 +1,21 @@
+/* 配色取自 App 的深色主题（app/lib/ui/core/theme.dart），
+   让文档站和应用看起来是同一个东西，而不是两个项目。 */
+
+/* 顶栏两种配色下都是深色的，logo（透明底的浅色标记）在两边都清楚。 */
+.md-header {
+  background-color: #0b1026; /* AppColors.midnight */
+  box-shadow: none;
+  border-bottom: 1px solid #2a3355; /* AppColors.divider */
+}
+
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #0b1026;
+  --md-default-fg-color: #e6e9f5;
+  --md-code-bg-color: #161d38; /* AppColors.surface */
+  --md-typeset-a-color: #6fa8f0;
+}
+
+[data-md-color-scheme="default"] {
+  /* 浅色底上要用深一点的蓝才够对比度，直接用 accent 那个 #3987E5 会发飘 */
+  --md-typeset-a-color: #2c6fd1;
+}

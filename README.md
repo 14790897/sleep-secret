@@ -10,6 +10,8 @@
 
 <a href="https://github.com/14790897/sleep-secret/actions/workflows/ci.yml"><img src="https://github.com/14790897/sleep-secret/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a> <a href="https://github.com/14790897/sleep-secret/releases"><img src="https://img.shields.io/github/v/release/14790897/sleep-secret" alt="最新版本"></a> <a href="LICENSE"><img src="https://img.shields.io/github/license/14790897/sleep-secret" alt="许可"></a>
 
+**文档站**：<https://mygithub.sixiangjia.de/sleep-secret/>（[使用指南](https://mygithub.sixiangjia.de/sleep-secret/guide/) · [看懂报告](https://mygithub.sixiangjia.de/sleep-secret/report/) · [数据与隐私](https://mygithub.sixiangjia.de/sleep-secret/privacy/)）
+
 <img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分与逐项扣分"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图（单独一页）：模型给出的原始 AudioSet 标签与中文对照">
 
 </div>
@@ -103,7 +105,7 @@ flutter run -d <设备>
 ```bash
 cd app
 flutter analyze
-flutter test                                    # 473 个单元测试
+flutter test                                    # 474 个单元测试
 flutter test integration_test/all_tests.dart -d <设备>   # 28 个集成测试
 ```
 
@@ -132,6 +134,27 @@ CI 上的音频全部来自 assets 里的**真实录音回放**（`WavReplayAudi
 ```bash
 cd ml
 python infer.py     # 跑一段合成的整夜音频，验证整条链路
+```
+
+### 文档站
+
+`docs/` 一个目录担两件事：README 用的截图（`docs/screenshots/`）和文档站的源。
+配置在 `mkdocs.yml`，用 mkdocs-material + mkdocs-static-i18n 做中英双语，
+推到 main 后由 `.github/workflows/docs.yml` 发布。
+
+```bash
+pip install mkdocs-material mkdocs-static-i18n
+mkdocs build --strict     # 本地验证（CI 跑的就是这条）
+mkdocs serve              # 本地预览
+```
+
+> ⚠️ 英文页面**必须和中文页面逐一成对**：`docs/en/` 缺了对应文件时，
+> 英文站点会在同样的路径下**静默渲染中文内容**——构建不报错，`--strict` 也不失败。
+> 写完用下面这条对一下，输出为空才算齐：
+
+```bash
+diff <(cd docs && find . -name '*.md' -not -path './en/*' | sort) \
+     <(cd docs/en && find . -name '*.md' | sort)
 ```
 
 ## 发版

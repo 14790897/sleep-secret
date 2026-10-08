@@ -38,6 +38,8 @@ node_modules/
 .claude/settings.local.json
 
 # ---- 生成物 / 排查产物 ----
+# 文档站的构建产物。mkdocs 不会替你加这一条。
+site/
 # spike/out 里是废弃的 AST 尝试导出的 ONNX，单个 300MB 上下，
 # 加起来 1.4GB。推导脚本 spike/*.py 留着，产物不进库。
 spike/out/

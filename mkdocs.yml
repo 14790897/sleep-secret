@@ -1,0 +1,82 @@
+site_name: Sleep Secret
+site_description: 整夜录音，在手机本地识别睡眠声音；分析全在设备上完成。
+site_url: https://mygithub.sixiangjia.de/sleep-secret/
+repo_url: https://github.com/14790897/sleep-secret
+repo_name: 14790897/sleep-secret
+edit_uri: edit/main/docs/
+copyright: GPL-3.0-or-later · 不是医疗器械，不能用于诊断
+
+theme:
+  name: material
+  language: zh
+  # favicon 和 logo 是两处，缺一处页眉挂的就是主题自带的那张
+  favicon: assets/images/favicon.png
+  logo: assets/images/logo.png
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: 切到浅色
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: 切到深色
+  features:
+    # ⚠️ 不要加 navigation.instant：i18n 插件的语言切换器（切到同一页的
+    # 另一种语言）和它是互斥的，加了就会在 --strict 下报错并中断构建。
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  # 中文标题的锚点默认会变成 _1、_2 这种**按位置编号**的 id——
+  # 往文档上面加一个标题，所有锚点就全错位了。换成保留 Unicode 的实现，
+  # `## 字体` 的锚点才是稳定的 `#字体`。
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: zh
+          default: true
+          name: 中文
+        - locale: en
+          name: English
+          nav_translations:
+            首页: Home
+            使用指南: Guide
+            看懂报告: Reading the report
+            数据与隐私: Data & privacy
+            常见问题: FAQ
+            更新日志: Changelog
+
+nav:
+  - 首页: index.md
+  - 使用指南: guide.md
+  - 看懂报告: report.md
+  - 数据与隐私: privacy.md
+  - 常见问题: faq.md
+  - 更新日志: https://github.com/14790897/sleep-secret/releases
