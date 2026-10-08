@@ -767,9 +767,6 @@ void main() {
 
   group('详细视图（原始 AudioSet 标签）', () {
     /// 一张刻意留了两个**没映射**索引的映射表。
-    ///
-    /// 未映射那一列是这个视图最该看见的东西——它说明有些声音在分类体系外面，
-    /// 而它们在报告别的地方一次都不会出现。没有未映射的样本就测不到它。
     SleepClassMap tinyMap() => SleepClassMap.fromJson({
           'model': 'test-model',
           'num_classes': 11,
@@ -816,16 +813,13 @@ void main() {
           ),
         );
 
-    /// 展开那张表。**它默认是收起的**，所以断言行内容之前必须先点一下标题。
-    ///
-    /// 点的是标题文字——可点区域只挂在标题那一行上（`SectionCard.onTap`）。
-    /// 整张卡都点的话，用户读正文时随手一碰就收回去了。
-    Future<void> expand(WidgetTester tester) async {
-      await tester.tap(find.text('详细视图'));
+    /// 点入口，进那一页。
+    Future<void> openDetail(WidgetTester tester) async {
+      await tester.tap(find.byKey(ReportKeys.rawLabels));
       await tester.pumpAndSettle();
     }
 
-    testWidgets('默认收起：摘要和「未映射」留在外面，标签行不铺出来', (tester) async {
+    testWidgets('报告里只留一个入口：摘要和「未映射」在外面，表不铺出来', (tester) async {
       await pumpReport(
         tester,
         labelled({'Snoring': 100, 'Thunder': 30}),
@@ -833,128 +827,117 @@ void main() {
       );
 
       final card = ReportKeys.rawLabels;
-      // 摘要和「未映射」那句是**扫一眼就该看见的**，藏起来等于这张卡白做
+      expect(inCard(card, find.text('详细视图')), findsOneWidget);
+      // ⚠️ 这两句是**扫一眼就该看见的**，所以留在报告里，不藏进二级页
       expect(inCard(card, find.textContaining('共 2 种标签')), findsOneWidget);
       expect(inCard(card, find.textContaining('没有归进任何大类')), findsOneWidget);
-      // 但标签行不在
-      expect(inCard(card, find.text('Snoring')), findsNothing);
-      expect(inCard(card, find.textContaining('点标题展开')), findsOneWidget);
+      // 但表本身不在这儿
+      expect(find.text('Snoring'), findsNothing);
+      expect(find.text('Male speech, man speaking'), findsNothing);
     });
 
-    testWidgets('展开后中文对照跟着出来', (tester) async {
+    testWidgets('点入口进那一页，中文对照跟着出来', (tester) async {
       await pumpReport(
         tester,
-        labelled({'Mechanical fan': 100, 'Thunder': 30}),
+        labelled({'Mechanical fan': 75, 'Thunder': 25}),
         classMap: tinyMap(),
       );
+      await openDetail(tester);
 
-      final card = ReportKeys.rawLabels;
-      await expand(tester);
-
-      // ⚠️ 挑的这两个标签**中文和大类名不重名**。用 `Snoring` 的话，
-      // 它的中文是「鼾声」，而它归的大类也叫「鼾声」——一行里出现两次，
-      // `findsOneWidget` 会红，而那不是 bug 是断言写得不严谨。
-      expect(inCard(card, find.text('Mechanical fan')), findsOneWidget);
-      expect(inCard(card, find.text('机械风扇')), findsOneWidget);
-      expect(inCard(card, find.text('雷声')), findsOneWidget);
-      expect(inCard(card, find.textContaining('点标题展开')), findsNothing);
+      // 到那一页了：标题还在，而且能看见表
+      expect(find.text('详细视图'), findsWidgets);
+      // ⚠️ 挑的这两个标签**中文和大类名不重名**——用 Snoring 的话，
+      // 它的中文是「鼾声」，而它归的大类也叫「鼾声」，一行里出现两次，
+      // findsOneWidget 会红，而那不是 bug 是断言写得不严谨。
+      expect(find.text('Mechanical fan'), findsOneWidget);
+      expect(find.text('机械风扇'), findsOneWidget);
+      expect(find.text('雷声'), findsOneWidget);
+      // 百分比和大类对照也在这儿
+      expect(find.text('75.0%'), findsOneWidget);
+      expect(find.text('设备噪音'), findsOneWidget);
+      // 页脚那句说明
+      expect(find.textContaining('模型的原话，不是结论'), findsOneWidget);
     });
 
-    testWidgets('英文界面下不显示中文对照——标签本来就是英文', (tester) async {
-      // 那张表**只有中文**，英文界面里显示它反而是噪音。
-      tester.view.physicalSize = const Size(900, 4200);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(wrap(
+    testWidgets('那一页能返回', (tester) async {
+      await pumpReport(
+        tester,
         labelled({'Snoring': 100}),
         classMap: tinyMap(),
-        locale: const Locale('en'),
-      ));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Detailed view'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Snoring'), findsWidgets);
-      expect(find.text('鼾声'), findsNothing);
-    });
-
-    testWidgets('按次数从多到少列，带百分比和大类对照', (tester) async {
-      await pumpReport(
-        tester,
-        labelled({'Snoring': 100, 'Gasp': 50, 'Thunder': 30, 'Alarm': 20}),
-        classMap: tinyMap(),
       );
-      await expand(tester);
+      await openDetail(tester);
+      expect(find.text('Snoring'), findsOneWidget);
 
-      final card = ReportKeys.rawLabels;
-      expect(inCard(card, find.text('详细视图')), findsOneWidget);
-      expect(inCard(card, find.textContaining('共 4 种标签')), findsOneWidget);
-      expect(inCard(card, find.textContaining('200 个分析窗口')), findsOneWidget);
+      // ⚠️ **不要用 `tester.pageBack()`**：它找的是英文的 `tooltip: "Back"`，
+      // 而测试跑在中文下（tooltip 是「返回」），于是找不到按钮直接失败。
+      // 按**图标**点才是与语言无关的——这就是「平台语言让测试红而本机绿」那个
+      // 老坑换了个地方冒出来。
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
 
-      expect(inCard(card, find.text('Snoring')), findsOneWidget);
-      expect(inCard(card, find.text('鼾声')), findsOneWidget);
-      expect(inCard(card, find.text('50.0%')), findsOneWidget);
-      expect(inCard(card, find.text('10.0%')), findsOneWidget);
+      // 回到报告：入口在，表不在
+      expect(find.byKey(ReportKeys.rawLabels), findsOneWidget);
+      expect(find.text('Snoring'), findsNothing);
     });
 
-    testWidgets('未映射的标签标出来，并且说明有几样', (tester) async {
+    testWidgets('未映射的标签标出来，并且说清有几样', (tester) async {
       await pumpReport(
         tester,
         labelled({'Snoring': 100, 'Thunder': 30, 'Alarm': 20}),
         classMap: tinyMap(),
       );
-      await expand(tester);
+      await openDetail(tester);
 
-      final card = ReportKeys.rawLabels;
       // Thunder / Alarm 都不在映射表里
-      expect(inCard(card, find.text('未映射')), findsNWidgets(2));
-      expect(inCard(card, find.textContaining('其中 2 种没有归进任何大类')),
-          findsOneWidget);
-    });
-
-    testWidgets('全是已映射的标签时，不提未映射', (tester) async {
-      await pumpReport(tester, labelled({'Snoring': 100, 'Gasp': 50}),
-          classMap: tinyMap());
-      await expand(tester);
-
-      expect(inCard(ReportKeys.rawLabels, find.text('未映射')), findsNothing);
+      expect(find.text('未映射'), findsNWidgets(2));
+      expect(find.textContaining('其中 2 种没有归进任何大类'), findsOneWidget);
     });
 
     testWidgets('拿不到映射表时列标签，但**不标「未映射」**', (tester) async {
-      // 映射表是可选注入的——它拿不到不该让整张卡消失，
-      // 更不该让报告打不开。核查信息缺失是缺信息，不是崩溃。
-      await pumpReport(tester, labelled({'Snoring': 100, 'Thunder': 30}));
-      await expand(tester);
-
-      final card = ReportKeys.rawLabels;
-      expect(inCard(card, find.text('Snoring')), findsOneWidget);
-      expect(inCard(card, find.text('Thunder')), findsOneWidget);
-
       // ⚠️ 这几条是重点。第一版把「没有映射表」和「未映射」画成了同一个样子：
       // 拿不到表时整个列表全标成「未映射」，顶上还说「其中 N 种没有归进任何
       // 大类」——那是**假消息**。刚装好的 App 就是这样（映射表原来跟着模型
-      // 懒加载，没录过音就还没读），报告页上一条真话都没有。
-      expect(inCard(card, find.text('未映射')), findsNothing);
-      expect(inCard(card, find.textContaining('没有归进任何大类')), findsNothing);
+      // 懒加载，没录过音就还没读）。
+      await pumpReport(tester, labelled({'Snoring': 100, 'Thunder': 30}));
+      await openDetail(tester);
+
+      expect(find.text('Snoring'), findsOneWidget);
+      expect(find.text('Thunder'), findsOneWidget);
+      expect(find.text('未映射'), findsNothing);
+      expect(find.textContaining('没有归进任何大类'), findsNothing);
     });
 
-    testWidgets('老记录（没有计数）明说是没收集，不列空表', (tester) async {
+    testWidgets('英文界面下不显示中文对照', (tester) async {
+      tester.view.physicalSize = const Size(900, 4200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(wrap(
+        labelled({'Mechanical fan': 100}),
+        classMap: tinyMap(),
+        locale: const Locale('en'),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ReportKeys.rawLabels));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mechanical fan'), findsOneWidget);
+      expect(find.text('机械风扇'), findsNothing);
+    });
+
+    testWidgets('老记录（没有原始标签）连入口都不出现', (tester) async {
+      // 给一个点进去空空如也的入口，比不出现更让人困惑。
       await pumpReport(tester, buildSession());
 
-      final card = ReportKeys.rawLabels;
-      expect(inCard(card, find.textContaining('升级前的记录不收集它')),
-          findsOneWidget);
+      expect(find.text('详细视图'), findsNothing);
     });
 
-    testWidgets('压在统计后面、但在「事件明细」之前', (tester) async {
-      // 两个方向都要卡住：往前会让它挡住正常阅读；往后要滚过一整屏
-      // 原始事件（一夜上百行）才够得着，那就不叫「方便核查」了。
+    testWidgets('入口压在统计后面、但在「事件明细」之前', (tester) async {
       await pumpReport(tester, labelled({'Snoring': 100}), classMap: tinyMap());
 
       final raw = tester.getTopLeft(find.byKey(ReportKeys.rawLabels)).dy;
       final detail = tester.getTopLeft(find.byKey(ReportKeys.eventDetail)).dy;
       expect(raw, greaterThan(0));
-      expect(raw, lessThan(detail), reason: '详细视图应当排在「事件明细」之前');
+      expect(raw, lessThan(detail), reason: '入口应当排在「事件明细」之前');
     });
   });
 

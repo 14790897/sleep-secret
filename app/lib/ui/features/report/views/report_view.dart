@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../data/models/audioset_zh.dart';
 import '../../../../domain/analysis/analysis_config.dart';
 import '../../../../domain/analysis/apnea_signals.dart';
 import '../../../../domain/analysis/decibel.dart';
@@ -19,6 +18,7 @@ import '../../../core/l10n/l10n_context.dart';
 import '../../../core/l10n/ui_message_text.dart';
 import '../../../core/widgets/sound_timeline.dart';
 import '../view_models/report_view_model.dart';
+import 'raw_labels_view.dart';
 
 /// 低于它就认为**把握不大**，界面上标成警示色。
 ///
@@ -131,7 +131,10 @@ class ReportView extends StatelessWidget {
               // 但不能真排到最末——「事件明细」一夜可以上百行，
               // 把核查用的东西放在它后面，等于要滚过一整屏原始数据才够得着。
               const SizedBox(height: 12),
-              _RawLabelsCard(viewModel: viewModel),
+              // 没有原始标签的老记录整行不出现——给一个点进去空空的入口，
+              // 比不出现更让人困惑。
+              if (session.stats.rawLabelCounts.isNotEmpty)
+                _RawLabelsEntry(viewModel: viewModel),
               const SizedBox(height: 12),
               _EventListCard(viewModel: viewModel),
             ],
@@ -1019,82 +1022,53 @@ class _PipelineCard extends StatelessWidget {
 /// ## 排序按次数，不按字母
 ///
 /// 一夜最多几十种标签，按次数排的话，值得看的那几种一定在头几行。
-class _RawLabelsCard extends StatefulWidget {
-  const _RawLabelsCard({required this.viewModel});
+/// 报告里的入口：一段摘要，点进去是完整的原始标签表。
+///
+/// ## 为什么摘要留在外面
+///
+/// 「共 N 种标签」和「其中 M 种没有归进任何大类」是**扫一眼就该看见的**——
+/// 藏进二级页面等于这一页白做。表本身很长（一夜几十行，还会带中文对照），
+/// 那部分才放到单独一页去，看完返回。
+class _RawLabelsEntry extends StatelessWidget {
+  const _RawLabelsEntry({required this.viewModel});
 
   final ReportViewModel viewModel;
 
   @override
-  State<_RawLabelsCard> createState() => _RawLabelsCardState();
-}
-
-class _RawLabelsCardState extends State<_RawLabelsCard> {
-  /// **默认收起。**
-  ///
-  /// 一夜几十种标签，展开着会把报告撑长一大截，而正常读报告的人并不需要它。
-  /// 但**摘要和「未映射」那句留在外面**——那是扫一眼就该看见的东西，
-  /// 藏起来等于这张卡白做了。
-  bool _expanded = false;
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final note = theme.textTheme.bodySmall?.copyWith(
-      color: AppColors.textDim,
-      height: 1.7,
-    );
-    final counts = widget.viewModel.session.stats.rawLabelCounts;
+    final counts = viewModel.session.stats.rawLabelCounts;
 
-    if (counts.isEmpty) {
-      return SectionCard(
-        key: ReportKeys.rawLabels,
-        title: context.l10n.reportRawLabelsTitle,
-        child: Text(context.l10n.reportRawLabelsNone, style: note),
-      );
-    }
-
-    // ⚠️ **「没有映射表」和「未映射」必须分得开。**
-    //
-    // 上面那句话以前就写在这儿，但代码把两者画成了同一个样子：拿不到映射表时
-    // `byCategory[e.key]` 也是 null，于是**整张列表全被标成「未映射」**，
-    // 顶上还说「其中 13 种没有归进任何大类」——一条十足的假消息。
-    // 真话是「我们不知道」，因为表还没加载。
-    //
-    // 刚装好的 App 就是这样：映射表原本和 6.6MB 的模型捆在一起懒加载，
-    // 没录过音就还没读。现在映射表改成启动时单独加载（15KB）。
-    final classMap = widget.viewModel.classMap;
+    final classMap = viewModel.classMap;
     final hasMap = classMap != null;
     final byCategory =
         classMap?.labelToCategory() ?? const <String, SleepCategory>{};
-
-    final rows = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final total = rows.fold<int>(0, (sum, e) => sum + e.value);
+    // 拿不到映射表时不报「未映射」——那是两件事：「没有归属」和「我们不知道」。
     final unmapped = hasMap
-        ? rows.where((e) => !byCategory.containsKey(e.key)).length
+        ? counts.keys.where((k) => !byCategory.containsKey(k)).length
         : 0;
-    // 中文对照只在中文界面下显示——那张表只有中文（见 audioset_zh.dart）。
-    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final total = counts.values.fold<int>(0, (sum, v) => sum + v);
 
     return SectionCard(
       key: ReportKeys.rawLabels,
       title: context.l10n.reportRawLabelsTitle,
       subtitle: context.l10n.reportRawLabelsSubtitle,
-      onTap: () => setState(() => _expanded = !_expanded),
-      trailing: Icon(
-        _expanded ? Icons.expand_less : Icons.expand_more,
-        color: AppColors.textDim,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => RawLabelsView(viewModel: viewModel),
+        ),
       ),
+      trailing: const Icon(Icons.chevron_right, color: AppColors.textDim),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            context.l10n.reportRawLabelsSummary(rows.length, total),
+            context.l10n.reportRawLabelsSummary(counts.length, total),
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (hasMap && unmapped > 0) ...[
+          if (unmapped > 0) ...[
             const SizedBox(height: 6),
             Text(
               context.l10n.reportRawLabelsUnmappedNote(unmapped),
@@ -1104,127 +1078,6 @@ class _RawLabelsCardState extends State<_RawLabelsCard> {
               ),
             ),
           ],
-          if (!_expanded) ...[
-            const SizedBox(height: 6),
-            Text(context.l10n.reportRawLabelsCollapsed, style: note),
-          ] else ...[
-            const SizedBox(height: 4),
-            Text(
-              context.l10n.reportRawLabelsWindowNote(
-                const AnalysisConfig().windowSeconds.round(),
-              ),
-              style: note,
-            ),
-            const SizedBox(height: 12),
-            // 中文对照只在中文界面下显示。那张表**只有中文**——
-            // 英文界面里这些标签本来就是英文，加中文反而是噪音。
-            FutureBuilder<Map<String, String>>(
-              future: loadAudioSetZh(),
-              builder: (context, snap) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final e in rows)
-                    _RawLabelRow(
-                      label: e.key,
-                      zh: isZh ? (snap.data?[e.key]) : null,
-                      count: e.value,
-                      total: total,
-                      category: byCategory[e.key],
-                      showCategory: hasMap,
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _RawLabelRow extends StatelessWidget {
-  const _RawLabelRow({
-    required this.label,
-    required this.count,
-    required this.total,
-    required this.category,
-    required this.showCategory,
-    this.zh,
-  });
-
-  final String label;
-
-  /// 中文对照。没有（老版本资源、或者界面不是中文）时为 null，
-  /// 那一行就只显示英文——**英文才是模型的原话**，中文只是补充。
-  final String? zh;
-
-  final int count;
-  final int total;
-
-  /// 未映射时为 null——那一行会有个「未映射」的标记。
-  final SleepCategory? category;
-
-  /// 要不要显示「大类 / 未映射」那一列。
-  ///
-  /// 为 false 时**整列不渲染**（不只是留空）：映射表没加载出来的时候，
-  /// 「未映射」是假消息，而空着那一列又把宽度白占了。
-  final bool showCategory;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final dim = theme.textTheme.labelSmall?.copyWith(color: AppColors.textDim);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 54,
-            child: Text(
-              '$count',
-              textAlign: TextAlign.right,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textDim,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // 标签名不截断：这是模型的原话，正是核查要看的东西，
-          // 长名字（"Male speech, man speaking"）换行显示，不省略。
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: theme.textTheme.bodySmall),
-                if (zh != null) Text(zh!, style: dim?.copyWith(height: 1.4)),
-              ],
-            ),
-          ),
-          if (showCategory) ...[
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 62,
-              child: Text(
-                category?.label(context) ??
-                    context.l10n.reportRawLabelsUnmappedTag,
-                textAlign: TextAlign.right,
-                style: category == null
-                    ? dim?.copyWith(color: AppColors.statusWarning)
-                    : dim,
-              ),
-            ),
-          ],
-          SizedBox(
-            width: 46,
-            child: Text(
-              total == 0 ? '' : '${(count / total * 100).toStringAsFixed(1)}%',
-              textAlign: TextAlign.right,
-              style: dim,
-            ),
-          ),
         ],
       ),
     );

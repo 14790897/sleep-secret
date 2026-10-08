@@ -227,7 +227,7 @@
   "reportRawLabelsWindowNote": "One count = one analysis window ({seconds}s). The categories are our grouping; this is what the model actually said.",
   "reportRawLabelsUnmappedNote": "{count} of them map to no category — the windows where they won aren't visible anywhere else in this report.",
   "reportRawLabelsUnmappedTag": "unmapped",
-  "reportRawLabelsCollapsed": "Tap the title to show every label",
+  "reportRawLabelsCaveat": "This page is what the model said, not a conclusion: a label with no category is not unimportant, and one that has a category is not necessarily right.",
   "reportRawLabelsNone": "No raw labels to list for this night — recordings made before this version didn't collect them.",
   "reportTimelineTitle": "The night in sound",
   "reportTimelineSubtitle": "Tap or drag the chart to see individual events",

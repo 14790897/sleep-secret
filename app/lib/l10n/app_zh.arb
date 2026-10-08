@@ -656,7 +656,7 @@
     }
   },
   "reportRawLabelsUnmappedTag": "未映射",
-  "reportRawLabelsCollapsed": "点标题展开全部标签",
+  "reportRawLabelsCaveat": "这一页是模型的原话，不是结论：标签没归进大类不代表它不重要，归进去了也不代表判对了。",
   "reportRawLabelsNone": "这一晚没有可列的原始标签——升级前的记录不收集它。",
   "reportTimelineTitle": "整夜声音",
   "reportTimelineSubtitle": "点或拖动图表可查看具体事件",

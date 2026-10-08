@@ -20,67 +20,71 @@ class SectionCard extends StatelessWidget {
   final Widget? trailing;
   final Widget child;
 
-  /// 给了就**只有标题那一行**可点——不是整张卡。
+  /// 给了就**整张卡可点**。
   ///
-  /// 用在可折叠的卡上：整张卡可点的话，用户读正文时随手一碰就收回去了。
+  /// ⚠️ 这里一度只让标题那一行可点——当时用来做「点标题展开/收起」，
+  /// 整张卡可点的话用户读正文时随手一碰就收回去了。
+  /// 后来那张表搬去了独立页（`RawLabelsView`），这个回调只剩一个用途：
+  /// **进入二级页的入口**。入口卡没有「正文要读」，所以整张卡可点才对——
+  /// 用户看着一张卡去点，没反应是不合理的。
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 3,
-                    height: 16,
-                    margin: const EdgeInsets.only(top: 2, right: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      borderRadius: BorderRadius.circular(2),
+    final body = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 3,
+                height: 16,
+                margin: const EdgeInsets.only(top: 2, right: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                    if (subtitle != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          subtitle!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.textDim,
                           ),
                         ),
-                        if (subtitle != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              subtitle!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.textDim,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  ?trailing,
-                ],
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            child,
-          ],
-        ),
+              ?trailing,
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
       ),
+    );
+
+    // 只有给了 onTap 才包一层 InkWell。没给的话保持原来那张纯展示卡——
+    // 给每张卡都加一层可点区域，点了没反应比不可点更糟。
+    return Card(
+      child: onTap == null ? body : InkWell(onTap: onTap, child: body),
     );
   }
 }

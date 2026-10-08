@@ -8,7 +8,7 @@
 
 唯一的例外是**你自己**去「导出数据」页配上坚果云 / WebDAV：那之后每晚录完会传到**你自己名下**的网盘。这个项目没有自己的服务器，也不会有。
 
-<img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分与逐项扣分"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图：模型给出的原始 AudioSet 标签与中文对照">
+<img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分与逐项扣分"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图（单独一页）：模型给出的原始 AudioSet 标签与中文对照">
 
 </div>
 
