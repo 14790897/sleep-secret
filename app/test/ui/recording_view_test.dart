@@ -86,6 +86,55 @@ void main() {
     expect(find.textContaining('鼾声 2 段'), findsOneWidget);
   });
 
+  testWidgets('能量门控关着时，实时分析的副标题不说"安静片段会被跳过"', (tester) async {
+    // 这一句错过一次：门控默认是关的（`AnalysisConfig.vadEnabled = false`），
+    // 副标题却一直写"安静片段会被直接跳过，不送进模型"，而同一屏的电平卡
+    // 正说着"所有声音都会送进模型分析"——两句话在同一个屏幕上互相打架。
+    final controller = FakeRecordingController();
+    final vm = RecordingViewModel(controller: controller);
+    addTearDown(vm.dispose);
+    await tester.pumpWidget(wrap(vm));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    // vadThreshold 为 null 就是"门控关着"的信号，也是电平卡用的那个判据
+    controller.push(const RecordingState(
+      isRecording: true,
+      windowsProcessed: 100,
+      windowsInferred: 100,
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('每一段都会送进模型，安静的也不跳过'), findsOneWidget);
+    expect(find.text('安静片段会被直接跳过，不送进模型'), findsNothing,
+        reason: '门控关着，没有任何片段被跳过');
+    // 同一屏上的电平卡说的是同一件事——这两句必须同进同退
+    expect(find.textContaining('所有声音都会送进模型分析'), findsOneWidget);
+  });
+
+  testWidgets('能量门控开着时，实时分析的副标题说安静片段会被跳过', (tester) async {
+    final controller = FakeRecordingController();
+    final vm = RecordingViewModel(controller: controller);
+    addTearDown(vm.dispose);
+    await tester.pumpWidget(wrap(vm));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    controller.push(const RecordingState(
+      isRecording: true,
+      windowsProcessed: 100,
+      windowsInferred: 30,
+      vadThreshold: 0.01,
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('安静片段会被直接跳过，不送进模型'), findsOneWidget);
+    expect(find.text('每一段都会送进模型，安静的也不跳过'), findsNothing);
+    expect(find.textContaining('红线是识别门槛'), findsOneWidget);
+  });
+
   testWidgets('有推理失败时给出告警', (tester) async {
     final controller = FakeRecordingController();
     final vm = RecordingViewModel(controller: controller);
