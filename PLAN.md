@@ -1,6 +1,10 @@
 # 睡眠录音分析 App（类蜗牛睡眠）— 实施计划
 
 > 更新于 2026-10-06。模型已从 AST 切换为 **CED-tiny**（用户决定），延迟风险因此消除。
+>
+> ⚠️ **这是一份开发过程中的计划快照，不是当前状态。** 里面的数字（测试数量、
+> 大类数目、APK 体积）都是写下当天的，后面几步改了实现，没有回头改这份文件。
+> 当前状态见 [README](README.md)。
 
 ## Context
 
@@ -190,7 +194,7 @@ app/lib/
 | └ 动态长度输入（0.5s/1s/5s） | ✅ |
 
 **环境补齐**（阶段 2 期间安装）：
-- Flutter 3.47.6 → `C:\Users\13963\flutter`（已加用户级 PATH）
+- Flutter 3.47.6 → 装在用户目录下的 `flutter/`（非 C 盘根目录，免管理员权限；已加用户级 PATH）
 - `flutter config --jdk-dir` → Android Studio JBR 21
 - Android **cmdline-tools 16111833**（sha1 校验通过）
 - Android **NDK 28.2.13676358**（Flutter 模板默认要求）

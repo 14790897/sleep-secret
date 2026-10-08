@@ -8,9 +8,21 @@
 
 唯一的例外是**你自己**去「导出数据」页配上坚果云 / WebDAV：那之后每晚录完会传到**你自己名下**的网盘。这个项目没有自己的服务器，也不会有。
 
+<a href="https://github.com/14790897/sleep-secret/actions/workflows/ci.yml"><img src="https://github.com/14790897/sleep-secret/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a> <a href="https://github.com/14790897/sleep-secret/releases"><img src="https://img.shields.io/github/v/release/14790897/sleep-secret" alt="最新版本"></a> <a href="LICENSE"><img src="https://img.shields.io/github/license/14790897/sleep-secret" alt="许可"></a>
+
 <img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分与逐项扣分"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图（单独一页）：模型给出的原始 AudioSet 标签与中文对照">
 
 </div>
+
+## 装到手机上
+
+到 [Releases](https://github.com/14790897/sleep-secret/releases) 下载最新一版的
+`app-arm64-v8a-release.apk`（绝大多数手机是这个架构），直接安装。没有上架任何应用商店，
+所以需要允许「安装未知来源应用」。
+
+第一次打开要授予**录音**和**通知**权限；小米、华为这类系统还要把省电策略改成
+「无限制」、允许自启动、在最近任务里锁定应用——不设的话整夜录音可能被系统清掉，
+早上只会得到一份空报告。
 
 ## 它做什么
 
@@ -21,7 +33,7 @@
 - **类别分布与每小时分布** —— 哪几个小时动静最大
 - **事件明细** —— 每个事件的时间、类别、置信度，鼾声还能点开试听
 
-识别得到的七大类：**鼾声 / 呼吸声 / 咳嗽清嗓 / 人声梦话 / 体动床响 / 环境噪音 / 静音**。
+识别得到的九大类：**鼾声 / 呼吸声 / 咳嗽清嗓 / 喷嚏 / 人声梦话 / 体动床响 / 环境噪音 / 设备噪音 / 静音**。
 
 三件刻意做的事：
 
@@ -49,7 +61,9 @@
 ```
 
 模型是 [CED-tiny](https://huggingface.co/mispeech/ced-tiny)（5.5M 参数，AudioSet 预训练），
-转成 ONNX 后用 ONNX Runtime 在设备上推理。AudioSet 的 527 个类别按语义归并成上面那七大类。
+转成 ONNX 后用 ONNX Runtime 在设备上推理。AudioSet 有 527 个类别，其中 **47 个**
+按语义归并成上面那九大类——没归进大类的那些标签不会消失，报告里的
+「详细视图」会把它们原样列出来（那正是发现映射错误的地方）。
 
 选 CED-tiny 而不是原始论文里的 AST：AST 是 86M 参数，在手机上跑整夜不现实；
 CED-tiny 小一个数量级，整夜跑得动。
@@ -89,15 +103,15 @@ flutter run -d <设备>
 ```bash
 cd app
 flutter analyze
-flutter test                                    # 248 个单元测试
-flutter test integration_test/all_tests.dart -d <设备>   # 24 个集成测试
+flutter test                                    # 473 个单元测试
+flutter test integration_test/all_tests.dart -d <设备>   # 28 个集成测试
 ```
 
 **集成测试为什么走聚合入口**：`flutter test integration_test`（目录形式）会为每个
 测试文件单独构建并安装一次 APK。5 个文件就是 5 轮「构建 → 安装 → 启动 → 卸载」，
 实测在 GitHub 托管的模拟器上第 2 轮就把模拟器搞挂了，job 拖到 13 分钟以上。
 `all_tests.dart` 是个只做转发的聚合入口，一次构建、一次安装、一次启动，
-本地跑完 24 个测试只要 44 秒。
+本地跑完 28 个测试只要 63 秒（实测：Android 模拟器；Windows 桌面 40 秒）。
 
 **需要真实麦克风的测试不在 CI 里**，它们放在 `app/integration_test_hardware/`：
 
@@ -159,8 +173,9 @@ chore:/docs:/ci:  → 不发版
 
 > ⚠️ 提交信息不遵守这个约定时，流水线**不会报错，只是静默地什么都不做**。
 
-CI 有三个 job（静态分析 + 单元测试、Android 模拟器上的集成测试、release 构建），
-跑在 `ubuntu-latest` 上。
+CI 有四个 job：静态分析 + 单元测试、Android 模拟器上的集成测试、Windows 桌面版的
+集成测试（桌面这条路径和 Android 有几处实质不同，只构建不跑就验证不到），
+以及 release 构建。跑在 `ubuntu-latest` 上，只有 Windows 那个是 `windows-latest`。
 
 ### ⚠️ 签名密钥
 
@@ -212,9 +227,6 @@ CI 有三个 job（静态分析 + 单元测试、Android 模拟器上的集成�
 采用 GPL 而不是更宽松的许可，是因为这个 App 的主张就是「音频不出设备」——
 而那句话只有**代码可查**的时候才可信。GPL 保证任何人拿到的版本都能被
 审阅、也能被继续改进；换成闭源分支就没法验证了。
-
-> ⚠️ 想改成 `GPL-3.0-only`（不允许后续版本）或换别的许可，改
-> `LICENSE` 和这一节即可。这是你的权利，不是既成事实。
 
 ## 第三方素材
 
