@@ -105,7 +105,7 @@ flutter run -d <设备>
 ```bash
 cd app
 flutter analyze
-flutter test                                    # 475 个单元测试
+flutter test                                    # 487 个单元测试
 flutter test integration_test/all_tests.dart -d <设备>   # 28 个集成测试
 ```
 
