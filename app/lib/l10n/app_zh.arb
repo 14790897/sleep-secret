@@ -589,6 +589,15 @@
     }
   },
   "clipPlayerClose": "关闭",
+  "clipPlayerPeak": "峰值 {db} dBFS",
+  "@clipPlayerPeak": {
+    "description": "这一段音频的峰值。波形按峰值归一化之后看不出响度，所以单独写出来——用户看到一条近乎平直的线时，这个数会告诉他「这段本来就很轻」。",
+    "placeholders": {
+      "db": {
+        "type": "int"
+      }
+    }
+  },
   "clipPlayerUnreadable": "这段音频读不出来——文件可能已经不在了",
   "clipPlayerExcerpt": "这一段声音全长 {total} 秒，保留了其中 {clip} 秒——拖波形可以跳着听。",
   "@clipPlayerExcerpt": {

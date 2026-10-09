@@ -77,6 +77,13 @@ class _ClipPlayerSheetState extends State<ClipPlayerSheet> {
   bool _playing = false;
   bool _unreadable = false;
 
+  /// 这一段的峰值（dBFS）。
+  ///
+  /// 波形按峰值归一化之后**看不出响度**，所以得把它单独写出来：
+  /// 用户看到一条几乎平直的线时，第一句话是"是不是坏了"，
+  /// 而「峰值 -52 dBFS」会直接告诉他"这段本来就很轻"。
+  double _peakDb = double.negativeInfinity;
+
   @override
   void initState() {
     super.initState();
@@ -96,6 +103,7 @@ class _ClipPlayerSheetState extends State<ClipPlayerSheet> {
       if (!mounted) return;
       setState(() {
         _peaks = waveformPeaks(audio.samples);
+        _peakDb = peakDbfs(audio.samples);
         _clipDuration = Duration(
           milliseconds: (audio.durationSeconds * 1000).round(),
         );
@@ -220,6 +228,13 @@ class _ClipPlayerSheetState extends State<ClipPlayerSheet> {
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
+                  const Spacer(),
+                  // 波形是按峰值归一化画的，看不出响度，所以把峰值写在这儿
+                  if (_peakDb.isFinite)
+                    Text(
+                      context.l10n.clipPlayerPeak(_peakDb.round()),
+                      style: dim,
+                    ),
                 ],
               ),
               if (_isExcerpt) ...[

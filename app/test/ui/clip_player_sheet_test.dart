@@ -123,12 +123,33 @@ void main() {
               '看上去就是一条直线。用户报的就是这个');
     });
 
+    test('很轻但不静音的素材也要放大——用户那两晚就是这种情况', () {
+      // ⚠️ 第一版的下限设在 0.02，而真实卧室录音（手机放枕边、隔着被子）
+      // 常常只有 0.01 上下——于是该放大的没放大，用户看到的还是一条直线。
+      final samples = Float32List(2000);
+      for (var i = 0; i < 2000; i++) {
+        samples[i] = 0.01 * math.sin(2 * math.pi * 8 * i / 2000);
+      }
+      final top = normalizePeaks(waveformPeaks(samples, buckets: 20))
+          .map((p) => math.max(p.max.abs(), p.min.abs()))
+          .reduce(math.max);
+      expect(top, closeTo(1.0, 0.01),
+          reason: '0.01 的素材必须被放大到满格，否则波形还是一条直线');
+    });
+
     test('真静音不放大——别把底噪画成一片森林', () {
       const peaks = [
+        (min: -0.0005, max: 0.0005),
         (min: -0.001, max: 0.001),
-        (min: -0.002, max: 0.002),
       ];
       expect(normalizePeaks(peaks), peaks);
+    });
+
+    test('峰值换成 dBFS', () {
+      expect(peakDbfs(Float32List.fromList([1.0])), closeTo(0, 0.01));
+      expect(peakDbfs(Float32List.fromList([0.5])), closeTo(-6.02, 0.05));
+      expect(peakDbfs(Float32List.fromList([0.01])), closeTo(-40, 0.1));
+      expect(peakDbfs(Float32List(10)), double.negativeInfinity);
     });
 
     testWidgets('真实素材的波形要占满高度（并留一张预览图给人看）', (tester) async {
@@ -216,6 +237,15 @@ void main() {
       final waveform = tester.widget<ClipWaveform>(find.byType(ClipWaveform));
       expect(waveform.peaks, isNotEmpty);
       expect(waveform.peaks.length, 160);
+    });
+
+    testWidgets('把峰值写出来——波形归一化之后看不出响度', (tester) async {
+      await pumpSheet(tester, path: writeWav(2, amplitude: 0.5));
+
+      // 面板上要能看见"这段有多响"：一条近乎平直的线到底是坏了还是本来就轻，
+      // 这个数是唯一能分辨的东西。
+      expect(find.textContaining('dBFS'), findsOneWidget);
+      expect(find.textContaining('-6'), findsOneWidget); // 0.5 → -6 dBFS
     });
 
     testWidgets('拖波形会 seek 到对应位置', (tester) async {

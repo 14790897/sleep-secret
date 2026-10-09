@@ -213,6 +213,7 @@
   "reportClipsNone": "No audio was kept for this night. Turn on “Keep snore and airway-signal clips” on the About tab and future nights will keep them — never sleep talk or coughing.",
   "reportClipsSubtitle": "{count} clips · {duration}, tap to listen",
   "clipPlayerClose": "Close",
+  "clipPlayerPeak": "Peak {db} dBFS",
   "clipPlayerUnreadable": "This clip can't be read — the file may be gone",
   "clipPlayerExcerpt": "This sound lasted {total}s; {clip}s of it was kept — drag the waveform to skip around.",
   "reportDurSeconds": "{count}s",

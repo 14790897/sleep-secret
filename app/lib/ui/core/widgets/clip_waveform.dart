@@ -41,6 +41,20 @@ List<WaveformPeak> waveformPeaks(Float32List samples, {int buckets = 160}) {
   return out;
 }
 
+/// 一段音频的峰值，转成 dBFS（0 = 满刻度）。
+///
+/// 负数，越小越轻。用来看"这段到底有多响"——波形图按峰值归一化之后
+/// 是看不出响度的，所以得有个地方把它写出来。
+double peakDbfs(Float32List samples) {
+  var peak = 0.0;
+  for (final v in samples) {
+    final a = v.abs();
+    if (a > peak) peak = a;
+  }
+  if (peak <= 0) return double.negativeInfinity;
+  return 20 * (math.log(peak) / math.ln10);
+}
+
 /// 按**这一段自己的峰值**把波形归一到 [-1, 1]。
 ///
 /// ## 为什么必须归一化
@@ -54,9 +68,17 @@ List<WaveformPeak> waveformPeaks(Float32List samples, {int buckets = 160}) {
 /// 响度由事件列表里那个分贝数去说，不该由柱子的高低兼职。
 ///
 /// 底下留了条底线：整段都接近 0（真静音）时不放大，免得把底噪画成一片森林。
+///
+/// ⚠️ 这条底线**放得很低（0.002，约 -54 dBFS）**，是有教训的：第一版设的是
+/// 0.02，结果真实卧室录音（手机放枕边、隔着被子）整段都到不了 0.02，
+/// 于是该放大的没放大，用户看到的还是一条直线。0.002 以下基本就是数字静音
+/// 或者直流偏置了，那时候放大也画不出东西。
+///
+/// 至于"这段是不是真的很轻"，界面会直接把峰值写成 dBFS 给人看——
+/// 由波形图兼职表达响度是错的，但**不让人知道它很轻**也是错的。
 List<WaveformPeak> normalizePeaks(
   List<WaveformPeak> peaks, {
-  double silenceFloor = 0.02,
+  double silenceFloor = 0.002,
 }) {
   var peak = 0.0;
   for (final p in peaks) {
