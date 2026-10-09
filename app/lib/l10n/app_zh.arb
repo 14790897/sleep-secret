@@ -63,12 +63,12 @@
   "diagnosticEntry": "端侧推理诊断",
   "diagnosticEntrySubtitle": "开发者选项：验证模型加载与推理",
   "clipCardTitle": "录音片段",
-  "clipCardSubtitle": "为鼾声和高危信号保留一段可回放的音频",
+  "clipCardSubtitle": "为鼾声和高危信号整段保留可回放的音频",
   "clipOn": "保留鼾声与呼吸信号片段",
   "clipOff": "不保留任何音频",
-  "clipOnSubtitle": "每晚约几 MB，存在应用私有目录里",
+  "clipOnSubtitle": "整段保留，约每分钟 1.9 MB，存在应用私有目录里",
   "clipOffSubtitle": "分析完即丢弃，历史记录里无法试听",
-  "clipOnBody": "只会保留鼾声，以及倒吸气、喷鼻息这类呼吸信号；梦话、咳嗽不保留。片段存在应用私有目录，其他应用读不到；删除某晚记录时会连同片段一起删掉。",
+  "clipOnBody": "鼾声和倒吸气这类呼吸信号会**整段**留下——报告里显示多久，就能听到多久。梦话、咳嗽不保留。\n\n音频是 16kHz 单声道 WAV，约每分钟 1.9 MB：打鼾 20 分钟的一夜约 38 MB。存在应用私有目录，其他应用读不到；删除某晚记录时会连同片段一起删掉。",
   "clipOffBody": "关掉之后 App 不写出任何音频文件，只保留事件的时间点和类别。",
   "categorySnore": "鼾声",
   "categoryBreathing": "呼吸声",
@@ -576,23 +576,23 @@
   "reportHundredPoints": "100 分逐项扣完",
   "reportClipsTitle": "鼾声录音",
   "reportClipsNone": "这一晚没有留下录音。到「关于」页打开「保留鼾声与呼吸信号片段」，之后录的就会留下——梦话和咳嗽不录。",
-  "reportClipsSubtitle": "共 {count} 段 · 每段最多 {maxSeconds} 秒，点一下试听",
+  "reportClipsSubtitle": "共 {count} 段 · {duration}，点一下试听",
   "@reportClipsSubtitle": {
-    "description": "⚠️ 这里原来放的是**事件总时长**（Σ 事件秒数），而每段片段其实被 maxClipSeconds 封顶了——两个数差一个数量级，看起来就像「写着 43 秒却只响 20 秒」。现在只说段数和上限。",
+    "description": "这里给的是**事件时长**——片段现在录的是整段事件（见 ClipWriter），所以这个数就是能听到的总长。⚠️ 它一度是错的：那时每段被 maxClipSeconds 截成 20 秒，而这里报的是事件总和，两个数差一个数量级。",
     "placeholders": {
       "count": {
         "type": "int"
       },
-      "maxSeconds": {
-        "type": "int"
+      "duration": {
+        "type": "String"
       }
     }
   },
   "clipPlayerClose": "关闭",
   "clipPlayerUnreadable": "这段音频读不出来——文件可能已经不在了",
-  "clipPlayerExcerpt": "这一段声音全长 {total} 秒，上面放的是末尾 {clip} 秒的摘录——拖波形可以跳着听。",
+  "clipPlayerExcerpt": "这一段声音全长 {total} 秒，保留了其中 {clip} 秒——拖波形可以跳着听。",
   "@clipPlayerExcerpt": {
-    "description": "片段是摘录（末尾若干秒），而列表里那个数字是事件总长。只有事件明显更长时才显示这句。",
+    "description": "片段正常就是整段事件，只有超过 maxEventClipSeconds（20 分钟）的失控情况才会比事件短。**不要说「末尾」**：截断时留下的是开头，说末尾会误导。",
     "placeholders": {
       "total": {
         "type": "int"

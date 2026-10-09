@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import 'dart:async';
 import 'dart:typed_data';
 
 import '../models/recording_session.dart';
@@ -52,9 +52,14 @@ class NightAnalysisEngine {
         recordClips = config.recordClips {
     if (config.recordClips && !config.clipBufferIsAdequate) {
       throw ArgumentError(
-        'clipBufferSeconds(${config.clipBufferSeconds}) 不足以容纳 '
-        'maxClipSeconds(${config.maxClipSeconds}) + 前后余量，'
-        '切片段时会发现音频已被覆盖',
+        'clipBufferSeconds(${config.clipBufferSeconds}) 连片段开头那一小段都补不出来'
+        '（需要一个窗口 + 前余量），事件开张时音频早被覆盖了',
+      );
+    }
+    if (config.recordClips && config.hopSeconds != config.windowSeconds) {
+      throw ArgumentError(
+        '片段要求窗口既不重叠、也不跳步（hop == window）：'
+        '重叠会写进重复的音频，跳步会让补回来的开头和事件时间轴错位。',
       );
     }
     // 回调要在构造体里接——它引用了引擎自身，初始化列表里拿不到 this。
@@ -88,6 +93,17 @@ class NightAnalysisEngine {
   final PcmRingBuffer _ring;
 
   final EventAccumulator _accumulator;
+
+  /// 正在录的那一段事件音频。定案时决定留下还是删掉。
+  ClipWriter? _writer;
+
+  /// 这一段的音频放弃记录（开头那几秒已经被缓冲覆盖）。
+  ///
+  /// 保持到事件定案为止——不然下一窗又会开一个新文件、从声音中间接上。
+  bool _audioOptOut = false;
+
+  /// 已经写进当前片段的采样点数。用来卡 [AnalysisConfig.maxEventClipSeconds]。
+  int _writerSamples = 0;
 
   /// 正在写盘的片段。finish() 要等它们全部落盘，否则会话落库时还没拿到路径。
   final List<Future<void>> _pendingClips = [];
@@ -157,68 +173,150 @@ class NightAnalysisEngine {
 
   /// 送入一块浮点采样点。
   Future<List<SoundEvent>> feedSamples(Float32List samples) async {
-    // 原始流进环形缓冲。窗口是从同一份流里切出来的，两者用同一套
-    // 绝对采样序号，所以事件时间戳能直接换算成缓冲里的切片范围。
-    _ring.write(samples);
-
     final windows = _buffer.add(samples);
     for (final window in windows) {
+      // ⚠️ 环形缓冲**逐窗写**，而且写在处理这一窗之前。
+      //
+      // 它存在的唯一理由是给片段补开头那几秒，所以必须停在"已经处理到哪儿"。
+      // 早先是把整块 samples 一次写进去——一次喂一大块时（回放、测试、
+      // 录音插件的突发块），缓冲还没等窗口被处理就被整块冲了一遍，
+      // 事件开张时开头那几秒早没了，片段只能整段放弃。
+      //
+      // 逐窗写还顺带保证缓冲里的采样序号和窗口时间轴**逐点对应**，
+      // 这正是补头能对准的前提（所以片段要求 hop == window）。
+      _ring.write(window.samples);
       await _processWindow(window);
     }
     return _accumulator.eventsSoFar;
   }
 
-  /// 事件定案：符合条件的去环形缓冲切一段音频存下来。
+  /// 事件定案：把它的音频收尾（留下或删掉）。
   void _onEventClosed(int index, SoundEvent event) {
     if (!recordClips) return;
-    _pendingClips.add(_saveClipFor(index, event));
+    _pendingClips.add(_finishEventAudio(index, event));
   }
 
-  Future<void> _saveClipFor(int index, SoundEvent event) async {
-    final store = _clipStore;
-    if (store == null) return;
-    if (!recordClips) return;
+  /// 一段事件结束：决定它的音频留下还是删掉。
+  ///
+  /// 音频是边录边写盘的（见 [_followEventAudio]），这里只做决定：
+  /// 是鼾声或高危信号就落定，否则把临时文件删掉。
+  Future<void> _finishEventAudio(int index, SoundEvent event) async {
+    final writer = _writer;
+    _writer = null;
+    final optedOut = _audioOptOut;
+    _audioOptOut = false;
+    _writerSamples = 0;
 
-    // 只留鼾声和高危信号。梦话和咳嗽也录的话，隐私含义不一样，先不做。
-    //
-    // 高危信号必须留：用户要的就是把那几声倒吸气/喷鼻息翻出来听。
-    // 它们靠 [AnalysisConfig.keepsEvent] 豁免最短时长，不然一两秒的声音
-    // 连事件都成立不了，更别提片段。
-    if (!event.isSnore && !event.isSignal) return;
-    if (!config.keepsEvent(event)) return;
-
-    final range = config.clipRangeFor(event.startSeconds, event.endSeconds);
-    final startSample = (range.start * config.sampleRate).round();
-    // 末尾余量夹到已录到的位置。
-    //
-    // 事件往往在最后一段音频结束时定案，此时"事件之后"的声音还没发生，
-    // 尾部余量自然取不到。缺后半截余量只是少听半秒，可以接受；
-    // 而缺开头会让片段从声音正中开始，那是误导，所以起点不做夹取，
-    // 取不到就整段放弃（slice 会返回 null）。
-    final endSample = math.min(
-      (range.end * config.sampleRate).round(),
-      _ring.newestSample,
-    );
-
-    final samples = _ring.slice(startSample, endSample);
-    if (samples == null) {
-      // 缓冲不够长或事件太长，音频已被覆盖。宁可不存，也不存一段被截断的。
-      _clipsSkipped++;
+    // writer 为空有两种情况：从来没开成（磁盘满、开头补不回来），
+    // 或者中途被关掉了片段开关。前者要计数——"想存但没存成"是用户
+    // 可能需要知道的事，不能静默咽掉。
+    if (writer == null) {
+      if (optedOut) _clipsSkipped++;
       return;
     }
 
-    final path = await store.save(
-      sessionStartedAt: _startedAt ?? DateTime.now(),
-      startSeconds: range.start,
-      samples: samples,
-      sampleRate: config.sampleRate,
-    );
+    // 只留鼾声和高危信号。梦话和咳嗽也录的话，隐私含义不一样，先不做。
+    //
+    // 高危信号必须留：用户要的就是把那几声倒吸气翻出来听。它们靠
+    // [AnalysisConfig.keepsEvent] 豁免最短时长，不然一两秒的声音
+    // 连事件都成立不了，更别提片段。
+    final keep = (event.isSnore || event.isSignal) && config.keepsEvent(event);
+
+    if (!keep || optedOut) {
+      await writer.release();
+      if (optedOut) _clipsSkipped++;
+      return;
+    }
+
+    final path = await writer.finish();
     if (path != null) {
       _accumulator.attachClip(index, path);
       _clipsSaved++;
     } else {
       _clipsSkipped++;
     }
+  }
+
+  /// 跟着当前事件，把音频写到盘上。
+  ///
+  /// ## 为什么不是"定案时再切一段"
+  ///
+  /// 因为切不出来。事件可以有几分钟长（连续鼾声三五分钟很常见），而环形缓冲
+  /// 只有 60 秒——老实现就是在这儿丢音频的：一条 183 秒的鼾声，等它定案时
+  /// 开头早被覆盖，只能从末尾截 20 秒充数。用户点开一听："怎么只有几秒。"
+  ///
+  /// 现在改成：事件一开张就开文件，之后逐窗追加，定案时只决定留下还是删掉。
+  /// 内存里始终只有一个窗口，盘上留下的是**整段**鼾声。
+  Future<void> _followEventAudio(AudioWindow window) async {
+    if (!recordClips) {
+      // 隐私开关是实时的：用户中途关掉，正在录的那段也立刻停止落盘
+      final writer = _writer;
+      if (writer != null) {
+        _writer = null;
+        _writerSamples = 0;
+        await writer.release();
+      }
+      return;
+    }
+
+    final open = _accumulator.openEvent;
+    // 没有开着的事件，或者这一段已经放弃（见下面的 _audioOptOut）
+    if (open == null || _audioOptOut) return;
+
+    final store = _clipStore;
+    if (store == null) return;
+
+    // ---- 新的一段：开文件，并把"头"从环形缓冲里补回来 ----
+    if (_writer == null) {
+      final headStart = config.clipStartFor(open.startSeconds);
+
+      final writer = await store.begin(
+        sessionStartedAt: _startedAt ?? DateTime.now(),
+        startSeconds: headStart,
+        sampleRate: config.sampleRate,
+      );
+      if (writer == null) {
+        _audioOptOut = true;
+        return;
+      }
+
+      // 头 = 事件开头前那一点余量 + **到当前窗口为止**已经流过去的那几秒。
+      //
+      // ⚠️ 终点必须是这一窗的结束，不能拿缓冲的最新位置：一次 feed 可能
+      // 塞进来很多个窗口，拿最新位置当终点会把后面还没处理的窗口也写进头里，
+      // 紧接着逐窗追加又写一遍——音频凭空翻倍。
+      //
+      // 捞不到就**整段放弃**：宁可不要，也不要一段从声音中间开始的音频，
+      // 那听起来就像"这段声音本来就这么短"，比没有更误导。
+      final headEnd =
+          ((window.startSeconds + window.durationSeconds) * config.sampleRate)
+              .round();
+      final head = _ring.slice(
+        (headStart * config.sampleRate).round(),
+        headEnd,
+      );
+      if (head == null) {
+        await writer.release();
+        _audioOptOut = true;
+        return;
+      }
+
+      _writer = writer;
+      await writer.append(head);
+      _writerSamples += head.length;
+      return; // 头里已经含当前窗口，不能再补一次
+    }
+
+    // ---- 已经开着：接着写这一窗 ----
+    final capSamples = config.maxEventClipSeconds * config.sampleRate;
+    if (_writerSamples >= capSamples) {
+      // 触顶（正常不该发生，见 maxEventClipSeconds）。停止续写但保留已写的——
+      // 播放面板显示的是音频自己的长度，事件更长时还会说明，所以截断看得见。
+      return;
+    }
+
+    await _writer!.append(window.samples);
+    _writerSamples += window.samples.length;
   }
 
   Future<void> _processWindow(AudioWindow window) async {
@@ -248,6 +346,9 @@ class NightAnalysisEngine {
         categories: const {},
         wasInferred: false,
       ));
+      // 静音窗口不建事件，但它**仍然属于**正在进行的那一段——
+      // 事件是隔着 mergeGap 之内的小停顿合并出来的，那段停顿也是它的音频。
+      await _followEventAudio(window);
       return;
     }
 
@@ -301,6 +402,10 @@ class NightAnalysisEngine {
       // 单窗口推理失败不断掉整夜录音，记数继续。
       _inferenceErrors++;
     }
+
+    // 放在 try 外面：推理失败的那一窗，音频照样得写进去——
+    // 少了它，片段中间会凭空缺 3 秒（听起来像卡了一下）。
+    await _followEventAudio(window);
   }
 
   /// 结束录音：处理尾部残料，给出最终结果。
@@ -327,6 +432,13 @@ class NightAnalysisEngine {
   }
 
   void reset() {
+    // 还开着的话先扔掉——正常路径上 finish() 已经收过尾了，
+    // 这条是防呆：留着会是一个永远不落定、也不删的 .part 文件。
+    unawaited(_writer?.release());
+    _writer = null;
+    _audioOptOut = false;
+    _writerSamples = 0;
+
     _buffer.reset();
     _ring.clear();
     _accumulator.reset();

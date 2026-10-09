@@ -89,6 +89,17 @@ class EventAccumulator {
   int get windowCount => _observations.length;
   List<SoundEvent> get eventsSoFar => List.unmodifiable(_events);
 
+  /// 当前还**开着**的那个事件——后面来的同类窗口会并进它。
+  ///
+  /// 引擎靠它决定什么时候开始往盘上写音频：事件可以长到几分钟，
+  /// 等它定案再回头切是切不出来的（环形缓冲只有 60 秒）。
+  /// 判据是"最后一个事件还没进过 [_closed]"——那个集合就是"已定案"的意思。
+  SoundEvent? get openEvent {
+    if (_events.isEmpty) return null;
+    final last = _events.length - 1;
+    return _closed.contains(last) ? null : _events[last];
+  }
+
   void add(WindowObservation obs) {
     _observations.add(obs);
     final raw = obs.rawLabel;

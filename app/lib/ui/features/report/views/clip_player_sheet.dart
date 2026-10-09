@@ -226,7 +226,7 @@ class _ClipPlayerSheetState extends State<ClipPlayerSheet> {
                 const SizedBox(height: 6),
                 Text(
                   context.l10n.clipPlayerExcerpt(
-                    (widget.eventSeconds).round(),
+                    widget.eventSeconds.round(),
                     _clipDuration.inSeconds,
                   ),
                   style: dim?.copyWith(height: 1.5),

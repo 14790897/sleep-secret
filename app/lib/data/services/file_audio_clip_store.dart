@@ -43,6 +43,41 @@ class FileAudioClipStore implements AudioClipStore {
       startedAt.millisecondsSinceEpoch.toString();
 
   @override
+  Future<ClipWriter?> begin({
+    required DateTime sessionStartedAt,
+    required double startSeconds,
+    required int sampleRate,
+  }) async {
+    try {
+      final root = await _ensureRoot();
+      final dir = Directory('${root.path}/${_sessionKey(sessionStartedAt)}');
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      final fileName = '${(startSeconds * 1000).round()}.wav';
+      // 先写 `.part`：录到一半被系统杀掉时，它会留在盘上。
+      // 用后缀而不是直接占着 .wav，是为了让"半成品"一眼可辨——
+      // 万一真有残留，也不会被当成一段能播的片段。
+      final part = File('${dir.path}/$fileName.part');
+      final handle = await part.open(mode: FileMode.write);
+      // 占位头：长度先写 0，收尾回填。录的时候还不知道会录多长。
+      await handle.writeFrom(wavHeader(sampleRate, 0));
+
+      return _FileClipWriter(
+        handle: handle,
+        part: part,
+        finalPath: '${dir.path}/$fileName',
+        relativePath: '${_sessionKey(sessionStartedAt)}/$fileName',
+        sampleRate: sampleRate,
+      );
+    } catch (_) {
+      failureCount++;
+      return null;
+    }
+  }
+
+  @override
   Future<String?> save({
     required DateTime sessionStartedAt,
     required double startSeconds,
@@ -123,5 +158,80 @@ class FileAudioClipStore implements AudioClipStore {
       if (entity is File) total += await entity.length();
     }
     return total;
+  }
+}
+
+/// [FileAudioClipStore.begin] 返回的写入器：边追加 PCM、收尾回填 WAV 头。
+class _FileClipWriter implements ClipWriter {
+  _FileClipWriter({
+    required this._handle,
+    required this._part,
+    required this._finalPath,
+    required this._relativePath,
+    required this._sampleRate,
+  });
+
+  final RandomAccessFile _handle;
+  final File _part;
+  final String _finalPath;
+  final String _relativePath;
+  final int _sampleRate;
+
+  int _sampleCount = 0;
+  bool _failed = false;
+  bool _closed = false;
+
+  @override
+  Future<void> append(Float32List samples) async {
+    if (_closed || _failed || samples.isEmpty) return;
+    try {
+      await _handle.writeFrom(encodePcm16(samples));
+      _sampleCount += samples.length;
+    } catch (_) {
+      // 磁盘满之类：记下来，收尾时把半成品删掉——留一个坏文件比不留更糟
+      _failed = true;
+    }
+  }
+
+  @override
+  Future<String?> finish() async {
+    if (_closed) return null;
+    _closed = true;
+
+    if (_failed || _sampleCount == 0) {
+      await _discard();
+      return null;
+    }
+
+    try {
+      // 回填两个长度字段（偏移 4 和 40，见 wavHeader）
+      await _handle.setPosition(0);
+      await _handle.writeFrom(wavHeader(_sampleRate, _sampleCount * 2));
+      await _handle.flush();
+      await _handle.close();
+      await _part.rename(_finalPath);
+      return _relativePath;
+    } catch (_) {
+      await _discard();
+      return null;
+    }
+  }
+
+  @override
+  Future<void> release() async {
+    if (_closed) return;
+    _closed = true;
+    await _discard();
+  }
+
+  Future<void> _discard() async {
+    try {
+      await _handle.close();
+    } catch (_) {
+      // 已经关了就算了
+    }
+    try {
+      if (await _part.exists()) await _part.delete();
+    } catch (_) {}
   }
 }

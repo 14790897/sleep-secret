@@ -66,18 +66,30 @@ battery (default settings). That is roughly 14% for ten hours — no need for ma
 
 ⚠️ One phone, one night. Other models, other ROMs and the clip setting can all change it.
 
-## Why is a snore clip only 20 seconds long?
+## How long is a clip, and how much space does it take?
 
-Very long snoring stretches keep only their **most representative segment**, taken
-backwards from the end — a five-minute snore stored in full would be a multi-megabyte
-file for no reason. The event's duration in the report is complete; only the audio you
-play back is trimmed.
+**The whole thing.** However long the report says the sound lasted, that is how much
+you can hear — a 183-second event gives 183 seconds of audio (plus a second of padding
+at each end, so it neither starts nor stops mid-sound).
 
-Tapping play opens a player with a **waveform**, the clip's **real length**
-(`0:07 / 0:20`) and a draggable progress bar. When the event was longer than the
-clip, the player says so outright — "This sound lasted 183s; above is the last 20s
-of it". So the number in the list is how long the **sound** was; the number in the
-player is how long the **audio** is.
+The cost is disk. The audio is 16 kHz mono WAV, **about 1.9 MB per minute**:
+
+| Snoring in a night | Clips |
+|---|---|
+| 10 minutes | 19 MB |
+| 23 minutes | 44 MB |
+| 1 hour | 115 MB |
+
+So the **Audio clips** switch on the About tab is worth a look; with it off the app
+writes no audio at all, only when each event happened and what it was.
+
+Tapping play opens a player with a **waveform**, a draggable progress bar and the
+clip's real length (`0:07 / 3:03`).
+
+There is exactly one case where the audio is shorter than the event: a **single
+stretch longer than 20 minutes** — a fan or air conditioner can be read as snoring
+for hours, and that cap stops one such night from writing hundreds of MB. When it
+happens the player says so: "This sound lasted Xs; Ys of it was kept."
 
 ## How do I move my history to a new phone?
 

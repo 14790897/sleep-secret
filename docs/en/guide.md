@@ -76,9 +76,14 @@ has no way to prevent that.
 
 ## "Audio clips"
 
-On the *About* tab. On by default: a few MB of audio per night is written into the
-app's private directory, and only snore events and high-risk signals (gasps) are
-kept — sleep talk and coughing are not. Those events can be played back from the report.
+On the *About* tab. On by default: snore events and airway signals (gasps) are kept
+**in full**, one file per event, inside the app's private directory. Sleep talk and
+coughing are not kept. Those events can be played back from the report.
+
+That is about **1.9 MB per minute** — a night with 20 minutes of snoring is roughly
+38 MB. Turn the switch off here if that is too much; recordings after that write no
+audio at all (whatever is already stored stays, and you can delete it night by night
+from the report).
 
 Turn it off and the app writes no audio files at all, keeping only event timing and
 category — which also means no playback in history.

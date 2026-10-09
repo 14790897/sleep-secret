@@ -18,6 +18,40 @@ class FakeAudioClipStore implements AudioClipStore {
 
   bool failOnSave = false;
 
+  /// 流式写下来的整段音频（相对路径 -> 采样点）。
+  ///
+  /// 和 [saved] 分开：那个是 [save]（一次性给整段）留下的，
+  /// 这个是 [begin] 那条路（边录边写）留下的。测试要判断"整段事件
+  /// 是不是都写进去了"，看这个。
+  final Map<String, List<double>> streamed = {};
+
+  /// 被 release 掉的段（不是鼾声、或者开头没补全）。测试用来断言"没留下垃圾"。
+  final List<String> released = [];
+
+  bool failOnBegin = false;
+
+  @override
+  Future<ClipWriter?> begin({
+    required DateTime sessionStartedAt,
+    required double startSeconds,
+    required int sampleRate,
+  }) async {
+    if (failOnBegin) return null;
+    final key = '${sessionStartedAt.millisecondsSinceEpoch}'
+        '/${(startSeconds * 1000).round()}.wav';
+    final buffer = <double>[];
+    return _FakeClipWriter(
+      key,
+      buffer,
+      () {
+        saved[key] = Float32List.fromList(buffer);
+        streamed[key] = buffer;
+        savedSessions.add(sessionStartedAt);
+      },
+      () => released.add(key),
+    );
+  }
+
   /// 导入时采用的路径。内存版没有真实文件，只记下调用。
   final List<({String relativePath, String localPath})> adopted = [];
   bool failOnAdopt = false;
@@ -162,5 +196,39 @@ class FakeEventPlayer implements EventPlayer {
   Future<void> seek(Duration position) async {
     seekCount++;
     lastSeek = position;
+  }
+}
+
+/// 内存版写入器：先攒在 list 里，finish 时一次性落进 store。
+class _FakeClipWriter implements ClipWriter {
+  _FakeClipWriter(this.relativePath, this._buffer, this._onFinish, this._onRelease);
+
+  final String relativePath;
+  final List<double> _buffer;
+  final void Function() _onFinish;
+  final void Function() _onRelease;
+
+  bool _closed = false;
+
+  @override
+  Future<void> append(Float32List samples) async {
+    if (_closed) return;
+    _buffer.addAll(samples);
+  }
+
+  @override
+  Future<String?> finish() async {
+    if (_closed) return null;
+    _closed = true;
+    if (_buffer.isEmpty) return null;
+    _onFinish();
+    return relativePath;
+  }
+
+  @override
+  Future<void> release() async {
+    if (_closed) return;
+    _closed = true;
+    _onRelease();
   }
 }

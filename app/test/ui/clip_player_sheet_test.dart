@@ -116,11 +116,14 @@ void main() {
       expect(find.text('0:00 / 3:03'), findsNothing);
     });
 
-    testWidgets('事件明显更长时，说明这是末尾的摘录', (tester) async {
+    testWidgets('事件明显更长时，说明音频比事件短', (tester) async {
       await pumpSheet(tester, path: writeWav(3), eventSeconds: 183);
 
       expect(find.textContaining('全长 183 秒'), findsOneWidget);
-      expect(find.textContaining('末尾'), findsOneWidget);
+      // ⚠️ 措辞不能说「末尾」：片段正常就是整段，只有触到单段上限才会短，
+      // 而那种情况留下的是**开头**。
+      expect(find.textContaining('末尾'), findsNothing);
+      expect(find.textContaining('保留了其中'), findsOneWidget);
     });
 
     testWidgets('事件本来就短时不啰嗦这一句', (tester) async {

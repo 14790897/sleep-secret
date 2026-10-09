@@ -129,12 +129,60 @@ void main() {
       expect(engine.clipsSkipped, 0);
     });
 
-    test('超长事件只截取一段，不会写出超大文件', () async {
+    test('整段都留：事件多长，音频就多长', () async {
+      final engine = engineWith();
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: loud, length: 16000 * 20));
+      final outcome = await engine.finish();
+
+      final event = outcome.events.first;
+      expect(event.durationSeconds, greaterThan(15));
+
+      final seconds = store.saved.values.single.length / 16000;
+      // 前后各留 1 秒余量，但这段音频的鼾声从头响到尾、两边都没有余量的
+      // 空间，所以只保证"把整段事件都覆盖住了"。
+      expect(seconds, greaterThanOrEqualTo(event.durationSeconds - 0.5));
+      expect(seconds, lessThanOrEqualTo(event.durationSeconds + 2.5),
+          reason: '⚠️ 这里一度是「最多 20 秒」——于是列表写着 183 秒、'
+              '点开只响 20 秒，用户以为播放器坏了');
+    });
+
+    test('比环形缓冲还长的事件，音频照样是完整的', () async {
+      // ⚠️ 这条是这次改动的**核心回归测试**。
+      // 老实现是"定案后从环形缓冲里切一段"，缓冲多长就只能切多长：
+      // 一个 40 秒的事件配上 10 秒缓冲，切出来要么是一小段、要么整段没有。
+      // 新实现是边录边写盘，缓冲小只影响"开头那几秒补不补得回来"。
       const config = AnalysisConfig(
         windowSeconds: 1.0,
         hopSeconds: 1.0,
         minEventSeconds: 2.0,
-        maxClipSeconds: 5.0,
+        clipBufferSeconds: 10.0,
+      );
+      final engine = engineWith(config: config);
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: loud, length: 16000 * 40));
+      final outcome = await engine.finish();
+
+      final event = outcome.events.first;
+      expect(event.durationSeconds, greaterThan(30));
+
+      final seconds = store.saved.values.single.length / 16000;
+      expect(seconds, greaterThanOrEqualTo(event.durationSeconds - 0.5));
+      expect(seconds, lessThanOrEqualTo(event.durationSeconds + 2.5),
+          reason: '音频是边录边写的，不该受缓冲长度限制');
+    });
+
+    test('超过单段上限就停止续写，不会写出无限大的文件', () async {
+      // 上限是给失控情况兜底的：风扇那种持续低频可能被连着判成鼾声，
+      // 一整夜下来是几百 MB。触顶的片段比事件短——这件事界面上看得见
+      // （面板写音频自己的长度，事件更长时还会说明），所以不算欺骗。
+      const config = AnalysisConfig(
+        windowSeconds: 1.0,
+        hopSeconds: 1.0,
+        minEventSeconds: 2.0,
+        maxEventClipSeconds: 5.0,
         clipBufferSeconds: 30.0,
       );
       final engine = engineWith(config: config);
@@ -143,11 +191,12 @@ void main() {
       await engine.feedSamples(tone(amplitude: loud, length: 16000 * 20));
       final outcome = await engine.finish();
 
-      expect(outcome.events.first.durationSeconds, greaterThan(10));
+      final event = outcome.events.first;
+      expect(event.durationSeconds, greaterThan(10));
 
-      // 事件有 20 秒，片段被限制在 5 秒 + 余量
       final seconds = store.saved.values.single.length / 16000;
-      expect(seconds, lessThanOrEqualTo(config.maxClipSeconds + 0.5));
+      expect(seconds, lessThanOrEqualTo(config.maxEventClipSeconds + 1.5));
+      expect(seconds, lessThan(event.durationSeconds));
     });
 
     test('只留鼾声，咳嗽等不落片段', () async {
@@ -219,7 +268,7 @@ void main() {
     });
 
     test('写盘失败只计数，不影响事件本身', () async {
-      store.failOnSave = true;
+      store.failOnBegin = true; // 文件开不了（磁盘满、权限）
       final engine = engineWith();
       engine.start(DateTime(2026, 10, 6, 23));
 
@@ -231,13 +280,12 @@ void main() {
       expect(outcome.events.first.clipPath, isNull);
     });
 
-    test('缓冲不足以覆盖最长片段时构造就报错', () {
+    test('缓冲连开头那几秒都补不出来时，构造就报错', () {
       expect(
         () => NightAnalysisEngine(
           analyzer: FakeSleepAnalyzer(),
           config: const AnalysisConfig(
-            maxClipSeconds: 60,
-            clipBufferSeconds: 30, // 装不下
+            clipBufferSeconds: 2, // 一个窗口(3秒) + 前余量都装不下
           ),
           clipStore: store,
         ),
@@ -251,8 +299,7 @@ void main() {
           analyzer: FakeSleepAnalyzer(),
           config: const AnalysisConfig(
             recordClips: false,
-            maxClipSeconds: 60,
-            clipBufferSeconds: 30,
+            clipBufferSeconds: 2,
           ),
           clipStore: store,
         ),

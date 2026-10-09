@@ -570,16 +570,19 @@ class _ClipListCard extends StatelessWidget {
       );
     }
 
+    // 片段录的是**整段事件**，所以这个和就是能听到的总长
+    // （每个片段前后各多 1 秒余量，所以实际略多一点点）。
+    final totalSeconds = clipIndexes.fold<double>(
+      0,
+      (sum, i) => sum + events[i].durationSeconds,
+    );
+
     return SectionCard(
       key: ReportKeys.snoreClips,
       title: context.l10n.reportClipsTitle,
-      // ⚠️ 这里曾经显示的是**事件时长之和**（上面那个 fold）——而每段片段
-      // 被 `maxClipSeconds` 封顶了，两个数差一个数量级。用户看到「共 30 段 ·
-      // 54m56s」然后发现每段只响 20 秒，就会觉得是播放器坏了。
-      // 现在只说段数和每段的上限，具体多长在播放面板上看得见。
       subtitle: context.l10n.reportClipsSubtitle(
         clipIndexes.length,
-        const AnalysisConfig().maxClipSeconds.round(),
+        _clipDurationLabel(context, totalSeconds),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,6 +652,20 @@ abstract final class ReportKeys {
   /// 「疑似呼吸暂停的信号」卡里第 i 个事件的那一行。
   /// **i 同样是事件在会话里的原始下标**，和别处指的是同一条。
   static ValueKey<String> signalRow(int i) => ValueKey('signal-row-$i');
+}
+
+/// 片段总时长。
+///
+/// **不能直接用 [formatSpan]**——它只精确到分钟，一段 30 秒的鼾声会显示成
+/// 「0m」。鼾声片段本来就常常只有几十秒，那个精度在这儿等于没写。
+String _clipDurationLabel(BuildContext context, double seconds) {
+  final total = seconds.round();
+  if (total < 60) return context.l10n.reportDurSeconds(total);
+  final minutes = total ~/ 60;
+  final rest = total % 60;
+  return rest == 0
+      ? context.l10n.reportDurMinutes(minutes)
+      : context.l10n.reportDurMinSec(minutes, rest);
 }
 
 /// 打开片段播放面板：解析路径 → 起播 → 把面板要的东西给它。

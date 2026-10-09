@@ -33,7 +33,7 @@ class AnalysisConfig {
     this.mergeGapSeconds = 9.0,
     this.recordClips = true,
     this.clipPaddingSeconds = 1.0,
-    this.maxClipSeconds = 20.0,
+    this.maxEventClipSeconds = 1200.0, // 20 分钟，给失控情况兜底
     this.clipBufferSeconds = 60.0,
   });
 
@@ -172,14 +172,23 @@ class AnalysisConfig {
   /// 也判断不出这段鼾声的起止。
   final double clipPaddingSeconds;
 
-  /// 单个片段的最长秒数。超长鼾声段只截取最有代表性的一段，
-  /// 否则一条 5 分钟的鼾声会写出一个几 MB 的文件。
-  final double maxClipSeconds;
-
-  /// 环形缓冲保留多少秒的音频。
+  /// 单个片段的最长秒数。**超过就停止续写，不是从中间截一段。**
   ///
-  /// 必须 >= [maxClipSeconds] + 2 * [clipPaddingSeconds]，
-  /// 否则切片段时会发现音频已经被覆盖。构造时会校验。
+  /// 正常情况用不到它：现在片段录的是**整个事件**（用户要的就是"全部鼾声"）。
+  /// 它是给失控情况兜底的——风扇、空调那种持续低频有可能会被模型连着判成
+  /// 鼾声，一整夜下来就是 920MB 的音频。20 分钟 = 38MB，是个能接受的坏情况。
+  ///
+  /// ⚠️ 触顶的片段会比事件短。这件事**界面上看得见**：播放面板写的是音频
+  /// 自己的长度，事件明显更长时还会说明「全长 X 秒，播放的是其中 Y 秒」——
+  /// 所以截断不会伪装成完整。
+  final double maxEventClipSeconds;
+
+  /// 保留多少秒的环形缓冲。
+  ///
+  /// ⚠️ 它现在的唯一用途是补**片段开头那几秒**：事件是回溯确认的，等它开张时，
+  /// 开头那一两个窗口已经流过去了，得从缓冲里捞回来。真正的事件音频是
+  /// 边录边写盘的（见 [ClipWriter]），不再受这个缓冲限制——
+  /// 这也是"整段鼾声都留得下来"的前提。
   final double clipBufferSeconds;
 
   /// 事件 [startSeconds, endSeconds] 对应的音频切片范围（秒）。
@@ -187,20 +196,18 @@ class AnalysisConfig {
   /// 从**末尾往前推**而不是从起点开始切：超长事件（比如连续 5 分钟的鼾声）
   /// 从头切的话，那段音频早被环形缓冲挤掉了。从末尾推既保证一定在缓冲里，
   /// 取到的又是最靠近确认时刻、最有代表性的一段。
-  ({double start, double end}) clipRangeFor(
-    double startSeconds,
-    double endSeconds,
-  ) {
-    final end = endSeconds + clipPaddingSeconds;
-    final desiredStart = startSeconds - clipPaddingSeconds;
-    final earliest = end - maxClipSeconds;
-    final start = desiredStart > earliest ? desiredStart : earliest;
-    return (start: start < 0 ? 0.0 : start, end: end);
+  /// 片段的起点：事件开头往前留一点余量，免得音频从声音正中开始。
+  double clipStartFor(double eventStartSeconds) {
+    final start = eventStartSeconds - clipPaddingSeconds;
+    return start < 0 ? 0.0 : start;
   }
 
-  /// 缓冲是否够放一个完整的最长片段。不够的话切片段时会被覆盖掉。
+  /// 缓冲够不够补出片段开头那一小段。
+  ///
+  /// 需要的只是「事件开张时已经流过去的那几秒」——最多一个窗口加上前余量。
+  /// 片段其余部分是边录边写盘的，跟这个缓冲无关。
   bool get clipBufferIsAdequate =>
-      clipBufferSeconds >= maxClipSeconds + 2 * clipPaddingSeconds;
+      clipBufferSeconds >= windowSeconds + clipPaddingSeconds;
 
   int get windowSamples => (windowSeconds * sampleRate).round();
   int get hopSamples => (hopSeconds * sampleRate).round();
@@ -236,7 +243,7 @@ class AnalysisConfig {
         mergeGapSeconds: mergeGapSeconds ?? this.mergeGapSeconds,
         recordClips: recordClips ?? this.recordClips,
         clipPaddingSeconds: clipPaddingSeconds,
-        maxClipSeconds: maxClipSeconds,
+        maxEventClipSeconds: maxEventClipSeconds,
         clipBufferSeconds: clipBufferSeconds,
       );
 }

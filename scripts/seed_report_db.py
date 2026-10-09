@@ -261,11 +261,11 @@ for idx, (start_dt, severity) in enumerate(NIGHTS):
         clip_path = None
 
         # 只给最近一晚的鼾声段生成片段，模拟"开着片段开关录的那一晚"。
-        # 切片范围与 App 的 AnalysisConfig.clipRangeFor 一致：
-        # 前后各留 1 秒余量，总长封顶 20 秒（从末尾往前推）。
+        # 与 App 现在的行为一致：**整段事件**都留，前后各留 1 秒余量。
+        # （以前这里模拟的是"从末尾截 20 秒"，那是 App 的旧行为。）
         if is_last_night and label == 'snore':
+            begin_s = max(start - 1.0, 0.0)
             end_s = start + dur + 1.0
-            begin_s = max(start - 1.0, end_s - 20.0, 0.0)
             length = end_s - begin_s
             if length >= 3:
                 rel_dir = CLIPS / str(start_ms)
