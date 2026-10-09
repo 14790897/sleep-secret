@@ -2,12 +2,16 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' show ImageByteFormat;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter_test/flutter_test.dart';
 import '../helpers/fake_clip_services.dart';
 import '../helpers/pump_app.dart';
+import 'package:sleep_secret/data/services/wav_decoder_service.dart';
 import 'package:sleep_secret/data/services/wav_encoder.dart';
+import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/core/widgets/clip_waveform.dart';
 import 'package:sleep_secret/ui/features/report/views/clip_player_sheet.dart';
 
@@ -102,6 +106,80 @@ void main() {
       final peaks = waveformPeaks(samples, buckets: 2);
       expect(peaks[0].max, 1.0);
       expect(peaks[1].min, -1.0);
+    });
+
+    test('安静素材也要画得出形状——按峰值归一化', () {
+      // 真实卧室录音的峰值就在这个量级（实测 snore_01.wav = 0.058）
+      final samples = Float32List(2000);
+      for (var i = 0; i < 2000; i++) {
+        samples[i] = 0.05 * math.sin(2 * math.pi * 8 * i / 2000);
+      }
+      final raw = waveformPeaks(samples, buckets: 20);
+      expect(raw.first.max.abs(), lessThan(0.1), reason: '前提：素材本身就很轻');
+
+      final top = normalizePeaks(raw).map((p) => p.max.abs()).reduce(math.max);
+      expect(top, closeTo(1.0, 0.001),
+          reason: '不归一化的话，0.05 的素材在 76px 高的面板上只有 4px——'
+              '看上去就是一条直线。用户报的就是这个');
+    });
+
+    test('真静音不放大——别把底噪画成一片森林', () {
+      const peaks = [
+        (min: -0.001, max: 0.001),
+        (min: -0.002, max: 0.002),
+      ];
+      expect(normalizePeaks(peaks), peaks);
+    });
+
+    testWidgets('真实素材的波形要占满高度（并留一张预览图给人看）', (tester) async {
+      // ⚠️ 这条是冲着"波形是一条直线"那个 bug 来的。它跑的是**仓库里那段真实
+      // 鼾声**（峰值实测 0.058——真实卧室录音就在这个量级），不是我自己造的
+      // 种子数据。上一轮我在模拟器上看到波形很漂亮，就是因为那份种子数据
+      // 振幅有 0.28，把这个问题盖住了。
+      final audio = const WavDecoderService().decode(
+        File('assets/testdata/real/snore_01.wav').readAsBytesSync(),
+      );
+      final peaks = waveformPeaks(audio.samples);
+
+      // 取两侧绝对值的较大者：真实波形不对称（这段的负峰比正峰大），
+      // 归一化除的是两者中更大的那个，所以只有它才会顶到满格。
+      final top = normalizePeaks(peaks)
+          .map((p) => math.max(p.max.abs(), p.min.abs()))
+          .reduce(math.max);
+      expect(top, closeTo(1.0, 0.001),
+          reason: '归一化之后最高的那根柱子该顶到满格；'
+              '只有三四像素高的话，用户看到的就是一条直线');
+
+      // 顺手渲一张出来，方便肉眼确认（build/ 不进版本库）
+      final key = GlobalKey();
+      await tester.pumpWidget(localizedApp(
+        home: Scaffold(
+          backgroundColor: AppColors.surface,
+          body: Center(
+            child: RepaintBoundary(
+              key: key,
+              child: SizedBox(
+                width: 640,
+                child: ClipWaveform(
+                  peaks: peaks,
+                  progress: 0.35,
+                  onSeek: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.runAsync(() async {
+        final boundary =
+            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final image = await boundary.toImage(pixelRatio: 2);
+        final data = await image.toByteData(format: ImageByteFormat.png);
+        File('build/waveform_preview.png')
+            .writeAsBytesSync(data!.buffer.asUint8List());
+      });
     });
   });
 

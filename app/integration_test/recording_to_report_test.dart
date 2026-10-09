@@ -106,6 +106,13 @@ void main() {
     return const WavDecoderService().decode(bytes.buffer.asUint8List()).samples;
   }
 
+  /// 一段音频的峰值。
+  ///
+  /// 判断"写出来的片段到底有没有声音"要用它——只看文件长度的话，
+  /// **一整段零采样点也能通过**，而播放面板上就是一条直线。
+  double peakOf(Float32List samples) =>
+      samples.fold(0.0, (m, v) => v.abs() > m ? v.abs() : m);
+
   /// 把素材重复到指定时长。
   ///
   /// 素材只有 5 秒，而窗口 3 秒、最小事件时长 6 秒——
@@ -207,8 +214,17 @@ void main() {
       expect(withClip, isNotEmpty, reason: '鼾声事件应当保留音频片段（默认开着）');
       final resolved = await clipStore.resolve(withClip.first.clipPath!);
       expect(resolved, isNotNull, reason: '片段路径应当能还原成真实文件');
-      expect(await File(resolved!).length(), greaterThan(44),
-          reason: '写出的 WAV 不该只有头部');
+
+      // ⚠️ 光看"文件比头部长"是不够的：文件长度对、内容全是零，照样通过，
+      // 而播放面板上会是一条直线。用户就是这么发现问题的。
+      // 这里要求片段里真的有音频，而且和喂进去的素材一个量级。
+      final clip = const WavDecoderService()
+          .decode(await File(resolved!).readAsBytes());
+      expect(peakOf(clip.samples), greaterThan(0.02),
+          reason: '片段里全是接近 0 的采样点——波形会是一条直线');
+      expect(peakOf(clip.samples),
+          greaterThan(peakOf(audio) * 0.5),
+          reason: '写盘的音频不该比源素材轻一个量级');
     });
 
     /// 一段「一夜」：安静打底，中间插几段倒吸气。
@@ -261,8 +277,12 @@ void main() {
       expect(playable, isNotEmpty, reason: '高危信号必须留下片段，否则点了没反应');
       final resolved = await clipStore.resolve(playable.first.clipPath!);
       expect(resolved, isNotNull, reason: '片段路径应当能还原成真实文件');
-      expect(await File(resolved!).length(), greaterThan(44),
-          reason: '写出的 WAV 不该只有头部');
+
+      // 同上：要能听，不是"文件存在"。
+      final clip = const WavDecoderService()
+          .decode(await File(resolved!).readAsBytes());
+      expect(peakOf(clip.samples), greaterThan(0.02),
+          reason: '片段里全是接近 0 的采样点——波形会是一条直线');
     });
 
     testWidgets('同一份数据从库里读回来要和写进去的一致', (tester) async {

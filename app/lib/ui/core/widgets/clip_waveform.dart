@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -40,6 +41,35 @@ List<WaveformPeak> waveformPeaks(Float32List samples, {int buckets = 160}) {
   return out;
 }
 
+/// 按**这一段自己的峰值**把波形归一到 [-1, 1]。
+///
+/// ## 为什么必须归一化
+///
+/// 真实卧室录音的峰值常在 **0.05 上下**（手机在枕边、隔着点距离），
+/// 直接按 ±1.0 的比例画，一根柱子只有两三个像素高——**看上去就是一条直线**。
+/// 我在模拟器上第一次看波形时用的是自己造的种子数据（振幅 0.28），
+/// 画出来很漂亮；换成真录的，就成了直线。这就是那个 bug。
+///
+/// 波形图要回答的是"这段声音的**形状**长什么样"，不是"它有多响"——
+/// 响度由事件列表里那个分贝数去说，不该由柱子的高低兼职。
+///
+/// 底下留了条底线：整段都接近 0（真静音）时不放大，免得把底噪画成一片森林。
+List<WaveformPeak> normalizePeaks(
+  List<WaveformPeak> peaks, {
+  double silenceFloor = 0.02,
+}) {
+  var peak = 0.0;
+  for (final p in peaks) {
+    peak = math.max(peak, math.max(p.max.abs(), p.min.abs()));
+  }
+  if (peak < silenceFloor) return peaks;
+
+  final k = 1.0 / peak;
+  return [
+    for (final p in peaks) (min: p.min * k, max: p.max * k),
+  ];
+}
+
 /// 波形 + 可拖拽的播放头。
 ///
 /// 拖动时**先只动播放头、松手才 seek**：拖动过程中每一帧都 seek 会让播放器
@@ -80,6 +110,9 @@ class _ClipWaveformState extends State<ClipWaveform> {
   @override
   Widget build(BuildContext context) {
     final shown = _drag ?? widget.progress.clamp(0.0, 1.0);
+    // 按这一段自己的峰值归一化。少了这一步，真实录音（峰值 ~0.05）
+    // 画出来只有两三个像素高，就是一条直线。见 [normalizePeaks]。
+    final peaks = normalizePeaks(widget.peaks);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -106,7 +139,7 @@ class _ClipWaveformState extends State<ClipWaveform> {
             width: double.infinity,
             child: CustomPaint(
               painter: _WaveformPainter(
-                peaks: widget.peaks,
+                peaks: peaks,
                 progress: shown,
                 dragging: _drag != null,
               ),
