@@ -73,6 +73,12 @@ backwards from the end — a five-minute snore stored in full would be a multi-m
 file for no reason. The event's duration in the report is complete; only the audio you
 play back is trimmed.
 
+Tapping play opens a player with a **waveform**, the clip's **real length**
+(`0:07 / 0:20`) and a draggable progress bar. When the event was longer than the
+clip, the player says so outright — "This sound lasted 183s; above is the last 20s
+of it". So the number in the list is how long the **sound** was; the number in the
+player is how long the **audio** is.
+
 ## How do I move my history to a new phone?
 
 *About* → *Export data*. Export to a folder (a cloud-sync folder, or Nutstore / WebDAV),
