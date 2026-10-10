@@ -67,12 +67,22 @@ has no way to prevent that.
 | Skipped | Skipped by the energy gate (quiet stretches) |
 | Input level | Current and peak level — use it to check the mic isn't covered |
 
-!!! note "There is no detection threshold line by default"
+!!! note "You can turn the detection threshold on — but check the level meter first"
 
-    The app does **not** run energy gating by default: every window goes to the
+    By default the app runs **no energy gate**: every window goes to the
     model, quiet ones included. That is a measured decision — gating's only real
     effect is saving compute; it was not filtering false positives, the model was.
     So "Skipped" stays at 0 and there is no red line on the level meter.
+
+    To save power, turn on **Skip quiet stretches** on the About tab. A red line
+    then appears on the level meter and "Skipped" starts counting.
+
+    ⚠️ **Check the level meter before you do.** The threshold adapts to the room's
+    noise floor but **has a fixed lower bound** (a quarter of the configured RMS).
+    With the phone far away or under bedding, real snoring can peak below that line —
+    the whole night is then skipped, the report comes back empty, and **nothing warns
+    you**. Have someone talk normally or tap the bed; if the level does not reach the
+    red line, leave this off.
 
 ## "Audio clips"
 

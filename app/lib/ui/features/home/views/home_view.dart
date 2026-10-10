@@ -417,6 +417,8 @@ class _AboutView extends StatelessWidget {
             const SizedBox(height: 12),
             _ClipRecordingCard(viewModel: viewModel),
             const SizedBox(height: 12),
+            _VadCard(viewModel: viewModel),
+            const SizedBox(height: 12),
             SectionCard(
               title: context.l10n.aboutPrivacyTitle,
               subtitle: context.l10n.aboutPrivacySubtitle,
@@ -581,6 +583,61 @@ class _ClipRecordingCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             enabled ? context.l10n.clipOnBody : context.l10n.clipOffBody,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textDim,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 安静段跳过（能量门控）开关。
+///
+/// ## 为什么这个开关的文案是警告式的
+///
+/// 因为它的下限是**硬编码**的：阈值再怎么自适应，也不会低于 `vadRms / 4`。
+/// 而真实录音里，手机放得远、隔着被子时，鼾声的峰值 RMS 可以低到 0.0016
+/// ——就在那条线之下。打开它，那些夜晚会**整晚被跳过，一个事件都不产生**，
+/// 而界面上不会报错，报告只会是空的。
+///
+/// 所以文案不是"省电小技巧"，是"开之前先看一眼电平条"。
+class _VadCard extends StatelessWidget {
+  const _VadCard({required this.viewModel});
+
+  final RecordingViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enabled = viewModel.vadEnabled;
+
+    return SectionCard(
+      title: context.l10n.vadCardTitle,
+      subtitle: context.l10n.vadCardSubtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: enabled,
+            onChanged: (v) => viewModel.setVadEnabled(v),
+            title: Text(
+              enabled ? context.l10n.vadOn : context.l10n.vadOff,
+              style: theme.textTheme.bodyMedium,
+            ),
+            subtitle: Text(
+              enabled ? context.l10n.vadOnSubtitle : context.l10n.vadOffSubtitle,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textDim,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            enabled ? context.l10n.vadOnBody : context.l10n.vadOffBody,
             style: theme.textTheme.labelSmall?.copyWith(
               color: AppColors.textDim,
               height: 1.6,

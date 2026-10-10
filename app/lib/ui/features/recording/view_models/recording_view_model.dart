@@ -80,6 +80,14 @@ class RecordingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 是否启用能量门控（安静段跳过）。
+  bool get vadEnabled => _controller.vadEnabled;
+
+  Future<void> setVadEnabled(bool enabled) async {
+    await _controller.setVadEnabled(enabled);
+    notifyListeners();
+  }
+
   Future<void> deleteSession(int id) async {
     await _controller.deleteSession(id);
     await loadSessions();

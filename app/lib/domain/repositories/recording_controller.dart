@@ -19,6 +19,16 @@ abstract interface class RecordingController {
 
   Future<void> setRecordClips(bool enabled);
 
+  /// 是否启用能量门控：安静窗口直接跳过，不送进模型。
+  ///
+  /// 默认**关着**（见 `AnalysisConfig.vadEnabled` 里那段说明）。打开能省算力，
+  /// 并且报告里不会出现「整晚一条环境噪音」；代价是**比门槛轻的声音会被一起
+  /// 跳掉**——门槛按房间噪声底自适应，但下限是 `vadRms/4`，非常轻的鼾声
+  /// （手机放得远、隔着被子）可能就在那之下。
+  bool get vadEnabled;
+
+  Future<void> setVadEnabled(bool enabled);
+
   /// 开始整夜录音。已在进行中时是空操作。
   ///
   /// 不接收时间参数：会话起始时间应当是**音频真正开始采集的时刻**，

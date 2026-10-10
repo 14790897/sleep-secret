@@ -31,7 +31,7 @@ class NightAnalysisEngine {
     required this._analyzer,
     this.config = const AnalysisConfig(),
     this._clipStore,
-  })  : _noiseFloor = config.vadEnabled && config.vadAdaptive
+  })  : _noiseFloor = config.vadAdaptive
             ? AdaptiveNoiseFloor(
                 historyWindows: config.vadHistoryWindows,
                 percentile: config.vadNoisePercentile,
@@ -49,7 +49,8 @@ class NightAnalysisEngine {
         ),
         _ring = PcmRingBuffer(capacitySamples: config.clipBufferSamples),
         _accumulator = EventAccumulator(config: config),
-        recordClips = config.recordClips {
+        recordClips = config.recordClips,
+        vadEnabled = config.vadEnabled {
     if (config.recordClips && !config.clipBufferIsAdequate) {
       throw ArgumentError(
         'clipBufferSeconds(${config.clipBufferSeconds}) 连片段开头那一小段都补不出来'
@@ -70,18 +71,23 @@ class NightAnalysisEngine {
   final AnalysisConfig config;
   final AudioClipStore? _clipStore;
 
-  /// 噪声底估计器。`config.vadAdaptive` 关掉时为 null，退回固定阈值。
+  /// 噪声底估计器。
+  ///
+  /// ⚠️ 只要配置开着自适应就**一直建着**，**不看当前是否开了门控**——
+  /// 门控是能中途拨的（「关于」页那个开关），而它一打开就得立刻有个
+  /// 已经热好的阈值可用。代价是每 3 秒排一次 400 个数，相对 30ms 的推理
+  /// 可以忽略。
   final AdaptiveNoiseFloor? _noiseFloor;
 
   final PcmWindowBuffer _buffer;
 
-  /// 当前生效的能量门控阈值。**能量门控关掉时返回 null**——
+  /// 当前生效的能量门控阈值。**门控关着时返回 null**——
   /// 那时候不存在"门槛"这回事，界面不该再画一条线。
   ///
   /// 界面上的电平条要画在**这个**位置，不能画在配置里的固定值上——
   /// 阈值自适应之后两者会不一样，画错了就是在骗用户。
   double? get vadThreshold {
-    if (!config.vadEnabled) return null;
+    if (!vadEnabled) return null;
     return _noiseFloor?.threshold ?? config.vadRms;
   }
 
@@ -123,6 +129,13 @@ class NightAnalysisEngine {
   /// 是否落音频片段。可运行时切换——这是隐私开关，
   /// 用户中途关掉就该立刻停止落盘，而不是等下次启动。
   bool recordClips;
+
+  /// 能量门控是否启用。**可运行时切换**，和 [recordClips] 一个道理：
+  /// 「关于」页上有这个开关，拨了就该立刻生效，而不是等下次录音。
+  ///
+  /// 关掉时每一段都送进模型（当前默认）；打开时低于门槛的窗口直接跳过。
+  /// 阈值见 [vadThreshold]，它由 [_noiseFloor] 按房间噪声底自适应。
+  bool vadEnabled;
 
   /// 最近一个窗口的输入电平（RMS）。
   ///

@@ -340,4 +340,54 @@ void main() {
       expect(engine.vadThreshold, isNull);
     });
   });
+
+  group('能量门控可以中途拨（「关于」页那个开关）', () {
+    // 口径同上：1 秒窗口便于构造短测试，门控**默认关着**（生产默认值）
+    const config = AnalysisConfig(
+      windowSeconds: 1.0,
+      hopSeconds: 1.0,
+      minEventSeconds: 2.0,
+      mergeGapSeconds: 1.5,
+    );
+
+    test('拨开之后安静窗口立刻不再进模型，拨回去又进', () async {
+      final analyzer = FakeSleepAnalyzer();
+      final engine = NightAnalysisEngine(analyzer: analyzer, config: config);
+      engine.start(DateTime(2026, 10, 9, 23));
+
+      expect(engine.vadEnabled, isFalse, reason: '默认值和 AnalysisConfig 一致');
+      expect(engine.vadThreshold, isNull,
+          reason: '关着的时候没有门槛，界面就不该画那条红线');
+
+      await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 2));
+      expect(analyzer.classifyCount, 2, reason: '关着：安静的也送进模型');
+
+      // 拨开。**立刻生效**，不用重启录音——这是这个开关的全部意义
+      engine.vadEnabled = true;
+      expect(engine.vadThreshold, isNotNull, reason: '开着就有门槛了');
+
+      await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 2));
+      expect(analyzer.classifyCount, 2, reason: '开着：安静窗口被跳过，不再推理');
+
+      engine.vadEnabled = false;
+      await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 2));
+      expect(analyzer.classifyCount, 4, reason: '拨回去又该进模型');
+      expect(engine.vadThreshold, isNull);
+    });
+
+    test('噪声底一直在估——拨开时门槛是热的，不用重新攒样本', () async {
+      // 关着的时候也要喂噪声底。否则拨开之后的头几分钟用的是固定 fallback，
+      // 而这个房间真正的阈值要等攒够样本才算得出来——那几分钟里门控是瞎的。
+      final engine =
+          NightAnalysisEngine(analyzer: FakeSleepAnalyzer(), config: config);
+      engine.start(DateTime(2026, 10, 9, 23));
+
+      await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 120));
+      expect(engine.noiseFloor, isNotNull,
+          reason: '门控还关着，但噪声底已经估出来了');
+
+      engine.vadEnabled = true;
+      expect(engine.vadThreshold, isNotNull);
+    });
+  });
 }

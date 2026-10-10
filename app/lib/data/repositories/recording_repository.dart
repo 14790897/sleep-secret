@@ -34,6 +34,7 @@ class RecordingRepository implements RecordingController {
           config: config,
           clipStore: clipStore,
         ),
+        _vadDefault = config.vadEnabled,
         _clock = clock ?? DateTime.now;
 
   final AudioCapture _capture;
@@ -68,6 +69,7 @@ class RecordingRepository implements RecordingController {
   int _maxBacklog = 0;
 
   static const String _kRecordClips = 'record_clips';
+  static const String _kVadEnabled = 'vad_enabled';
 
   /// 通知权限被拒时给用户看的话。
   ///
@@ -75,6 +77,11 @@ class RecordingRepository implements RecordingController {
   /// 「关于」页写着「录音期间会有一条常驻通知」——那句话在权限被拒时是假的，
   /// 所以这里必须明确纠正，不能装作无事发生。
   bool _recordClips = true;
+
+  /// 能量门控。没拨过时用 [AnalysisConfig.vadEnabled] 的默认值。
+  bool _vadEnabled = false;
+  final bool _vadDefault;
+
   bool _settingsLoaded = false;
 
   /// 录音期间观察到的最大积压。非零且很大意味着设备跑不动这套配置，
@@ -266,6 +273,19 @@ class RecordingRepository implements RecordingController {
     await _database.writeBoolSetting(_kRecordClips, enabled);
   }
 
+  @override
+  bool get vadEnabled => _vadEnabled;
+
+  @override
+  Future<void> setVadEnabled(bool enabled) async {
+    _vadEnabled = enabled;
+    // 立刻作用到引擎。门槛和噪声底是**一直**在估的（见 NightAnalysisEngine
+    // 构造里那段），所以拨开之后马上就有可用的阈值，不存在"要重新热一遍"。
+    _engine.vadEnabled = enabled;
+    await _database.open();
+    await _database.writeBoolSetting(_kVadEnabled, enabled);
+  }
+
   /// 读一次设置。放在 start() 里做，避免构造时就碰数据库。
   Future<void> _ensureSettingsLoaded() async {
     if (_settingsLoaded) return;
@@ -274,6 +294,9 @@ class RecordingRepository implements RecordingController {
     _recordClips =
         await _database.readBoolSetting(_kRecordClips, fallback: true);
     _engine.recordClips = _recordClips;
+    _vadEnabled =
+        await _database.readBoolSetting(_kVadEnabled, fallback: _vadDefault);
+    _engine.vadEnabled = _vadEnabled;
   }
 
   @override

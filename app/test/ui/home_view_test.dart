@@ -202,4 +202,34 @@ void main() {
     expect(controller.clipRecording, isFalse);
     expect(find.text('不保留任何音频'), findsOneWidget);
   });
+
+  testWidgets('关于页的安静段开关能改状态，并且说得出代价', (tester) async {
+    // 关于页是 ListView，这一张卡在片段卡下面——视口不够高就根本没构建出来，
+    // 找不见不是"功能没了"，是"它在屏幕外"。加高视口是最省事的解法。
+    tester.view.physicalSize = const Size(900, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关于'));
+    await tester.pumpAndSettle();
+
+    // 默认关着——和 AnalysisConfig.vadEnabled 的生产默认值一致
+    expect(find.text('每一段都分析'), findsOneWidget);
+    expect(controller.vad, isFalse);
+
+    final tile = find.ancestor(
+      of: find.text('每一段都分析'),
+      matching: find.byType(SwitchListTile),
+    );
+    await tester.tap(find.descendant(of: tile, matching: find.byType(Switch)));
+    await tester.pumpAndSettle();
+
+    expect(controller.vad, isTrue);
+    expect(find.text('跳过安静段'), findsOneWidget);
+    // ⚠️ 打开之后的说明里必须写出**代价**：门槛有固定的下限，手机放得远
+    // 的时候真实鼾声可能就在那条线之下，开了会整晚什么都识别不到。
+    expect(find.textContaining('下限是固定的'), findsOneWidget);
+  });
 }

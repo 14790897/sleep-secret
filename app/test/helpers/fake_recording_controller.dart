@@ -18,6 +18,7 @@ class FakeRecordingController implements RecordingController {
   int deleteCount = 0;
   int listCount = 0;
   bool clipRecording = true;
+  bool vad = false;
 
   /// 让 listSessions 挂起，用来观察"加载中"的界面。
   Completer<void>? blockList;
@@ -39,6 +40,14 @@ class FakeRecordingController implements RecordingController {
   @override
   Future<void> setRecordClips(bool enabled) async {
     clipRecording = enabled;
+  }
+
+  @override
+  bool get vadEnabled => vad;
+
+  @override
+  Future<void> setVadEnabled(bool enabled) async {
+    vad = enabled;
   }
 
   @override

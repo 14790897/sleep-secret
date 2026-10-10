@@ -153,22 +153,28 @@ void main() {
     });
 
     testWidgets('真实素材的波形要占满高度（并留一张预览图给人看）', (tester) async {
-      // ⚠️ 这条是冲着"波形是一条直线"那个 bug 来的。它跑的是**仓库里那段真实
-      // 鼾声**（峰值实测 0.058——真实卧室录音就在这个量级），不是我自己造的
-      // 种子数据。上一轮我在模拟器上看到波形很漂亮，就是因为那份种子数据
-      // 振幅有 0.28，把这个问题盖住了。
-      final audio = const WavDecoderService().decode(
-        File('assets/testdata/real/snore_01.wav').readAsBytesSync(),
-      );
-      final peaks = waveformPeaks(audio.samples);
+      // ⚠️ 这条是冲着"波形是一条直线"那个 bug 来的。
+      //
+      // ⚠️⚠️ 而且**必须用 0.01 这个量级**：仓库里那段 fixture 是 0.058，
+      // 它比第一版那个 0.02 的静音下限高，所以**照样会被放大**——
+      // 拿它做检查，那个 bug 是照不出来的（我第一版就是这么漏掉的）。
+      // 用户真机上那两晚的峰值就在 0.01 上下。
+      const peak = 0.01;
+      final samples = Float32List(16000 * 3);
+      for (var i = 0; i < samples.length; i++) {
+        // 加个缓慢起伏的包络，让图上也看得出"形状"——等幅正弦画出来是
+        // 一个实心方块，看不出这块代码到底有没有在做事
+        final env = 0.2 + 0.8 * (0.5 + 0.5 * math.sin(2 * math.pi * 0.7 * i / 16000));
+        samples[i] = peak * env * math.sin(2 * math.pi * 220 * i / 16000);
+      }
+      final peaks = waveformPeaks(samples);
 
-      // 取两侧绝对值的较大者：真实波形不对称（这段的负峰比正峰大），
-      // 归一化除的是两者中更大的那个，所以只有它才会顶到满格。
+      // 取两侧绝对值的较大者：真实波形不对称，归一化除的是两者中更大的那个。
       final top = normalizePeaks(peaks)
           .map((p) => math.max(p.max.abs(), p.min.abs()))
           .reduce(math.max);
       expect(top, closeTo(1.0, 0.001),
-          reason: '归一化之后最高的那根柱子该顶到满格；'
+          reason: '0.01 的素材归一化之后该顶到满格；'
               '只有三四像素高的话，用户看到的就是一条直线');
 
       // 顺手渲一张出来，方便肉眼确认（build/ 不进版本库）
