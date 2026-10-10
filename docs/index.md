@@ -9,6 +9,10 @@
 <img src="screenshots/4-report-detail.png" width="170" alt="单晚报告">
 <img src="screenshots/5-detailed-view.png" width="170" alt="详细视图">
 
+<img src="screenshots/player-loop.gif" width="260" alt="点开一条鼾声：波形 + 整段时长">
+
+<small>鼾声<strong>整段</strong>留档，不是截一段——点开能看波形、拖进度、跳着听</small>
+
 ## 三句话
 
 - **默认音频不出设备。** 没有账号、没有服务器，装完就能用。唯一的例外是你
