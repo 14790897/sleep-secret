@@ -1,6 +1,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sleep_secret/domain/analysis/analysis_config.dart';
+import 'package:sleep_secret/domain/analysis/decibel.dart';
 import 'package:sleep_secret/domain/analysis/night_analysis_engine.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 
@@ -388,6 +389,41 @@ void main() {
 
       engine.vadEnabled = true;
       expect(engine.vadThreshold, isNotNull);
+    });
+
+    test('调低基准门槛，本来被跳过的轻声音就能进来了', () async {
+      // ⚠️ 这条就是作者真机上的处境：手机放枕边、隔着被子，
+      // 鼾声的 RMS 只有 0.0014 左右（事件列表上标 ~37 分贝），
+      // 落在默认门槛（约 54 分贝）**之下**——打开门控会整晚被跳过。
+      final analyzer = FakeSleepAnalyzer();
+      final engine = NightAnalysisEngine(analyzer: analyzer, config: config);
+      engine.vadEnabled = true;
+      engine.start(DateTime(2026, 10, 10, 1));
+
+      const light = 0.002; // RMS ≈ 0.0014
+
+      await engine.feedSamples(tone(amplitude: light, length: 16000 * 3));
+      expect(analyzer.classifyCount, 0,
+          reason: '默认门槛之下，这一段该被整个跳过');
+
+      // 门槛调到 30 分贝（≈ RMS 0.0006）
+      engine.setVadBaseRms(rmsForEstimatedDbSpl(30));
+
+      await engine.feedSamples(tone(amplitude: light, length: 16000 * 3));
+      expect(analyzer.classifyCount, 3,
+          reason: '门槛调到它之下以后，同一段声音（3 个 1 秒窗口）就该进模型了');
+    });
+
+    test('调门槛不取消上下界——区间跟着一起挪', () async {
+      // 当初加上下界是为了防止"越打鼾阈值越高、越检测不到"那种失效，
+      // 调基准只是把整个区间平移，那条约束依然成立。
+      final engine = NightAnalysisEngine(analyzer: FakeSleepAnalyzer(), config: config);
+      engine.vadEnabled = true;
+      engine.setVadBaseRms(rmsForEstimatedDbSpl(30));
+
+      // 门槛跟着降到新基准附近，而不是还停在旧值上
+      expect(engine.vadThreshold, lessThan(0.005));
+      expect(engine.vadThreshold, greaterThan(0));
     });
   });
 }

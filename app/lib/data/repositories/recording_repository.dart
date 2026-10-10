@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '../../domain/analysis/analysis_config.dart';
+import '../../domain/analysis/decibel.dart';
 import '../../domain/analysis/night_analysis_engine.dart';
 import '../../domain/models/recording_session.dart';
 import '../../domain/models/recording_state.dart';
@@ -35,6 +36,8 @@ class RecordingRepository implements RecordingController {
           clipStore: clipStore,
         ),
         _vadDefault = config.vadEnabled,
+        _vadThresholdDb = estimatedDbSplRounded(config.vadRms),
+        _vadDefaultDb = estimatedDbSplRounded(config.vadRms),
         _clock = clock ?? DateTime.now;
 
   final AudioCapture _capture;
@@ -70,6 +73,7 @@ class RecordingRepository implements RecordingController {
 
   static const String _kRecordClips = 'record_clips';
   static const String _kVadEnabled = 'vad_enabled';
+  static const String _kVadThresholdDb = 'vad_threshold_db';
 
   /// 通知权限被拒时给用户看的话。
   ///
@@ -81,6 +85,11 @@ class RecordingRepository implements RecordingController {
   /// 能量门控。没拨过时用 [AnalysisConfig.vadEnabled] 的默认值。
   bool _vadEnabled = false;
   final bool _vadDefault;
+
+  /// 门控的**基准**门槛（估算 dB SPL）。没调过时用配置里那个 `vadRms`
+  /// 换算出来的值——两边必须是同一套公式，否则默认值会悄悄漂走。
+  int _vadThresholdDb;
+  final int _vadDefaultDb;
 
   bool _settingsLoaded = false;
 
@@ -286,6 +295,21 @@ class RecordingRepository implements RecordingController {
     await _database.writeBoolSetting(_kVadEnabled, enabled);
   }
 
+  @override
+  int get vadThresholdDb => _vadThresholdDb;
+
+  @override
+  Future<void> setVadThresholdDb(int db) async {
+    // 夹一下：滑块本来就限制了范围，但库里存的值可能是手改过的。
+    // 一个荒唐的阈值会让门控要么全放行、要么全跳过，而界面看不出原因。
+    final clamped = db.clamp(kVadThresholdDbMin, kVadThresholdDbMax);
+    _vadThresholdDb = clamped;
+    // 立刻作用到引擎：滑块松手，录音页那条红线就该跟着动
+    _engine.setVadBaseRms(rmsForEstimatedDbSpl(clamped.toDouble()));
+    await _database.open();
+    await _database.writeStringSetting(_kVadThresholdDb, '$clamped');
+  }
+
   /// 读一次设置。放在 start() 里做，避免构造时就碰数据库。
   Future<void> _ensureSettingsLoaded() async {
     if (_settingsLoaded) return;
@@ -297,6 +321,11 @@ class RecordingRepository implements RecordingController {
     _vadEnabled =
         await _database.readBoolSetting(_kVadEnabled, fallback: _vadDefault);
     _engine.vadEnabled = _vadEnabled;
+
+    final storedDb = await _database.readStringSetting(_kVadThresholdDb);
+    _vadThresholdDb = (int.tryParse(storedDb ?? '') ?? _vadDefaultDb)
+        .clamp(kVadThresholdDbMin, kVadThresholdDbMax);
+    _engine.setVadBaseRms(rmsForEstimatedDbSpl(_vadThresholdDb.toDouble()));
   }
 
   @override

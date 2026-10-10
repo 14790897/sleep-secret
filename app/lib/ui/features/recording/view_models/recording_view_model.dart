@@ -88,6 +88,14 @@ class RecordingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 门控的基准门槛（估算 dB SPL）。
+  int get vadThresholdDb => _controller.vadThresholdDb;
+
+  Future<void> setVadThresholdDb(int db) async {
+    await _controller.setVadThresholdDb(db);
+    notifyListeners();
+  }
+
   Future<void> deleteSession(int id) async {
     await _controller.deleteSession(id);
     await loadSessions();

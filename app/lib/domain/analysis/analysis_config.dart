@@ -116,10 +116,18 @@ class AnalysisConfig {
   /// 上下界的存在是为了限定这次改动的口径：**原来那个值可能不对，
   /// 但不会错到 4 倍以上**。没有边界的话，一个整晚打鼾的录音会把噪声底
   /// 估成鼾声电平，阈值被推到很高，越打鼾越检测不到——那种失效很难看出来。
-  double get vadLowerBound => vadRms / 4;
+  double get vadLowerBound => vadRms * vadLowerRatio;
 
   /// 自适应阈值的上界——最多比 [vadRms] 收紧 2 倍。
-  double get vadUpperBound => vadRms * 2;
+  double get vadUpperBound => vadRms * vadUpperRatio;
+
+  /// 上下界相对基准的比例。
+  ///
+  /// 用户可以在「关于」页把基准（[vadRms]）调大调小，但**这两个比例是
+  /// 写死的**：调基准不是取消边界，是把整个区间一起挪。上面那条约束
+  /// （"不会错到 4 倍以上"）换个基准依然成立，这正是留着它们的用意。
+  static const double vadLowerRatio = 0.25;
+  static const double vadUpperRatio = 2.0;
 
   /// 低于它就认为**把握不大**——仍然产生事件，只是界面上会标出来。
   ///

@@ -84,6 +84,16 @@
   "@vadOffBody": {
     "description": "这是当前默认值，所以语气要平实，别像在劝用户改。"
   },
+  "vadThresholdLabel": "低于它的声音会被跳过",
+  "vadThresholdValue": "约 {db} 分贝",
+  "@vadThresholdValue": {
+    "placeholders": {
+      "db": {
+        "type": "int"
+      }
+    }
+  },
+  "vadThresholdHint": "拿不准就看报告：那些鼾声标着多少分贝，把门槛调到比它低一点就行——拖动的时候录音页那条红线会跟着动。",
   "categorySnore": "鼾声",
   "categoryBreathing": "呼吸声",
   "categoryCough": "咳嗽清嗓",

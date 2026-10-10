@@ -137,6 +137,21 @@ class NightAnalysisEngine {
   /// 阈值见 [vadThreshold]，它由 [_noiseFloor] 按房间噪声底自适应。
   bool vadEnabled;
 
+  /// 调能量门控的**基准**阈值（「关于」页那个滑块）。
+  ///
+  /// 传的是 **RMS**，不是分贝——分贝是界面上的估算单位（误差有 ±10dB），
+  /// 真正参与比较的是这个。换算用 `domain/analysis/decibel.dart` 里那对
+  /// 互逆的函数，和电平条、事件列表是同一套公式。**拨了立刻生效**。
+  ///
+  /// 适应的上下界按同一套比例跟着走（见 [AnalysisConfig.vadLowerRatio]）。
+  void setVadBaseRms(double rms) {
+    _noiseFloor?.retune(
+      base: rms,
+      lowerRatio: AnalysisConfig.vadLowerRatio,
+      upperRatio: AnalysisConfig.vadUpperRatio,
+    );
+  }
+
   /// 最近一个窗口的输入电平（RMS）。
   ///
   /// 界面用它显示电平条——录音时看不见有没有声音进来，用户没法判断

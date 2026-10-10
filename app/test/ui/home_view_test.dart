@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
+import 'package:sleep_secret/domain/repositories/recording_controller.dart'
+    show kVadThresholdDbMax;
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
 import 'package:sleep_secret/ui/features/recording/view_models/recording_view_model.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
@@ -231,5 +233,36 @@ void main() {
     // ⚠️ 打开之后的说明里必须写出**代价**：门槛有固定的下限，手机放得远
     // 的时候真实鼾声可能就在那条线之下，开了会整晚什么都识别不到。
     expect(find.textContaining('下限是固定的'), findsOneWidget);
+  });
+
+  testWidgets('打开之后出现门槛滑块，拖动会写下去', (tester) async {
+    tester.view.physicalSize = const Size(900, 3200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关于'));
+    await tester.pumpAndSettle();
+
+    // 关着的时候没有滑块——那时候"门槛"这个东西不存在
+    expect(find.byType(Slider), findsNothing);
+
+    final tile = find.ancestor(
+      of: find.text('每一段都分析'),
+      matching: find.byType(SwitchListTile),
+    );
+    await tester.tap(find.descendant(of: tile, matching: find.byType(Switch)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Slider), findsOneWidget);
+    expect(find.text('约 54 分贝'), findsOneWidget,
+        reason: '默认门槛就是配置里那个 vadRms 换算出来的（0.01 → 54 分贝）');
+
+    // 拖到最右边 = 门槛调到最大
+    await tester.drag(find.byType(Slider), const Offset(600, 0));
+    await tester.pumpAndSettle();
+    expect(controller.vadDb, kVadThresholdDbMax,
+        reason: '松手才落定，落定的值要真的写下去');
   });
 }

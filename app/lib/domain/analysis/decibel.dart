@@ -53,3 +53,11 @@ double estimatedDbSpl(double rms) => dbFs(rms) + kFullScaleDbSpl;
 /// 多出来的那位小数只是在制造"这很精确"的错觉。
 int estimatedDbSplRounded(double rms) =>
     estimatedDbSpl(rms).clamp(0, 200).round();
+
+/// [estimatedDbSpl] 的逆运算：从估算的 dB SPL 反推 RMS。
+///
+/// 只给「调门槛」用——用户在滑块上调的是分贝（和电平条、事件列表同一个
+/// 单位），而真正参与门控比较的是 RMS。两个方向必须是同一个公式，
+/// 否则"看到 38 分贝、调到 34 分贝"就不再是同一件事。
+double rmsForEstimatedDbSpl(double db) =>
+    math.pow(10, (db - kFullScaleDbSpl) / 20).toDouble();

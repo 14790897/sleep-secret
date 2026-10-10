@@ -59,15 +59,17 @@ class AdaptiveNoiseFloor {
   /// 也不要漏掉轻声鼾声——多推理几个窗口只费电，漏掉就打鼾也看不到。
   final double multiplier;
 
-  final double lowerBound;
-  final double upperBound;
+  /// 阈值能浮动到的区间。**不是 final**——用户在「关于」页调基准阈值时
+  /// 整个区间要跟着挪，见 [retune]。
+  double lowerBound;
+  double upperBound;
 
   final List<double> _history = [];
   var _next = 0;
   var _count = 0;
 
   /// 样本不足时用的固定阈值，也是 [reset] 之后回到的值。
-  final double _fallback;
+  double _fallback;
 
   double _threshold;
 
@@ -103,6 +105,29 @@ class AdaptiveNoiseFloor {
     // 阈值开头，而那时一个样本都还没有。这个 bug 一开始就漏了：
     // reset 之后 threshold 停在上一次的 0.0025 而不是 fallback。
     _threshold = _clamp(_fallback, lowerBound, upperBound);
+  }
+
+  /// 换一个基准阈值，区间按同一套比例跟着走。
+  ///
+  /// 「关于」页那个滑块调的就是它。**立刻重算**：用户松手就该看到红线动，
+  /// 而不是等下一次录音。
+  ///
+  /// ⚠️ 上下界跟着挪，但**不取消**：当初加它们是为了防止"越打鼾阈值越高、
+  /// 越检测不到"那种失效（见 [AnalysisConfig] 里那段说明）。
+  /// 调基准只是把整个区间平移，那条约束换个基准依然成立。
+  void retune({
+    required double base,
+    required double lowerRatio,
+    required double upperRatio,
+  }) {
+    if (base <= 0 || !base.isFinite) return;
+    _fallback = base;
+    lowerBound = base * lowerRatio;
+    upperBound = base * upperRatio;
+
+    // 样本不够时退回基准值；够了就按新房顶重新估一次
+    _threshold = _clamp(_fallback, lowerBound, upperBound);
+    if (_count >= minSamples) _threshold = _compute();
   }
 
   double _compute() {

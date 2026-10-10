@@ -1,6 +1,13 @@
 import '../models/recording_session.dart';
 import '../models/recording_state.dart';
 
+/// 门控基准门槛能调的范围（估算的 dB SPL，见 [RecordingController.vadThresholdDb]）。
+///
+/// 上限 60 分贝（RMS 0.02）够吵的房间用；下限 30 分贝（RMS 0.0006）已经是
+/// "几乎什么都放进来"了——再低就没有意义，只是白费电。
+const int kVadThresholdDbMin = 30;
+const int kVadThresholdDbMax = 60;
+
 /// 整夜录音的契约。
 abstract interface class RecordingController {
   /// 当前状态快照。
@@ -28,6 +35,15 @@ abstract interface class RecordingController {
   bool get vadEnabled;
 
   Future<void> setVadEnabled(bool enabled);
+
+  /// 能量门控的**基准**门槛，单位是估算的 dB SPL（和电平条、事件列表
+  /// 同一个单位，见 `domain/analysis/decibel.dart`）。默认 54。
+  ///
+  /// 实际生效的门槛会在这个值附近按房间噪声底浮动（区间见
+  /// [AnalysisConfig.vadLowerRatio]），所以这个数是"基准"，不是"最终值"。
+  int get vadThresholdDb;
+
+  Future<void> setVadThresholdDb(int db);
 
   /// 开始整夜录音。已在进行中时是空操作。
   ///

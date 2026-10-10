@@ -3,6 +3,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../domain/models/recording_session.dart';
 import '../../../../domain/repositories/locale_controller.dart';
+import '../../../../domain/repositories/recording_controller.dart'
+    show kVadThresholdDbMax, kVadThresholdDbMin;
 import '../../../core/l10n/l10n_context.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/score_gauge.dart';
@@ -604,15 +606,29 @@ class _ClipRecordingCard extends StatelessWidget {
 /// 而界面上不会报错，报告只会是空的。
 ///
 /// 所以文案不是"省电小技巧"，是"开之前先看一眼电平条"。
-class _VadCard extends StatelessWidget {
+class _VadCard extends StatefulWidget {
   const _VadCard({required this.viewModel});
 
   final RecordingViewModel viewModel;
 
   @override
+  State<_VadCard> createState() => _VadCardState();
+}
+
+class _VadCardState extends State<_VadCard> {
+  /// 拖动滑块时的临时值。
+  ///
+  /// ⚠️ 不能每一帧都调 `setVadThresholdDb`：那会**每帧写一次数据库**，
+  /// 引擎也会被反复重调。松手（`onChangeEnd`）才落定——和波形的播放头
+  /// 一个道理。
+  double? _dragDb;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final enabled = viewModel.vadEnabled;
+    final vm = widget.viewModel;
+    final enabled = vm.vadEnabled;
+    final shownDb = _dragDb ?? vm.vadThresholdDb.toDouble();
 
     return SectionCard(
       title: context.l10n.vadCardTitle,
@@ -623,7 +639,7 @@ class _VadCard extends StatelessWidget {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: enabled,
-            onChanged: (v) => viewModel.setVadEnabled(v),
+            onChanged: (v) => vm.setVadEnabled(v),
             title: Text(
               enabled ? context.l10n.vadOn : context.l10n.vadOff,
               style: theme.textTheme.bodyMedium,
@@ -635,6 +651,51 @@ class _VadCard extends StatelessWidget {
               ),
             ),
           ),
+          if (enabled) ...[
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.vadThresholdLabel,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+                Text(
+                  context.l10n.vadThresholdValue(shownDb.round()),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: shownDb.clamp(
+                kVadThresholdDbMin.toDouble(),
+                kVadThresholdDbMax.toDouble(),
+              ),
+              min: kVadThresholdDbMin.toDouble(),
+              max: kVadThresholdDbMax.toDouble(),
+              divisions: kVadThresholdDbMax - kVadThresholdDbMin,
+              label: '${shownDb.round()}',
+              onChanged: (v) => setState(() => _dragDb = v.roundToDouble()),
+              onChangeEnd: (v) {
+                setState(() => _dragDb = null);
+                vm.setVadThresholdDb(v.round());
+              },
+            ),
+            Text(
+              context.l10n.vadThresholdHint,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textDim,
+                height: 1.6,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           const SizedBox(height: 4),
           Text(
             enabled ? context.l10n.vadOnBody : context.l10n.vadOffBody,

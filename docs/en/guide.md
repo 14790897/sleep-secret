@@ -77,12 +77,18 @@ has no way to prevent that.
     To save power, turn on **Skip quiet stretches** on the About tab. A red line
     then appears on the level meter and "Skipped" starts counting.
 
-    ⚠️ **Check the level meter before you do.** The threshold adapts to the room's
-    noise floor but **has a fixed lower bound** (a quarter of the configured RMS).
-    With the phone far away or under bedding, real snoring can peak below that line —
-    the whole night is then skipped, the report comes back empty, and **nothing warns
-    you**. Have someone talk normally or tap the bed; if the level does not reach the
-    red line, leave this off.
+    **The threshold is adjustable on the same card** (30–60 dB). Unsure where to put
+    it? Check the report: whatever dB your snoring events show, set it a little below
+    that. The red line on the recording screen follows as you drag, so you can see
+    immediately whether your sound clears it.
+
+    ⚠️ Why the caution: the threshold's lower bound used to be **hard-coded**
+    (a quarter of the configured RMS), and with the phone far away or under bedding,
+    real snoring can peak below that — the whole night is then skipped, the report is
+    empty, and **nothing warns you**. The bound now moves with the threshold you set,
+    but it is **not removed**: the range still spans at most 4× down and 2× up from
+    the base, which guards against the threshold drifting up until heavy snoring
+    stops being detected at all.
 
 ## "Audio clips"
 
