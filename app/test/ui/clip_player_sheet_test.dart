@@ -9,7 +9,6 @@ import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter_test/flutter_test.dart';
 import '../helpers/fake_clip_services.dart';
 import '../helpers/pump_app.dart';
-import 'package:sleep_secret/data/services/wav_decoder_service.dart';
 import 'package:sleep_secret/data/services/wav_encoder.dart';
 import 'package:sleep_secret/ui/core/theme.dart';
 import 'package:sleep_secret/ui/core/widgets/clip_waveform.dart';
