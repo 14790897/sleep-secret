@@ -54,3 +54,7 @@ testdata/loud/
 .DS_Store
 Thumbs.db
 *.log
+
+# scripts/ 下的脚本互相 import 时 python 会生成这个。
+# 之前几个脚本都是独立运行的（`python xxx.py`），不会产生，所以一直没忽略。
+__pycache__/
