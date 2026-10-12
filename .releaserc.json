@@ -6,13 +6,16 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "bash scripts/set_version.sh ${nextRelease.version} && bash scripts/build_release_apk.sh"
+        "prepareCmd": "bash scripts/set_version.sh ${nextRelease.version} && bash scripts/build_release_apk.sh && bash scripts/make_fastlane_changelog.sh ${nextRelease.version} <<'CHANGELOG_EOF'\n${nextRelease.notes}\nCHANGELOG_EOF"
       }
     ],
     [
       "@semantic-release/git",
       {
-        "assets": ["app/pubspec.yaml"],
+        "assets": [
+          "app/pubspec.yaml",
+          "app/fastlane/metadata/android/*/changelogs/*.txt"
+        ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ],
