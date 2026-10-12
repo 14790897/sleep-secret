@@ -101,14 +101,26 @@ rather than inferred from the version string.
 **No anti-features.** No ads, no tracking, and no network access unless the user configures
 their own WebDAV server for export.
 
-**Fastlane metadata timing.** The Fastlane metadata was added shortly after `v2.18.0` was
-tagged, so it will first be picked up with the next release; `fdroidserver` scans the
-repository at the pinned commit. The metadata pinned here is `v2.18.0`.
+**First version shipped here is 2.18.1.** Everything F-Droid needs from the upstream
+repository — the Fastlane metadata and the packaging fix below — first appears in the
+`v2.18.1` tag, so the metadata points there rather than at `v2.18.0`.
+
+**Dependency metadata block removed.** `2.18.0` (and every release built with the current
+Android Gradle Plugin) carried an extra APK signing block, `Dependency metadata`
+(id `0x504b4453`), which the `check apk` job rejects — correctly, since the block is
+compressed and encrypted with a Google Play key and cannot be inspected. It is added by AGP
+automatically and is only useful for Play's install-size attribution, which does not apply
+here, so `2.18.1` turns it off with `dependenciesInfo { includeInApk = false;
+includeInBundle = false }`. Verified with a red/green comparison against fdroidserver's own
+list of forbidden block IDs: the 2.18.0 build has three signing blocks including the
+forbidden one, the 2.18.1 build has two and neither is forbidden.
 
 **Local verification.** `fdroid readmeta`, `fdroid lint` (no warnings),
-`fdroid rewritemeta` (no diff), `fdroid checkupdates --auto` (reports "up to date" and
-computes 22800/23800/25800 from the real repository) and the metadata JSON schema check all
-pass. `fdroid build` needs the build server, so instead the recipe's exact commands were
-run against a clean checkout of the tagged commit: `flutter pub get --enforce-lockfile` and
-`flutter build apk --release --split-per-abi --target-platform=android-arm64` both succeed
-and produce the APK at the path given in `output:`, with `versionCode=23800`.
+`fdroid rewritemeta` (byte-identical output), `fdroid checkupdates --auto` (reports
+"up to date" and computes 22801/23801/25801 from the real repository) and the metadata JSON
+schema check all pass. `fdroid build` needs the build server, so instead the recipe's exact
+commands were run against a clean checkout of the tagged commit: `flutter pub get
+--enforce-lockfile` and `flutter build apk --release --split-per-abi
+--target-platform=android-arm64` both succeed and produce the APK at the path given in
+`output:`, with `versionCode=23801`.
+
