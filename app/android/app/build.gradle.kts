@@ -41,6 +41,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // AGP 会往 APK 的签名块里塞一个 'Dependency metadata' 块——压缩后用 Google Play
+    // 的密钥加密。F-Droid 无法检查里面的内容，所以禁止额外的签名块，于是
+    // `fdroid build` 能过、但复查产物的 `check apk` 会判失败（实测三个 APK 全中：
+    // "found extra signing block 'Dependency metadata'"）。
+    // 这个块只对 Google Play 的「应用大小归因」有用，我们不上架 Play，关掉没有任何代价。
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.sleepsecret.sleep_secret"
