@@ -57,7 +57,7 @@ path except an optional WebDAV export the user configures themselves.
 * [x] There is an issue tracker and contact info of the author.
 * [x] An `AuthorName` is present.
 * [ ] External repos are added as git submodules instead of srclibs — **using the srclib method; see below.**
-* [ ] Enable Reproducible Builds — **not enabled for this first version; see below.**
+* [ ] Enable Reproducible Builds — **attempted; got to a single differing file, see below.**
 * [x] ABI split is set up (three APKs: `armeabi-v7a`, `arm64-v8a`, `x86_64`).
 * [x] Only the latest version is kept in the metadata.
 * [x] No disabled versions.
@@ -82,11 +82,33 @@ the upstream CI and the release builds. If a submodule is required for acceptanc
 happy to add one — it just seemed backwards to change the upstream repo's structure for
 the packager's convenience.
 
-**Reproducible builds are not enabled.** I did not attempt to match the upstream build
-paths in this first version, so the APK will be signed with F-Droid's key, and I understand
-that this cannot be changed later without a key change. I would rather have the recipe
-reviewed first and revisit reproducibility as a separate change; a large part of the
-obstacle is the Flutter toolchain's own path handling.
+**Reproducible builds: attempted, not enabled.** I tried this properly rather than
+declaring it impossible, and removed the `binary:` / `AllowedAPKSigningKeys` fields again
+only because a declared-but-failing comparison makes the pipeline red. What was found, in
+case it is useful to someone else:
+
+1. The first comparison differed in three files: `NativeAssetsManifest.json`, `libapp.so`
+   and `libdartjni.so`. Reading the actual diff showed the manifest listed
+   `android_arm`/`android_arm64`/`android_x64` upstream but only one ABI in our build —
+   because our recipe passed `--target-platform` per build block while upstream runs a
+   single `--split-per-abi`. Building all three ABIs in each block fixed that one.
+2. `libapp.so` was the Dart AOT snapshot embedding absolute paths. Moving the checkout to
+   the same path upstream builds at (`/home/runner/work/sleep-secret/sleep-secret`, as
+   `app.panoramax` does with its own CI path) fixed that one too.
+3. That left exactly one file, `libdartjni.so` — built from source by the `jni` package's
+   CMake. Pinning the NDK to `r28c` (what `flutter.ndkVersion` resolves to on Flutter
+   3.47.6, and what `app.kryfo`/`app.nightdrop` pin) did not resolve it, and I could not
+   identify the remaining input from outside the build server.
+
+The signing key side of it did check out: F-Droid downloaded our published APK and it
+`Verifies` against `AllowedAPKSigningKeys`, i.e. the fingerprint is correct and the key is
+fine. So the blocker is purely byte-level reproducibility of that one native library.
+
+I would like to revisit it — the Quick Start Guide is right that this is the moment, since
+users cannot switch between a developer-signed and a repo-signed build later without
+reinstalling. If a packager can tell me what differs inside `libdartjni.so` (the build
+server has the artifacts), I will pick it straight back up.
+
 
 ## Build notes
 
