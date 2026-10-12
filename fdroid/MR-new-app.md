@@ -101,26 +101,38 @@ rather than inferred from the version string.
 **No anti-features.** No ads, no tracking, and no network access unless the user configures
 their own WebDAV server for export.
 
-**First version shipped here is 2.18.1.** Everything F-Droid needs from the upstream
-repository — the Fastlane metadata and the packaging fix below — first appears in the
-`v2.18.1` tag, so the metadata points there rather than at `v2.18.0`.
+**First version shipped here is 2.18.2.** Everything F-Droid needs from the upstream
+repository — the Fastlane metadata, the packaging fix and the ABI version-code change below —
+first appears in the `v2.18.2` tag, so the metadata points there.
 
-**Dependency metadata block removed.** `2.18.0` (and every release built with the current
-Android Gradle Plugin) carried an extra APK signing block, `Dependency metadata`
-(id `0x504b4453`), which the `check apk` job rejects — correctly, since the block is
-compressed and encrypted with a Google Play key and cannot be inspected. It is added by AGP
-automatically and is only useful for Play's install-size attribution, which does not apply
-here, so `2.18.1` turns it off with `dependenciesInfo { includeInApk = false;
-includeInBundle = false }`. Verified with a red/green comparison against fdroidserver's own
-list of forbidden block IDs: the 2.18.0 build has three signing blocks including the
-forbidden one, the 2.18.1 build has two and neither is forbidden.
+**versionCode scheme.** Flutter's `--split-per-abi` defaults to offsetting each ABI's
+version code by `abiVersionCode * 1000` (`{armeabi-v7a: 1, arm64-v8a: 2, x86_64: 4}`), which
+puts the ABI in the *thousands* digit. That span (3000) is far larger than the version
+increment itself (a minor bump moves the pubspec code by 100), so an older version's high
+ABI outranks a newer version's low ABI — e.g. `2.18.1 x86_64 = 25801` sits above
+`2.19.0 armeabi-v7a = 22900`. Both the archiving rule and the client's "highest installable
+version code" rule key off that ordering, so this is a real defect rather than a style
+preference (thanks linsui for catching it).
+
+`2.18.2` therefore overrides the version code in the app itself, putting the ABI digit last:
+`versionCode * 10 + abiCode` with `{armeabi-v7a: 1, arm64-v8a: 2, x86_64: 3}`. The metadata
+matches with `VercodeOperation: ['%c * 10 + 1', '%c * 10 + 2', '%c * 10 + 3']`, and
+`fdroid checkupdates` computes `21802 -> 218021/218022/218023` from the real repository.
+Confirmed against real builds too, not just the formula: with pubspec `2.18.1+21801` the
+arm64 APK comes out as `versionCode=218012`.
+
+**Dependency metadata block removed.** `2.18.0` and `2.18.1` carried an extra APK signing
+block, `Dependency metadata` (id `0x504b4453`), which the `check apk` job rejects —
+correctly, since the block is compressed and encrypted with a Google Play key and cannot be
+inspected. It is added by AGP automatically and is only useful for Play's install-size
+attribution, which does not apply here, so `2.18.2` turns it off with
+`dependenciesInfo { includeInApk = false; includeInBundle = false }`.
 
 **Local verification.** `fdroid readmeta`, `fdroid lint` (no warnings),
 `fdroid rewritemeta` (byte-identical output), `fdroid checkupdates --auto` (reports
-"up to date" and computes 22801/23801/25801 from the real repository) and the metadata JSON
-schema check all pass. `fdroid build` needs the build server, so instead the recipe's exact
-commands were run against a clean checkout of the tagged commit: `flutter pub get
---enforce-lockfile` and `flutter build apk --release --split-per-abi
---target-platform=android-arm64` both succeed and produce the APK at the path given in
-`output:`, with `versionCode=23801`.
+"up to date" and computes 218021/218022/218023 from the real repository) and the metadata
+JSON schema check all pass. `fdroid build` needs the build server, so instead the recipe's
+exact commands were run against a clean checkout of the tagged commit, and the resulting
+APK's version code was read with `aapt`.
+
 
