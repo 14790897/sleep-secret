@@ -1,3 +1,0 @@
-First release on F-Droid.
-
-New in 2.18.0: the threshold for skipping quiet sections is now adjustable between 30 and 60 dB.

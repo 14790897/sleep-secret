@@ -1,6 +1,0 @@
-First release on F-Droid.
-
-New: the threshold for skipping quiet sections is adjustable between 30 and 60 dB.
-
-Packaging: the APK no longer carries the Android Gradle plugin's dependency
-metadata block, which F-Droid rejects.

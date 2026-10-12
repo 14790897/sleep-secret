@@ -104,6 +104,39 @@ kotlin {
     }
 }
 
+// ------------------------------------------------------- versionCode 的 ABI 位
+//
+// Flutter 的 --split-per-abi 默认给每个 ABI 加 1000/2000/4000
+// （FlutterPlugin.kt 的 ABI_VERSION），也就是把 ABI 摆在**千位**上。
+// 而 pubspec 的 versionCode 一次 minor 才涨 100、patch 才涨 1 ——
+// ABI 的跨度（3000）远大于版本的涨幅，于是**旧版本的高 ABI 会排在新版本的低 ABI 前面**：
+//
+//     2.18.1 的 x86_64 = 25801   >   2.19.0 的 armeabi-v7a = 22900
+//
+// F-Droid 只保留版本号最高的那几个 APK，其余进 archive；客户端也总是更新到
+// 能装的那个里版本号最高的。两者都会被这个倒挂搞错。所以把 ABI 挪到**个位**：
+// `versionCode * 10 + abiCode`，版本号永远压过 ABI 之间的差异。
+//
+// 这是 F-Droid 评审明确要求的（Quick Start Guide 的 "Setup ABI split" 一节），
+// 元数据里的 VercodeOperation 必须跟着写成 '%c * 10 + 1/2/3'，
+// 两处是同一个算法的两种表达，改一处必须改另一处。
+//
+// 用已废弃的 ApkVariantOutput 而不是评审给的 internal 版本 ——
+// Flutter 自己的插件用的就是这个类型，跟当前 AGP 的兼容性有保证。
+val abiCodes = mapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86_64" to 3)
+android.applicationVariants.configureEach {
+    val variant = this
+    variant.outputs.forEach { output ->
+        val abi = output.filters.find { it.filterType == "ABI" }?.identifier
+        val abiCode = abiCodes[abi]
+        if (abiCode != null) {
+            @Suppress("DEPRECATION")
+            (output as com.android.build.gradle.api.ApkVariantOutput).versionCodeOverride =
+                variant.versionCode * 10 + abiCode
+        }
+    }
+}
+
 flutter {
     source = "../.."
 }

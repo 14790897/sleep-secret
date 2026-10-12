@@ -35,20 +35,32 @@ for part in "$MAJOR" "$MINOR" "$PATCH"; do
 done
 CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
 
-# ---- 从元数据读 ABI 偏移，算出这个版本真正的三个 versionCode ----
+# ---- 从元数据读 VercodeOperation，算出这个版本真正的 versionCode ----
+# 元数据的 VercodeOperation 可能是加法（'%c + 1000'）也可能是乘法
+# （'%c * 10 + 1'），所以不能只抠数字再加——要把 %c 换成真值后
+# 整条表达式交给 shell 求值，和 fdroidserver 的做法一致。
 [[ -f "$META" ]] || { echo "找不到 $META" >&2; exit 1; }
-mapfile -t OFFSETS < <(
+mapfile -t OPS < <(
   sed -n '/^VercodeOperation:/,/^[A-Za-z]/p' "$META" \
-    | grep -oE '\+ *[0-9]+' | grep -oE '[0-9]+'
+    | grep -oE "'[^']+'" | tr -d "'"
 )
-if [[ ${#OFFSETS[@]} -eq 0 ]]; then
-  echo "没能从 $META 的 VercodeOperation 里读出 ABI 偏移" >&2
+if [[ ${#OPS[@]} -eq 0 ]]; then
+  echo "没能从 $META 的 VercodeOperation 里读出算式" >&2
   exit 1
 fi
 
 CODES=()
-for off in "${OFFSETS[@]}"; do CODES+=( $(( CODE + off )) ); done
-echo "版本 ${VERSION} → versionCode ${CODE}；三个 APK 的 code: ${CODES[*]}"
+for op in "${OPS[@]}"; do
+  # 只允许 %c、数字、四则运算符和空格——这个字符串会进算术求值。
+  # `-` 必须放在字符类末尾，否则会被当成范围（写 `/-\ ` 会变成
+  # 「从 / 到 \ 的所有字符」，`%` 不在其中，算式就被误拒了）。
+  if [[ "$op" =~ [^0-9%c[:space:]+*/-] ]]; then
+    echo "VercodeOperation 里有意料之外的字符，拒绝求值: $op" >&2
+    exit 1
+  fi
+  CODES+=( $(( ${op//%c/$CODE} )) )
+done
+echo "版本 ${VERSION} → pubspec versionCode ${CODE}；各 ABI 的 code: ${CODES[*]}"
 
 # ---- 把 release notes 洗成人能读的一段 ----
 # 去标题行、去 markdown 链接只留文字、去掉行末残留的 commit 短 hash
