@@ -63,7 +63,7 @@ void main() {
     // 屏幕外的部分根本不在 widget 树上。不撑开的话，「数据默认不出手机」
     // 那种断言会报「找不到」——而找不到分不清是文案没了还是它在屏幕外。
     // （加语言选择卡时就是这么红的。）
-    tester.view.physicalSize = const Size(1080, 3600);
+    tester.view.physicalSize = const Size(1080, 4400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -87,6 +87,20 @@ void main() {
     await tester.tap(find.text('关于'));
     await settle(tester);
     expect(find.textContaining('数据默认不出手机'), findsOneWidget);
+
+    // ---- 2b. 鼾声门槛这张卡在，而且拨得动 ----
+    // 这一条跑的是**真实仓库和真实引擎**（集成测试不注入假的），
+    // 所以它验的是「UI → ViewModel → 仓库 → 引擎」整条链真的通了。
+    expect(find.text('每一段都记下来'), findsOneWidget, reason: '默认必须是关着的');
+    final snoreTile = find.ancestor(
+      of: find.text('每一段都记下来'),
+      matching: find.byType(SwitchListTile),
+    );
+    await tester.tap(find.descendant(of: snoreTile, matching: find.byType(Switch)));
+    await settle(tester);
+    expect(find.text('按把握程度筛'), findsOneWidget);
+    expect(find.textContaining('一段都不会丢'), findsOneWidget,
+        reason: '打开态的说明里必须写明关着的时候不丢东西');
 
     await tester.tap(find.text('报告'));
     await settle(tester);

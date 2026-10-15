@@ -48,6 +48,7 @@ class RecordingState {
     this.eventCount = 0,
     this.snoreEventCount = 0,
     this.inferenceErrors = 0,
+    this.snoreWindowsHeldBack = 0,
     this.inputLevel = 0,
     this.peakLevel = 0,
     this.vadThreshold,
@@ -71,6 +72,13 @@ class RecordingState {
 
   /// 推理失败的窗口数。持续增长说明模型或输入有问题。
   final int inferenceErrors;
+
+  /// 本次录音里被鼾声门槛丢掉的窗口数（门槛关着时恒为 0）。
+  ///
+  /// 界面要把它显示出来：门槛一开，报告会变干净，而「这一夜真的安静」
+  /// 和「门槛把低把握的鼾声清掉了」在报告上长得一模一样。
+  /// 「没数据」和「没有」在这套报告里一直是分开表达的，这里也一样。
+  final int snoreWindowsHeldBack;
 
   /// 最近一个窗口的输入电平（RMS）。界面用它画电平条。
   final double inputLevel;
@@ -108,6 +116,7 @@ class RecordingState {
     int? eventCount,
     int? snoreEventCount,
     int? inferenceErrors,
+    int? snoreWindowsHeldBack,
     double? inputLevel,
     double? peakLevel,
     double? vadThreshold,
@@ -125,6 +134,8 @@ class RecordingState {
         eventCount: eventCount ?? this.eventCount,
         snoreEventCount: snoreEventCount ?? this.snoreEventCount,
         inferenceErrors: inferenceErrors ?? this.inferenceErrors,
+        snoreWindowsHeldBack:
+            snoreWindowsHeldBack ?? this.snoreWindowsHeldBack,
         inputLevel: inputLevel ?? this.inputLevel,
         peakLevel: peakLevel ?? this.peakLevel,
         vadThreshold: vadThreshold ?? this.vadThreshold,

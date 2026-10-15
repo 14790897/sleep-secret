@@ -4,7 +4,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../domain/models/recording_session.dart';
 import '../../../../domain/repositories/locale_controller.dart';
 import '../../../../domain/repositories/recording_controller.dart'
-    show kVadThresholdDbMax, kVadThresholdDbMin;
+    show
+        kSnoreThresholdPercentMax,
+        kSnoreThresholdPercentMin,
+        kVadThresholdDbMax,
+        kVadThresholdDbMin;
 import '../../../core/l10n/l10n_context.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/score_gauge.dart';
@@ -421,6 +425,8 @@ class _AboutView extends StatelessWidget {
             const SizedBox(height: 12),
             _VadCard(viewModel: viewModel),
             const SizedBox(height: 12),
+            _SnoreThresholdCard(viewModel: viewModel),
+            const SizedBox(height: 12),
             SectionCard(
               title: context.l10n.aboutPrivacyTitle,
               subtitle: context.l10n.aboutPrivacySubtitle,
@@ -699,6 +705,119 @@ class _VadCardState extends State<_VadCard> {
           const SizedBox(height: 4),
           Text(
             enabled ? context.l10n.vadOnBody : context.l10n.vadOffBody,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textDim,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 鼾声置信度门槛（在「关于」页，就在「安静段跳过」下面）。
+///
+/// 和 [_VadCard] 是同一套形态：开关 + 开关打开才出现的滑块，松手
+/// （`onChangeEnd`）才落定。区别在于这个门槛**只筛鼾声**，而且丢的是
+/// 用户自己的数据——所以文案里必须写明「关着一段都不会丢」，
+/// 那一句同时承担着"这不是回退"的说明（见引擎里
+/// `_snoreConfidenceThreshold` 那段）。
+class _SnoreThresholdCard extends StatefulWidget {
+  const _SnoreThresholdCard({required this.viewModel});
+
+  final RecordingViewModel viewModel;
+
+  @override
+  State<_SnoreThresholdCard> createState() => _SnoreThresholdCardState();
+}
+
+class _SnoreThresholdCardState extends State<_SnoreThresholdCard> {
+  /// 拖动时的临时值。**不能每帧写库**——理由同 [_VadCardState._dragDb]。
+  int? _dragPercent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final vm = widget.viewModel;
+    final enabled = vm.snoreThresholdEnabled;
+    final shown = _dragPercent ?? vm.snoreThresholdPercent;
+
+    return SectionCard(
+      title: context.l10n.snoreThresholdCardTitle,
+      subtitle: context.l10n.snoreThresholdCardSubtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: enabled,
+            onChanged: (v) => vm.setSnoreThresholdEnabled(v),
+            title: Text(
+              enabled
+                  ? context.l10n.snoreThresholdOn
+                  : context.l10n.snoreThresholdOff,
+              style: theme.textTheme.bodyMedium,
+            ),
+            subtitle: Text(
+              enabled
+                  ? context.l10n.snoreThresholdOnSubtitle
+                  : context.l10n.snoreThresholdOffSubtitle,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textDim,
+              ),
+            ),
+          ),
+          if (enabled) ...[
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.snoreThresholdLabel,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+                Text(
+                  context.l10n.snoreThresholdValue(shown),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: shown.toDouble().clamp(
+                kSnoreThresholdPercentMin.toDouble(),
+                kSnoreThresholdPercentMax.toDouble(),
+              ),
+              min: kSnoreThresholdPercentMin.toDouble(),
+              max: kSnoreThresholdPercentMax.toDouble(),
+              divisions: kSnoreThresholdPercentMax - kSnoreThresholdPercentMin,
+              label: '$shown%',
+              onChanged: (v) => setState(() => _dragPercent = v.round()),
+              onChangeEnd: (v) {
+                setState(() => _dragPercent = null);
+                vm.setSnoreThresholdPercent(v.round());
+              },
+            ),
+            Text(
+              context.l10n.snoreThresholdHint,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textDim,
+                height: 1.6,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            enabled
+                ? context.l10n.snoreThresholdOnBody(shown)
+                : context.l10n.snoreThresholdOffBody,
             style: theme.textTheme.labelSmall?.copyWith(
               color: AppColors.textDim,
               height: 1.6,

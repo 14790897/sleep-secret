@@ -8,6 +8,20 @@ import '../models/recording_state.dart';
 const int kVadThresholdDbMin = 30;
 const int kVadThresholdDbMax = 60;
 
+/// 鼾声置信度门槛能调的范围（百分比，即模型对「鼾声」这一类的得分）。
+///
+/// 下限 30 和报告里那条 `lowConfidenceThreshold`（25%，低于它的百分比会标黄）
+/// 配套：把门槛设到那条线以下，等于「连报告自己都标黄的东西也要留」，
+/// 没有意义。上限 90 是「只留最有把握的那几声」。
+///
+/// 参照：实测近场真实鼾声的得分在 82~97，削掉低频、压上噪声模拟「手机没放
+/// 枕边」的素材是 87，而那些本来就不是鼾声的（雨声、鸡叫）是 0.000。
+const int kSnoreThresholdPercentMin = 30;
+const int kSnoreThresholdPercentMax = 90;
+
+/// 打开门槛时的默认值。放在中间——真觉得漏了就往下拖，觉得误报了往上拖。
+const int kSnoreThresholdPercentDefault = 50;
+
 /// 整夜录音的契约。
 abstract interface class RecordingController {
   /// 当前状态快照。
@@ -44,6 +58,24 @@ abstract interface class RecordingController {
   int get vadThresholdDb;
 
   Future<void> setVadThresholdDb(int db);
+
+  /// 是否按置信度筛鼾声：模型判成鼾声、但把握低于 [snoreThresholdPercent]
+  /// 的窗口不建事件。
+  ///
+  /// 默认**关着**。关着时行为和不设门槛完全一致。
+  ///
+  /// 打开会**丢掉一部分鼾声**——这是用户自己的取舍，不是应用替他判断
+  /// （对比 `night_analysis_engine.dart` 里被删掉的那道固定门控）。
+  /// **只作用于鼾声**，其他类别一律不受影响。
+  bool get snoreThresholdEnabled;
+
+  Future<void> setSnoreThresholdEnabled(bool enabled);
+
+  /// 鼾声置信度门槛，百分比。默认 [kSnoreThresholdPercentDefault]。
+  /// 只在 [snoreThresholdEnabled] 打开时生效。
+  int get snoreThresholdPercent;
+
+  Future<void> setSnoreThresholdPercent(int percent);
 
   /// 开始整夜录音。已在进行中时是空操作。
   ///

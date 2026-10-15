@@ -422,6 +422,28 @@ class _LiveStatsCard extends StatelessWidget {
               ],
             ),
           ],
+          // 门槛正在丢东西，就必须说出来。
+          //
+          // 否则报告会「变干净」而用户看不出原因：这一夜是真的安静，
+          // 还是门槛把低把握的鼾声清掉了？用 statusWarning 而不是
+          // statusCritical——丢数据是用户自己拨的，不是出错。
+          if (s.snoreWindowsHeldBack > 0) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.filter_alt,
+                    size: 16, color: AppColors.statusWarning),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.l10n.snoreHeldBackNotice(s.snoreWindowsHeldBack),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.statusWarning),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

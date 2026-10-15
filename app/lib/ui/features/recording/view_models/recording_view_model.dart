@@ -96,6 +96,22 @@ class RecordingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 是否按置信度筛鼾声（低于 [snoreThresholdPercent] 的不算鼾声）。
+  bool get snoreThresholdEnabled => _controller.snoreThresholdEnabled;
+
+  Future<void> setSnoreThresholdEnabled(bool enabled) async {
+    await _controller.setSnoreThresholdEnabled(enabled);
+    notifyListeners();
+  }
+
+  /// 鼾声置信度门槛，百分比。
+  int get snoreThresholdPercent => _controller.snoreThresholdPercent;
+
+  Future<void> setSnoreThresholdPercent(int percent) async {
+    await _controller.setSnoreThresholdPercent(percent);
+    notifyListeners();
+  }
+
   Future<void> deleteSession(int id) async {
     await _controller.deleteSession(id);
     await loadSessions();

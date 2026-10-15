@@ -94,6 +94,44 @@
     }
   },
   "vadThresholdHint": "拿不准就看报告：那些鼾声标着多少分贝，把门槛调到比它低一点就行——拖动的时候录音页那条红线会跟着动。",
+  "snoreThresholdCardTitle": "鼾声门槛",
+  "snoreThresholdCardSubtitle": "多像鼾声才算鼾声",
+  "snoreThresholdOn": "按把握程度筛",
+  "snoreThresholdOff": "每一段都记下来",
+  "snoreThresholdOnSubtitle": "低于门槛的不算鼾声",
+  "snoreThresholdOffSubtitle": "当前默认：不筛，每段鼾声都留着并标出它当时的把握",
+  "snoreThresholdOnBody": "把握低于这条线的段会被当成**没有鼾声**：不产生事件、不计入鼾声指数，报告里也不再出现。只影响鼾声——咳嗽、梦话、环境噪音那些照旧。\n\n这条线是你自己设的，**关着的时候一段都不会丢**：报告里每个鼾声后面的百分比，就是模型当时的把握程度。\n\n拿不准就先别开。低于 {percent}% 的那些，就是拨开之后会消失的。",
+  "@snoreThresholdOnBody": {
+    "description": "⚠️ 必须写明「关着不丢东西」——这既是事实，也是和项目里被删掉的那道固定门控的区别所在。",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "snoreThresholdOffBody": "每一段都记下来，包括模型没太大把握的。报告里每个鼾声后面都标着它当时的把握程度，由你自己看着办。\n\n这是默认值。",
+  "@snoreThresholdOffBody": {
+    "description": "这是当前默认值，语气要平实，别像在劝用户改。"
+  },
+  "snoreThresholdLabel": "把握低于它的不算鼾声",
+  "snoreThresholdValue": "{percent}%",
+  "@snoreThresholdValue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "snoreThresholdHint": "拿不准就先看报告：那几条鼾声标着多少百分比，把门槛调到比它低一点。",
+  "snoreHeldBackNotice": "门槛已丢掉 {count} 段低把握的鼾声",
+  "@snoreHeldBackNotice": {
+    "description": "录音页实时显示。存在的意义是让「这一夜真的安静」和「被门槛清干净了」分得开。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "categorySnore": "鼾声",
   "categoryBreathing": "呼吸声",
   "categoryCough": "咳嗽清嗓",

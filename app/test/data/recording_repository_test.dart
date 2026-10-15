@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,11 @@ import 'package:sleep_secret/domain/analysis/analysis_config.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/recording_state.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
+import 'package:sleep_secret/domain/repositories/recording_controller.dart'
+    show
+        kSnoreThresholdPercentDefault,
+        kSnoreThresholdPercentMax,
+        kVadThresholdDbMin;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../helpers/fake_services.dart';
@@ -382,6 +388,142 @@ void main() {
 
       expect(session, isNotNull);
       expect(session!.id, isNotNull);
+    });
+  });
+
+  group('设置持久化', () {
+    // ⚠️ 这个 group **不能**用 setUp 里那个内存库：内存库每次打开都是空的，
+    // 而这里要测的正是「关掉 App 再打开还在不在」。
+    late Directory dir;
+    late SessionDatabase fileDb;
+
+    RecordingRepository buildRepo(SessionDatabase db) => RecordingRepository(
+          capture: FakeAudioCapture(),
+          analyzer: FakeSleepAnalyzer(),
+          database: db,
+          foregroundService: FakeForegroundServiceController(),
+          config: testConfig,
+        );
+
+    setUp(() async {
+      await initAppStringsForTest();
+      dir = await Directory.systemTemp.createTemp('sleep_secret_settings');
+      fileDb = SessionDatabase(
+        factory: databaseFactoryFfi,
+        databasePath: '${dir.path}/test.db',
+      );
+    });
+
+    tearDown(() async {
+      await dir.delete(recursive: true);
+    });
+
+    /// 起一次录音再停掉——`_ensureSettingsLoaded` 是在 `start()` 里跑的，
+    /// 这是触发读库的既有路径（VAD 那几个测试也是这么做的）。
+    Future<void> cycle(RecordingRepository repo,
+        Future<void> Function() write) async {
+      await repo.start();
+      await write();
+      await repo.stop();
+    }
+
+    test('鼾声门槛能存下来，换个实例读同一个库还在', () async {
+      final first = buildRepo(fileDb);
+      await cycle(first, () async {
+        await first.setSnoreThresholdEnabled(true);
+        await first.setSnoreThresholdPercent(72);
+      });
+      await first.dispose();
+
+      // 换一个仓库实例读同一个库文件——相当于关掉 App 再打开
+      final second = buildRepo(fileDb);
+      await second.start();
+      expect(second.snoreThresholdEnabled, isTrue);
+      expect(second.snoreThresholdPercent, 72);
+      await second.stop();
+      await second.dispose();
+    });
+
+    test('能量门控门槛也能存下来（这条原来一直没有）', () async {
+      final first = buildRepo(fileDb);
+      await cycle(first, () => first.setVadThresholdDb(41));
+      await first.dispose();
+
+      final second = buildRepo(fileDb);
+      await second.start();
+      expect(second.vadThresholdDb, 41);
+      await second.stop();
+      await second.dispose();
+    });
+
+    test('库里被手改过的荒唐值会被夹回区间，而不是原样用', () async {
+      // 阈值出了区间，表现是「鼾声要么全留、要么全没」，而界面看不出原因。
+      await fileDb.open();
+      await fileDb.writeStringSetting('snore_threshold_percent', '999');
+      await fileDb.writeStringSetting('vad_threshold_db', 'abc');
+
+      final repo = buildRepo(fileDb);
+      await repo.start();
+
+      expect(repo.snoreThresholdPercent, kSnoreThresholdPercentMax);
+      expect(repo.vadThresholdDb, greaterThanOrEqualTo(kVadThresholdDbMin));
+
+      await repo.stop();
+      await repo.dispose();
+    });
+
+    test('默认关着：没设置过的时候门槛不生效', () async {
+      final repo = buildRepo(fileDb);
+      await repo.start();
+
+      expect(repo.snoreThresholdEnabled, isFalse);
+      expect(repo.snoreThresholdPercent, kSnoreThresholdPercentDefault);
+
+      await repo.stop();
+      await repo.dispose();
+    });
+
+    test('拨开之后真的作用到引擎：低把握的鼾声不再记成事件', () async {
+      // 上面几条只验了「值存下来了」。这一条验的是它**一路走到了引擎**——
+      // 存下来但没生效，是这个功能最容易出的错（而且用户看不出来）。
+      final weak = FakeSleepAnalyzer(
+        responder: (_) => FakeSleepAnalyzer.prediction(categories: {
+          SleepCategory.snore: 0.4,
+          SleepCategory.ambient: 0.3,
+        }),
+      );
+
+      // 同一份弱鼾声音频，录两遍，唯一差别是门槛开不开。
+      Future<RecordingSession?> record({
+        required FakeAudioCapture capture,
+        required bool gate,
+      }) async {
+        final repo = RecordingRepository(
+          capture: capture,
+          analyzer: weak,
+          database: fileDb,
+          foregroundService: FakeForegroundServiceController(),
+          config: testConfig,
+        );
+        await repo.start();
+        await repo.setSnoreThresholdPercent(50);
+        await repo.setSnoreThresholdEnabled(gate);
+        pushSeconds(capture, 4, amplitude: 0.5);
+        await pumpEventQueue();
+        final session = await repo.stop();
+        await repo.dispose();
+        return session;
+      }
+
+      final withoutGate = await record(capture: FakeAudioCapture(), gate: false);
+      expect(withoutGate!.stats.snoreEventCount, greaterThan(0),
+          reason: '门槛关着时，0.4 把握的鼾声也是事件——这是默认行为');
+
+      final withGate = await record(capture: FakeAudioCapture(), gate: true);
+      expect(withGate!.stats.snoreEventCount, 0,
+          reason: '门槛拨开了却没作用到引擎，用户只会觉得「设了没用」');
+      expect(withGate.stats.windowsInferred, greaterThan(0),
+          reason: '只是不给它建事件，推理照跑——鼾声指数的分母不变');
     });
   });
 }

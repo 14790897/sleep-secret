@@ -6,6 +6,9 @@ gradle-wrapper.jar
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/
+# Kotlin 2.x 编译器的工作目录（gradle 构建时自动生成）。
+# Flutter 模板的 .gitignore 早于 Kotlin 2，所以没带上这一条。
+/.kotlin
 
 # Remember to never publicly share your keystore.
 # See https://flutter.dev/to/reference-keystore

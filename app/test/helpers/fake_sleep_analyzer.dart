@@ -59,7 +59,10 @@ class FakeSleepAnalyzer implements SleepAnalyzer {
     return responder?.call(samples) ?? snoreDominated();
   }
 
-  /// 鼾声 0.8 / 环境噪音 0.1 / 其余 0.1，置信度 0.8，稳过两道闸门。
+  /// 鼾声 0.8 / 环境噪音 0.1 / 其余 0.05，置信度 0.8。
+  ///
+  /// （以前这里写「稳过两道闸门」——置信度门控已经删了，现在只有能量门控
+  /// 一道，而且默认是关的。见 `night_analysis_engine.dart` 里那段说明。）
   static SleepPrediction snoreDominated() => prediction(
         categories: {
           SleepCategory.snore: 0.8,
@@ -68,7 +71,10 @@ class FakeSleepAnalyzer implements SleepAnalyzer {
         },
       );
 
-  /// 最接近均匀分布的预测，置信度极低，应被置信度门控挡掉。
+  /// 最接近均匀分布的预测，置信度极低（1/7）。
+  ///
+  /// ⚠️ 它**不会**被自动丢掉——曾经有一道置信度门控会挡掉它，那道门控因为
+  /// 实测拦不到东西已经删除了。现在要不要丢，只看用户有没有拨鼾声门槛。
   static SleepPrediction uniform() => prediction(
         categories: {
           for (final c in SleepCategory.values) c: 1.0 / SleepCategory.values.length,

@@ -74,6 +74,8 @@ class RecordingRepository implements RecordingController {
   static const String _kRecordClips = 'record_clips';
   static const String _kVadEnabled = 'vad_enabled';
   static const String _kVadThresholdDb = 'vad_threshold_db';
+  static const String _kSnoreThresholdEnabled = 'snore_threshold_enabled';
+  static const String _kSnoreThresholdPercent = 'snore_threshold_percent';
 
   /// 通知权限被拒时给用户看的话。
   ///
@@ -90,6 +92,10 @@ class RecordingRepository implements RecordingController {
   /// 换算出来的值——两边必须是同一套公式，否则默认值会悄悄漂走。
   int _vadThresholdDb;
   final int _vadDefaultDb;
+
+  /// 鼾声置信度门槛。**默认关着**——不动它的人，行为和没有这个功能完全一样。
+  bool _snoreThresholdEnabled = false;
+  int _snoreThresholdPercent = kSnoreThresholdPercentDefault;
 
   bool _settingsLoaded = false;
 
@@ -203,6 +209,7 @@ class RecordingRepository implements RecordingController {
       eventCount: _engine.events.length,
       snoreEventCount: _engine.events.where((e) => e.isSnore).length,
       inferenceErrors: _engine.inferenceErrors,
+      snoreWindowsHeldBack: _engine.snoreWindowsHeldBack,
       inputLevel: _engine.lastRms,
       peakLevel: _engine.peakRms,
       vadThreshold: _engine.vadThreshold,
@@ -239,6 +246,7 @@ class RecordingRepository implements RecordingController {
       eventCount: outcome.stats.eventCount,
       snoreEventCount: outcome.stats.snoreEventCount,
       inferenceErrors: _engine.inferenceErrors,
+      snoreWindowsHeldBack: _engine.snoreWindowsHeldBack,
       // 录音已经结束，这次的通知权限提醒就过期了
       clearWarning: true,
     ));
@@ -310,6 +318,44 @@ class RecordingRepository implements RecordingController {
     await _database.writeStringSetting(_kVadThresholdDb, '$clamped');
   }
 
+  /// 把鼾声门槛推给引擎。关着时推 0——引擎里 0 就是「不设门槛」。
+  ///
+  /// 抽出来是因为三处都要用（开关、滑块、启动时读回），
+  /// 分开写迟早会漏掉一处，而漏掉的那处表现为「拨了没反应」。
+  void _applySnoreThreshold() {
+    _engine.setSnoreConfidenceThreshold(
+      _snoreThresholdEnabled ? _snoreThresholdPercent / 100 : 0,
+    );
+  }
+
+  @override
+  bool get snoreThresholdEnabled => _snoreThresholdEnabled;
+
+  @override
+  Future<void> setSnoreThresholdEnabled(bool enabled) async {
+    _snoreThresholdEnabled = enabled;
+    // 和 VAD 开关一样立刻生效：拨了就该作用于正在进行的这一夜，
+    // 而不是等下次录音。
+    _applySnoreThreshold();
+    await _database.open();
+    await _database.writeBoolSetting(_kSnoreThresholdEnabled, enabled);
+  }
+
+  @override
+  int get snoreThresholdPercent => _snoreThresholdPercent;
+
+  @override
+  Future<void> setSnoreThresholdPercent(int percent) async {
+    // 夹一下：库里存的值可能被手改过。一个荒唐的阈值会让鼾声要么全留、
+    // 要么全没，而界面看不出原因。
+    final clamped =
+        percent.clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
+    _snoreThresholdPercent = clamped;
+    _applySnoreThreshold();
+    await _database.open();
+    await _database.writeStringSetting(_kSnoreThresholdPercent, '$clamped');
+  }
+
   /// 读一次设置。放在 start() 里做，避免构造时就碰数据库。
   Future<void> _ensureSettingsLoaded() async {
     if (_settingsLoaded) return;
@@ -326,6 +372,17 @@ class RecordingRepository implements RecordingController {
     _vadThresholdDb = (int.tryParse(storedDb ?? '') ?? _vadDefaultDb)
         .clamp(kVadThresholdDbMin, kVadThresholdDbMax);
     _engine.setVadBaseRms(rmsForEstimatedDbSpl(_vadThresholdDb.toDouble()));
+
+    _snoreThresholdEnabled = await _database.readBoolSetting(
+      _kSnoreThresholdEnabled,
+      fallback: false,
+    );
+    final storedPercent =
+        await _database.readStringSetting(_kSnoreThresholdPercent);
+    _snoreThresholdPercent =
+        (int.tryParse(storedPercent ?? '') ?? kSnoreThresholdPercentDefault)
+            .clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
+    _applySnoreThreshold();
   }
 
   @override
