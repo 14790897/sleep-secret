@@ -429,16 +429,12 @@ void main() {
 
     test('鼾声门槛能存下来，换个实例读同一个库还在', () async {
       final first = buildRepo(fileDb);
-      await cycle(first, () async {
-        await first.setSnoreThresholdEnabled(true);
-        await first.setSnoreThresholdPercent(72);
-      });
+      await cycle(first, () => first.setSnoreThresholdPercent(72));
       await first.dispose();
 
       // 换一个仓库实例读同一个库文件——相当于关掉 App 再打开
       final second = buildRepo(fileDb);
       await second.start();
-      expect(second.snoreThresholdEnabled, isTrue);
       expect(second.snoreThresholdPercent, 72);
       await second.stop();
       await second.dispose();
@@ -472,58 +468,16 @@ void main() {
       await repo.dispose();
     });
 
-    test('默认关着：没设置过的时候门槛不生效', () async {
+    test('默认不筛：没设置过的时候门槛是 0', () async {
       final repo = buildRepo(fileDb);
       await repo.start();
 
-      expect(repo.snoreThresholdEnabled, isFalse);
-      expect(repo.snoreThresholdPercent, kSnoreThresholdPercentDefault);
+      expect(repo.snoreThresholdPercent, kSnoreThresholdPercentDefault,
+          reason: '默认 0 = 不筛，报告显示全部');
 
       await repo.stop();
       await repo.dispose();
     });
 
-    test('拨开之后真的作用到引擎：低把握的鼾声不再记成事件', () async {
-      // 上面几条只验了「值存下来了」。这一条验的是它**一路走到了引擎**——
-      // 存下来但没生效，是这个功能最容易出的错（而且用户看不出来）。
-      final weak = FakeSleepAnalyzer(
-        responder: (_) => FakeSleepAnalyzer.prediction(categories: {
-          SleepCategory.snore: 0.4,
-          SleepCategory.ambient: 0.3,
-        }),
-      );
-
-      // 同一份弱鼾声音频，录两遍，唯一差别是门槛开不开。
-      Future<RecordingSession?> record({
-        required FakeAudioCapture capture,
-        required bool gate,
-      }) async {
-        final repo = RecordingRepository(
-          capture: capture,
-          analyzer: weak,
-          database: fileDb,
-          foregroundService: FakeForegroundServiceController(),
-          config: testConfig,
-        );
-        await repo.start();
-        await repo.setSnoreThresholdPercent(50);
-        await repo.setSnoreThresholdEnabled(gate);
-        pushSeconds(capture, 4, amplitude: 0.5);
-        await pumpEventQueue();
-        final session = await repo.stop();
-        await repo.dispose();
-        return session;
-      }
-
-      final withoutGate = await record(capture: FakeAudioCapture(), gate: false);
-      expect(withoutGate!.stats.snoreEventCount, greaterThan(0),
-          reason: '门槛关着时，0.4 把握的鼾声也是事件——这是默认行为');
-
-      final withGate = await record(capture: FakeAudioCapture(), gate: true);
-      expect(withGate!.stats.snoreEventCount, 0,
-          reason: '门槛拨开了却没作用到引擎，用户只会觉得「设了没用」');
-      expect(withGate.stats.windowsInferred, greaterThan(0),
-          reason: '只是不给它建事件，推理照跑——鼾声指数的分母不变');
-    });
   });
 }

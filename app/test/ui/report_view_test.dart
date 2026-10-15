@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/fake_recording_controller.dart';
 import '../helpers/pump_app.dart';
 import 'package:sleep_secret/data/models/sleep_class_map.dart';
 import 'package:sleep_secret/domain/analysis/sleep_score.dart';
@@ -77,10 +78,12 @@ void main() {
     player = FakeEventPlayer();
   });
 
-  ReportViewModel buildVm(RecordingSession session, {SleepClassMap? classMap}) =>
+  ReportViewModel buildVm(RecordingSession session,
+          {SleepClassMap? classMap, FakeRecordingController? settings}) =>
       ReportViewModel(
         session: session,
         clipStore: clipStore,
+        settings: settings ?? FakeRecordingController(),
         player: player,
         classMap: classMap,
       );
@@ -953,6 +956,156 @@ void main() {
       expect(formatSpan(3600), '1h 0m');
       expect(formatSpan(5460), '1h 31m');
       expect(formatSpan(28800), '8h 0m');
+    });
+  });
+
+  group('鼾声展示门槛（只影响显示，不动录音）', () {
+    // 用本组自己构造的事件，不用共享 fixture：那边 `confidence` 和
+    // `snore` 是两个独立的参数（默认 0.7 / 0.0），而**过滤看的是
+    // 界面上显示的那个 `confidence`**——真实模型里 dominant 是鼾声时
+    // 两者本来就是同一个数，这里显式写成一致，免得测出一个假行为。
+    RecordingSession sessionOf(List<SoundEvent> events, {int snores = 2}) =>
+        buildSession(
+          events: events,
+          stats: SessionStats(
+            analyzedSeconds: 28800,
+            windowsTotal: 9600,
+            windowsInferred: 3200,
+            windowsVadSkipped: 6000,
+            windowsLowConfidence: 2900,
+            eventCount: events.length,
+            snoreEventCount: snores,
+            snoreSeconds: events
+                .where((e) => e.isSnore)
+                .fold(0.0, (sum, e) => sum + e.durationSeconds),
+            categoryDistribution: const {},
+          ),
+        );
+
+    RecordingSession twoSnores() => sessionOf([
+          event(
+              label: SleepCategory.snore,
+              start: 3600,
+              duration: 180,
+              confidence: 0.82,
+              clipPath: 'sess/100000.wav'),
+          event(
+              label: SleepCategory.snore,
+              start: 9000,
+              duration: 60,
+              confidence: 0.71,
+              clipPath: 'sess/200000.wav'),
+          event(label: SleepCategory.cough, start: 7200, duration: 12,
+              confidence: 0.40),
+          event(label: SleepCategory.vocal, start: 14400, duration: 24,
+              confidence: 0.50),
+          event(label: SleepCategory.breathing, start: 2000, duration: 300,
+              confidence: 0.60),
+        ]);
+
+    test('默认 0：全部显示', () {
+      final vm = buildVm(twoSnores());
+      expect(vm.snoreThresholdPercent, 0);
+      expect(vm.session.events.length, 5);
+      expect(vm.session.stats.snoreEventCount, 2);
+    });
+
+    test('筛掉低把握的鼾声，别的类别一个都不少', () async {
+      final vm = buildVm(twoSnores());
+      await vm.setSnoreThresholdPercent(80);
+
+      final labels =
+          vm.session.events.map((e) => e.label).toList(growable: false);
+      expect(labels.where((l) => l == SleepCategory.snore).length, 1,
+          reason: '0.82 那段留下，0.71 那段被筛掉');
+      expect(labels, contains(SleepCategory.cough),
+          reason: '只筛鼾声——咳嗽再没把握也不该消失');
+      expect(labels, contains(SleepCategory.vocal));
+      expect(labels, contains(SleepCategory.breathing));
+    });
+
+    test('事件派生的统计跟着重算', () async {
+      final vm = buildVm(twoSnores());
+      await vm.setSnoreThresholdPercent(80);
+
+      expect(vm.session.stats.snoreEventCount, 1);
+      expect(vm.session.stats.snoreSeconds, 180, reason: '只剩那段 180 秒的');
+      expect(vm.session.stats.eventCount, 4);
+    });
+
+    test('录音侧的事实一个都不动', () async {
+      final before = twoSnores().stats;
+      final vm = buildVm(twoSnores());
+      await vm.setSnoreThresholdPercent(80);
+      final after = vm.session.stats;
+
+      // 这几个不是从事件推出来的。改了它们就是在编造「这一夜录到了什么」，
+      // 而那正是报告里最不该撒谎的部分。
+      expect(after.analyzedSeconds, before.analyzedSeconds);
+      expect(after.windowsTotal, before.windowsTotal);
+      expect(after.windowsInferred, before.windowsInferred);
+      expect(after.windowsVadSkipped, before.windowsVadSkipped);
+      expect(after.windowsLowConfidence, before.windowsLowConfidence);
+    });
+
+    test('「还有几段没显示」数得出来', () async {
+      final vm = buildVm(twoSnores());
+      expect(vm.allSnoreCount, 2, reason: '这一夜原本有两段鼾声');
+      expect(vm.session.stats.snoreEventCount, 2);
+
+      await vm.setSnoreThresholdPercent(80);
+      expect(vm.allSnoreCount, 2, reason: '总数不受筛选影响');
+      expect(vm.session.stats.snoreEventCount, 1);
+      expect(vm.allSnoreCount - vm.session.stats.snoreEventCount, 1,
+          reason: '界面靠这个差值说「还有 1 段没有显示」');
+    });
+
+    test('拨回 0，全部回来', () async {
+      final vm = buildVm(twoSnores());
+      await vm.setSnoreThresholdPercent(80);
+      expect(vm.session.events.length, 4);
+
+      await vm.setSnoreThresholdPercent(0);
+      expect(vm.session.events.length, 5, reason: '数据一直都在，只是刚才没显示');
+      expect(vm.session.stats.snoreEventCount, 2);
+    });
+
+    test('改门槛会停掉正在播的片段', () async {
+      // 过滤一变，列表下标就指到别的事件上了——不停的话面板还在响，
+      // 而它对应的已经不是同一段声音。
+      clipStore.saved['sess/100000.wav'] = Float32List(16000);
+      final vm = buildVm(twoSnores());
+      await vm.openClip(0);
+      expect(vm.playingIndex, 0);
+
+      await vm.setSnoreThresholdPercent(80);
+      expect(vm.playingIndex, -1);
+    });
+
+    test('筛过之后，下标仍然指对事件', () async {
+      // 界面用的下标和 ViewModel 用的必须是同一个空间，
+      // 否则点第 2 条听到的是第 3 条。
+      final vm = buildVm(sessionOf([
+        event(
+            label: SleepCategory.snore,
+            start: 100,
+            duration: 60,
+            confidence: 0.20,
+            clipPath: 'sess/100000.wav'),
+        event(
+            label: SleepCategory.snore,
+            start: 200,
+            duration: 90,
+            confidence: 0.90,
+            clipPath: 'sess/200000.wav'),
+      ]));
+      await vm.setSnoreThresholdPercent(80);
+
+      clipStore.saved['sess/200000.wav'] = Float32List(16000);
+      expect(vm.session.events.length, 1);
+      final opened = await vm.openClip(0);
+      expect(opened, isNotNull);
+      expect(opened!.eventSeconds, 90);
     });
   });
 }

@@ -20,7 +20,6 @@ class FakeRecordingController implements RecordingController {
   bool clipRecording = true;
   bool vad = false;
   int vadDb = 54;
-  bool snoreGate = false;
   int snorePercent = kSnoreThresholdPercentDefault;
 
   /// 让 listSessions 挂起，用来观察"加载中"的界面。
@@ -51,14 +50,6 @@ class FakeRecordingController implements RecordingController {
   @override
   Future<void> setVadEnabled(bool enabled) async {
     vad = enabled;
-  }
-
-  @override
-  bool get snoreThresholdEnabled => snoreGate;
-
-  @override
-  Future<void> setSnoreThresholdEnabled(bool enabled) async {
-    snoreGate = enabled;
   }
 
   @override

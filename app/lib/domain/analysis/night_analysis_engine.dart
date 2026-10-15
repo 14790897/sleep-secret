@@ -116,13 +116,6 @@ class NightAnalysisEngine {
 
   int _inferenceErrors = 0;
   int _inferredCount = 0;
-
-  /// 被鼾声门槛丢掉的窗口数。
-  ///
-  /// **必须有这个计数**：门槛一开，报告会变"干净"，而干净的原因（是这一夜
-  /// 真的安静，还是门槛把低把握的鼾声清掉了）从报告上看不出来。这个数就是
-  /// 用来区分这两者的——「没数据」和「没有」在这套报告里一直是分开表达的。
-  int _snoreWindowsHeldBack = 0;
   double _lastRms = 0;
   double _peakRms = 0;
   int _clipsSaved = 0;
@@ -132,9 +125,6 @@ class NightAnalysisEngine {
   /// 推理失败的窗口数。单个窗口失败不应该中断整夜录音，
   /// 但累计异常需要能被看见。
   int get inferenceErrors => _inferenceErrors;
-
-  /// 本次录音里被鼾声门槛丢掉的窗口数。门槛关着时恒为 0。
-  int get snoreWindowsHeldBack => _snoreWindowsHeldBack;
 
   /// 是否落音频片段。可运行时切换——这是隐私开关，
   /// 用户中途关掉就该立刻停止落盘，而不是等下次启动。
@@ -160,26 +150,6 @@ class NightAnalysisEngine {
       lowerRatio: AnalysisConfig.vadLowerRatio,
       upperRatio: AnalysisConfig.vadUpperRatio,
     );
-  }
-
-  /// 鼾声的置信度门槛。**0 表示不设门槛**，这是默认值。
-  ///
-  /// 大于 0 时：某段音频被模型判成鼾声、但把握低于这个值，就不给它建事件。
-  /// **只作用于鼾声**，其他类别一律不受影响。**可运行时拨动**
-  /// （「关于」页的滑块），和 [vadEnabled] 一个道理。
-  ///
-  /// ⚠️ 这不是 [_processWindow] 里删掉的那道置信度门控的回退，两者的区别是
-  /// **谁在决定**：那道门控是应用自己拍一个固定值、替用户把数据丢掉，
-  /// 而且实测在真实素材上拦截数为 0；这一道默认关着，是用户在自己判断
-  /// 「我这一夜的声音，多像鼾声才算鼾声」。拨开之后丢数据是用户的选择，
-  /// 不是应用替他做的。
-  double _snoreConfidenceThreshold = 0;
-
-  double get snoreConfidenceThreshold => _snoreConfidenceThreshold;
-
-  /// 传 0 关闭。越界会被夹到 0–1。
-  void setSnoreConfidenceThreshold(double value) {
-    _snoreConfidenceThreshold = value.clamp(0.0, 1.0);
   }
 
   /// 最近一个窗口的输入电平（RMS）。
@@ -438,29 +408,13 @@ class NightAnalysisEngine {
       // **背景状态而不是声音事件**（见 SleepCategory.isRecessive），
       // 所以不给它建事件。这不是置信度门槛，是语义规则——
       // 去掉置信度门控这件事不影响它。
-      // 不给事件（label = null）的两种情形，性质完全不同：
-      //   · 静音：它在这套类别里是**背景状态而不是声音事件**
-      //     （SleepCategory.isRecessive），不给它建事件是语义规则，不是门槛。
-      //   · 鼾声且低于用户拨的门槛：这是用户主动选择丢掉，见
-      //     [_snoreConfidenceThreshold]。门槛为 0（默认）时这一条永远不成立，
-      //     行为和不设门槛逐字节相同。
+      // 静音不给事件：它在这套类别里是**背景状态而不是声音事件**
+      // （SleepCategory.isRecessive），这是语义规则，不是置信度门槛——
+      // 那道门槛已经删了，理由见上面那段。
       final dominant = prediction.dominant;
-      // 比的是「鼾声这一维的得分」。dominant 是鼾声时它和 `confidence`
-      // 本来就是同一个数（都是 probabilities[snore]），这里写 snoreProbability
-      // 是为了表达意图：判据只关于鼾声，不是通用的置信度闸门。
-      final belowSnoreThreshold = dominant == SleepCategory.snore &&
-          _snoreConfidenceThreshold > 0 &&
-          prediction.snoreProbability < _snoreConfidenceThreshold;
-      final label = (dominant == SleepCategory.silence || belowSnoreThreshold)
-          ? null
-          : dominant;
-      if (belowSnoreThreshold) _snoreWindowsHeldBack++;
+      final label =
+          dominant == SleepCategory.silence ? null : dominant;
 
-      // 窗口照常进累积器，只是 label 为空。理由：
-      //   · windowsTotal / analyzedSeconds 不变 → 鼾声指数的**分母**不受影响，
-      //     丢掉的只是分子里的鼾声秒数
-      //   · categories / rawLabel 是「模型听见了什么」的统计，藏掉它才是真的藏
-      //   · label 为空正好走累积器里已有的那条分支（不建事件），不需要新逻辑
       _accumulator.add(WindowObservation(
         startSeconds: window.startSeconds,
         durationSeconds: window.durationSeconds,
@@ -523,7 +477,6 @@ class NightAnalysisEngine {
     _pendingClips.clear();
     _inferenceErrors = 0;
     _inferredCount = 0;
-    _snoreWindowsHeldBack = 0;
     _lastRms = 0;
     _peakRms = 0;
     _clipsSaved = 0;

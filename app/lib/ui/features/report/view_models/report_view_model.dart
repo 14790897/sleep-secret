@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import '../../../../data/models/sleep_class_map.dart';
 import '../../../../data/services/event_player.dart';
 import '../../../../domain/models/recording_session.dart';
+import '../../../../domain/models/sound_event.dart';
 import '../../../../domain/models/ui_message.dart';
 import '../../../../domain/repositories/audio_clip_store.dart';
+import '../../../../domain/repositories/recording_controller.dart';
 
 /// 报告详情页的 ViewModel。
 ///
@@ -15,6 +17,7 @@ class ReportViewModel extends ChangeNotifier {
   ReportViewModel({
     required this._session,
     required this._clipStore,
+    required this._settings,
     this._player,
     this.classMap,
   }) {
@@ -29,6 +32,12 @@ class ReportViewModel extends ChangeNotifier {
 
   final RecordingSession _session;
   final AudioClipStore _clipStore;
+
+  /// 鼾声展示门槛的读写口。
+  ///
+  /// 设置本身存在录音仓库那边——它是 settings 表的唯一所有者，
+  /// 再开一个只读一个整数的仓库不值当。这里只转发。
+  final RecordingController _settings;
   final EventPlayer? _player;
 
   /// 映射表，用来在「详细视图」里把原始标签对照到大类。
@@ -42,7 +51,66 @@ class ReportViewModel extends ChangeNotifier {
   int _loadingIndex = -1;
   UiMessage? _error;
 
-  RecordingSession get session => _session;
+  /// 鼾声展示门槛（百分比）。**0 表示不筛**，全部显示——这也是默认值。
+  int get snoreThresholdPercent => _settings.snoreThresholdPercent;
+
+  Future<void> setSnoreThresholdPercent(int percent) async {
+    if (percent == snoreThresholdPercent) return;
+    // ⚠️ 先停掉正在播的片段：过滤一改，列表的下标就指到别的事件上了。
+    // 不停的话面板还在响，而它对应的已经不是同一段声音。
+    await stopPlayback();
+    await _settings.setSnoreThresholdPercent(percent);
+    _visible = null;
+    notifyListeners();
+  }
+
+  /// 这一夜一共有多少段鼾声（**未筛**）。
+  ///
+  /// 界面要拿它和筛后的段数相减，才能说出「还有 N 段没有显示」——
+  /// 少了这个数，用户看到的就是一份「变干净了」的报告，
+  /// 而看不出这份干净是筛出来的。
+  int get allSnoreCount => _session.stats.snoreEventCount;
+
+  /// 筛过之后的会话。**报告页整页都读它**（[ReportView] 里所有 `session.*`
+  /// 都是这一个），所以门槛一改整页跟着变——事件列表、时间线、鼾声时长、
+  /// 鼾声指数、类别分布、每小时分布全都是从 `events` 现算的，不必逐处改。
+  ///
+  /// **只筛鼾声**：别的类别不会因为这个门槛消失。
+  RecordingSession get session => _visible ??= _filtered();
+
+  RecordingSession? _visible;
+
+  RecordingSession _filtered() {
+    final percent = snoreThresholdPercent;
+    if (percent <= 0) return _session;
+    final kept = [
+      for (final e in _session.events)
+        if (!e.isSnore || e.confidence * 100 >= percent) e,
+    ];
+    if (kept.length == _session.events.length) return _session;
+    return _session.copyWith(events: kept, stats: _statsFor(kept));
+  }
+
+  /// 按筛后的事件重算**事件派生**的那几个统计。
+  ///
+  /// 其余字段（窗口数、分析时长、低置信度窗口数、原始标签计数、类别均值）
+  /// 是**录音侧的事实**，不是从事件推出来的，一个都不能动——
+  /// 改了就是在编造"这一夜录到了什么"。
+  SessionStats _statsFor(List<SoundEvent> events) {
+    var snoreSeconds = 0.0;
+    var snoreCount = 0;
+    for (final event in events) {
+      if (event.isSnore) {
+        snoreSeconds += event.durationSeconds;
+        snoreCount++;
+      }
+    }
+    return _session.stats.copyWith(
+      eventCount: events.length,
+      snoreEventCount: snoreCount,
+      snoreSeconds: snoreSeconds,
+    );
+  }
 
   /// 正在播放的事件下标，-1 表示没有。
   int get playingIndex => _playingIndex;
@@ -66,11 +134,13 @@ class ReportViewModel extends ChangeNotifier {
   /// ⚠️ 这里**没有**「再点一次就停」：播放面板是模态的，盖住列表之后
   /// 根本点不到第二下，停由面板自己负责（关面板就停）。
   Future<({String path, double eventSeconds})?> openClip(int index) async {
-    if (index < 0 || index >= _session.events.length) return null;
+    // 用**筛过之后**的列表：界面上的下标就是它的下标。
+    final events = session.events;
+    if (index < 0 || index >= events.length) return null;
     final player = _player;
     if (player == null) return null;
 
-    final event = _session.events[index];
+    final event = events[index];
     final relative = event.clipPath;
     if (relative == null || relative.isEmpty) return null;
 

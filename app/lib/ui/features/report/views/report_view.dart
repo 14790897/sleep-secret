@@ -6,6 +6,8 @@ import '../../../../domain/analysis/decibel.dart';
 import '../../../../domain/analysis/recording_diagnosis.dart';
 import '../../../../domain/analysis/session_insights.dart';
 import '../../../../domain/analysis/sleep_score.dart';
+import '../../../../domain/repositories/recording_controller.dart'
+    show kSnoreThresholdPercentMax;
 import '../../../../domain/models/recording_session.dart';
 import '../../../../domain/models/sleep_category.dart';
 import '../../../../domain/models/sound_event.dart';
@@ -87,6 +89,7 @@ class ReportView extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
               _OverviewCard(session: session),
+              _SnoreFilterCard(viewModel: viewModel),
               // 放在概览之后、图表之前：有问题时用户应当**在按错误的理解
               // 读完一整页图表之前**就看到它。没有问题时整张卡不出现。
               if (diagnoses.isNotEmpty) ...[
@@ -147,6 +150,86 @@ class ReportView extends StatelessWidget {
 
   static String _hhmm(DateTime t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+}
+
+/// 报告页的鼾声展示门槛。
+///
+/// **只影响显示**：录音和分析一个字节都没动，被筛掉的鼾声还在库里、
+/// 片段也还在。所以文案用「没有显示」而不是「已丢弃」——前者随时能撤销。
+class _SnoreFilterCard extends StatefulWidget {
+  const _SnoreFilterCard({required this.viewModel});
+
+  final ReportViewModel viewModel;
+
+  @override
+  State<_SnoreFilterCard> createState() => _SnoreFilterCardState();
+}
+
+class _SnoreFilterCardState extends State<_SnoreFilterCard> {
+  /// 拖动时的临时值。**不能每帧写库**，松手才落定——同设置页那个滑块。
+  int? _drag;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final vm = widget.viewModel;
+    final shown = _drag ?? vm.snoreThresholdPercent;
+    final hidden = vm.allSnoreCount - vm.session.stats.snoreEventCount;
+
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.reportFilterTitle,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                Text(
+                  shown <= 0
+                      ? context.l10n.reportFilterAll
+                      : context.l10n.reportFilterValue(shown),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: shown.toDouble().clamp(0, kSnoreThresholdPercentMax.toDouble()),
+              max: kSnoreThresholdPercentMax.toDouble(),
+              divisions: kSnoreThresholdPercentMax,
+              onChanged: (v) => setState(() => _drag = v.round()),
+              onChangeEnd: (v) {
+                setState(() => _drag = null);
+                vm.setSnoreThresholdPercent(v.round());
+              },
+            ),
+            // 「还有几段没显示」必须说出来。少了它，用户看到的是一份
+            // 「变干净了」的报告，而看不出这份干净是筛出来的——
+            // 这正是这个项目里「没数据」和「没有」必须分开的那条原则。
+            Text(
+              hidden > 0
+                  ? context.l10n.reportFilterHidden(hidden)
+                  : context.l10n.reportFilterNothingHidden,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: hidden > 0 ? AppColors.statusWarning : AppColors.textDim,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// 头部：环形评分 + 两个关键数字。

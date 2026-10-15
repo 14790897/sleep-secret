@@ -243,6 +243,8 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
           session: session,
           clipStore: _clipStore,
           player: _player,
+          // 报告页的鼾声展示门槛存在录音仓库那边（settings 表的唯一所有者）
+          settings: _recordingRepository,
           classMap: _analysisRepository.classMap,
         ),
       ),

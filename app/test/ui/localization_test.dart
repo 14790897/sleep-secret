@@ -73,6 +73,7 @@ void main() {
           reportViewModelFactory: (session) => ReportViewModel(
             session: session,
             clipStore: FakeAudioClipStore(),
+            settings: FakeRecordingController(),
             player: FakeEventPlayer(),
           ),
         );
@@ -205,6 +206,7 @@ void main() {
           viewModel: ReportViewModel(
             session: night(),
             clipStore: clips,
+            settings: FakeRecordingController(),
             player: player,
           ),
         ),
@@ -253,6 +255,7 @@ void main() {
             reportViewModelFactory: (session) => ReportViewModel(
               session: session,
               clipStore: FakeAudioClipStore(),
+              settings: FakeRecordingController(),
               player: FakeEventPlayer(),
             ),
           ),

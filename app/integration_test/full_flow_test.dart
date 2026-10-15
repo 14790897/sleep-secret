@@ -63,7 +63,7 @@ void main() {
     // 屏幕外的部分根本不在 widget 树上。不撑开的话，「数据默认不出手机」
     // 那种断言会报「找不到」——而找不到分不清是文案没了还是它在屏幕外。
     // （加语言选择卡时就是这么红的。）
-    tester.view.physicalSize = const Size(1080, 4400);
+    tester.view.physicalSize = const Size(1080, 3600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -87,20 +87,6 @@ void main() {
     await tester.tap(find.text('关于'));
     await settle(tester);
     expect(find.textContaining('数据默认不出手机'), findsOneWidget);
-
-    // ---- 2b. 鼾声门槛这张卡在，而且拨得动 ----
-    // 这一条跑的是**真实仓库和真实引擎**（集成测试不注入假的），
-    // 所以它验的是「UI → ViewModel → 仓库 → 引擎」整条链真的通了。
-    expect(find.text('每一段都记下来'), findsOneWidget, reason: '默认必须是关着的');
-    final snoreTile = find.ancestor(
-      of: find.text('每一段都记下来'),
-      matching: find.byType(SwitchListTile),
-    );
-    await tester.tap(find.descendant(of: snoreTile, matching: find.byType(Switch)));
-    await settle(tester);
-    expect(find.text('按把握程度筛'), findsOneWidget);
-    expect(find.textContaining('一段都不会丢'), findsOneWidget,
-        reason: '打开态的说明里必须写明关着的时候不丢东西');
 
     await tester.tap(find.text('报告'));
     await settle(tester);
@@ -149,6 +135,32 @@ void main() {
     expect(find.text('睡眠报告'), findsWidgets);
     expect(find.text('评分构成'), findsOneWidget);
     expect(find.textContaining('不反映你的睡眠分期'), findsOneWidget);
+
+    // ---- 鼾声展示门槛：真实 App 里渲染得出来、拖得动 ----
+    // 行为（筛掉谁、统计怎么变）在 report_view_test 里测，那里能控制
+    // 数据的置信度。这里只验它在完整界面里活着。
+    //
+    // ⚠️ 拖完必须拖回来：这个门槛是**全局持久化**的，留在 90% 会让
+    // 后面「鼾声事件有试听按钮」那条断言失败（鼾声都被筛没了），
+    // 也会漏给别的测试。
+    expect(find.text('显示哪些鼾声'), findsOneWidget);
+    expect(find.text('全部显示'), findsOneWidget, reason: '默认 0 = 不筛，全部显示');
+    final filterCard = find.ancestor(
+      of: find.text('显示哪些鼾声'),
+      matching: find.byType(Card),
+    );
+    final filterSlider = find.descendant(
+      of: filterCard,
+      matching: find.byType(Slider),
+    );
+    await tester.drag(filterSlider, const Offset(600, 0));
+    await settle(tester, 800);
+    expect(find.text('全部显示'), findsNothing, reason: '拖到底就不再是「全部显示」了');
+
+    await tester.drag(filterSlider, const Offset(-600, 0));
+    await settle(tester, 800);
+    expect(find.text('全部显示'), findsOneWidget, reason: '拖回来应当恢复不筛');
+
     expect(find.text('整夜声音'), findsOneWidget);
     expect(find.byType(SoundTimeline), findsWidgets);
     expect(find.text('每小时分布'), findsOneWidget);

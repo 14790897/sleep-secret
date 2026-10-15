@@ -399,6 +399,8 @@ void main() {
             session: session,
             clipStore: clipStore,
             player: player,
+            // 和 main.dart 一样：门槛存在录音仓库那边
+            settings: built.repository,
           ),
         ),
       ));

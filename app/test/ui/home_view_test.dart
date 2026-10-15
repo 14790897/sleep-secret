@@ -4,10 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/repositories/recording_controller.dart'
-    show
-        kSnoreThresholdPercentDefault,
-        kSnoreThresholdPercentMax,
-        kVadThresholdDbMax;
+    show kVadThresholdDbMax;
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
 import 'package:sleep_secret/ui/features/recording/view_models/recording_view_model.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
@@ -66,6 +63,7 @@ void main() {
           reportViewModelFactory: (session) => ReportViewModel(
             session: session,
             clipStore: FakeAudioClipStore(),
+            settings: FakeRecordingController(),
             player: FakeEventPlayer(),
           ),
         ),
@@ -266,57 +264,6 @@ void main() {
     await tester.drag(find.byType(Slider), const Offset(600, 0));
     await tester.pumpAndSettle();
     expect(controller.vadDb, kVadThresholdDbMax,
-        reason: '松手才落定，落定的值要真的写下去');
-  });
-
-  testWidgets('鼾声门槛默认关着，文案说的是「每一段都记下来」', (tester) async {
-    tester.view.physicalSize = const Size(900, 4000);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(build());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('关于'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('每一段都记下来'), findsOneWidget);
-    expect(controller.snoreGate, isFalse, reason: '默认必须关着');
-  });
-
-  testWidgets('打开鼾声门槛会出现滑块，默认 50%，松手才落定', (tester) async {
-    tester.view.physicalSize = const Size(900, 4000);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(build());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('关于'));
-    await tester.pumpAndSettle();
-
-    // 关着的时候没有滑块——那时候「门槛」不存在
-    expect(find.byType(Slider), findsNothing);
-
-    final tile = find.ancestor(
-      of: find.text('每一段都记下来'),
-      matching: find.byType(SwitchListTile),
-    );
-    await tester.tap(find.descendant(of: tile, matching: find.byType(Switch)));
-    await tester.pumpAndSettle();
-
-    expect(controller.snoreGate, isTrue);
-    expect(find.byType(Slider), findsOneWidget);
-    expect(find.text('$kSnoreThresholdPercentDefault%'), findsOneWidget);
-    // 打开态的说明里两件事都必须有：
-    //   · 代价——低于门槛的鼾声会消失
-    //   · 「关着不丢东西」——这句同时说明了默认行为没变，
-    //     以及这不是把项目里删掉的那道固定门控加回来
-    expect(find.textContaining('会消失'), findsOneWidget);
-    expect(find.textContaining('一段都不会丢'), findsOneWidget);
-
-    // 拖到最右边 = 门槛调到最大
-    await tester.drag(find.byType(Slider), const Offset(600, 0));
-    await tester.pumpAndSettle();
-    expect(controller.snorePercent, kSnoreThresholdPercentMax,
         reason: '松手才落定，落定的值要真的写下去');
   });
 }
