@@ -7,6 +7,7 @@
 <img src="screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了">
 <img src="screenshots/3-reports.png" width="170" alt="报告列表">
 <img src="screenshots/4-report-detail.png" width="170" alt="单晚报告">
+<img src="screenshots/6-snore-filter.png" width="170" alt="鼾声展示门槛：整份报告跟着变">
 <img src="screenshots/5-detailed-view.png" width="170" alt="详细视图">
 
 <img src="screenshots/player-loop.gif" width="260" alt="点开一条鼾声：波形 + 整段时长">

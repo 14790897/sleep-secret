@@ -12,7 +12,7 @@
 
 **文档站**：<https://mygithub.sixiangjia.de/sleep-secret/>（[使用指南](https://mygithub.sixiangjia.de/sleep-secret/guide/) · [看懂报告](https://mygithub.sixiangjia.de/sleep-secret/report/) · [数据与隐私](https://mygithub.sixiangjia.de/sleep-secret/privacy/)）
 
-<img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分与逐项扣分"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图（单独一页）：模型给出的原始 AudioSet 标签与中文对照">
+<img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分、鼾声指数，以及顶部的鼾声展示门槛"> <img src="docs/screenshots/6-snore-filter.png" width="170" alt="鼾声展示门槛拉到 80%：整份报告跟着变，并写着「还有 19 段更低把握的鼾声没有显示」"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图（单独一页）：模型给出的原始 AudioSet 标签与中文对照">
 
 <br>
 
