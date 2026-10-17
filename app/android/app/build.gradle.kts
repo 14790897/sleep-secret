@@ -51,6 +51,16 @@ android {
         includeInBundle = false
     }
 
+    // 默认（minSdk >= 23）native 库以**不压缩**的方式存进 APK（为了安装时能直接
+    // mmap，不用解压），代价是 APK 里有 38MB 是原样存放的 .so——onnxruntime 一个
+    // 就占 20MB。F-Droid 评审建议改成 legacy 打包：.so 参与 deflate 压缩，
+    // 安装时再解出来。下载体积小约 40%，代价是安装后多占一份解压后的空间。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.sleepsecret.sleep_secret"
