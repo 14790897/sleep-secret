@@ -137,6 +137,74 @@ android.applicationVariants.configureEach {
     }
 }
 
+// ------------------------------------------------------- 抹掉 ELF 的 build ID
+//
+// F-Droid 的可复现构建要求：同一份源码，在任何路径、任何工具链路径下构建，
+// 产物要**逐字节相同**。实测（把 F-Droid 构建的 APK 和本仓库发布的 APK 逐字节比）
+// 我们和他们的 libdartjni.so 大小相同、内容**只有 20 字节不同**——正好是链接器
+// 写进 .note.gnu.build-id 的那个 ID。它是链接输入的哈希，会随构建路径变化；
+// 而 .so 打进 APK 时已经被 strip，所以除了这个 ID 之外看不出任何差异。
+//
+// 试过用 CFLAGS/LDFLAGS 传 `-Wl,--build-id=none`、`-ffile-prefix-map`、
+// `-fdebug-compilation-dir`，都压不过 NDK 驱动自己的默认 `--build-id=sha1`
+// （用户参数在它前面）。所以改成**打包之前把它清零**：两边都是零，结果就一致了。
+//
+// 代价：build ID 不再能用于崩溃符号化。它本来在 F-Droid 和上游之间就对不上，
+// 所以这一点没有变差。
+tasks.matching { it.name.startsWith("package") }
+    .configureEach {
+        doFirst {
+            // ⚠️ 不要猜路径，也不要信 outputs.files：
+            //   · outputs.files 里没有这个目录（取到空集合，task 静默什么都不做）
+            //   · Flutter 的 AGP 构建目录是 <app>/build/app/...，不是 <app>/build/...
+            // 直接在构建目录里按名字找。
+            val buildDir = layout.buildDirectory.get().asFile
+            // 打包读的是 stripped_native_libs，merged 只是它的输入。两个都清一遍，
+            // 免得将来 AGP 换了来源。
+            val dirs = buildDir.walkTopDown()
+                .filter {
+                    it.isDirectory &&
+                        (it.name == "merged_native_libs" || it.name == "stripped_native_libs")
+                }
+                .toList()
+            var patchedFiles = 0
+            dirs.forEach { root ->
+                root.walkTopDown()
+                    .filter { it.isFile && it.name.endsWith(".so") }
+                    .forEach { so ->
+                        val bytes = so.readBytes()
+                        // GNU note 头（按字节序）：namesz=4、descsz=0x14(20)、
+                        // type=3(NT_GNU_BUILD_ID)、名字 "GNU\0"。描述符紧随其后。
+                        val marker = byteArrayOf(
+                            4, 0, 0, 0,
+                            0x14, 0, 0, 0,
+                            3, 0, 0, 0,
+                            'G'.code.toByte(), 'N'.code.toByte(),
+                            'U'.code.toByte(), 0,
+                        )
+                        var patched = false
+                        var i = 0
+                        while (i <= bytes.size - marker.size) {
+                            if (marker.indices.all { bytes[i + it] == marker[it] }) {
+                                // 描述符紧跟在 16 字节的 note 头之后
+                                val p = i + marker.size
+                                if (p + 20 <= bytes.size) {
+                                    for (k in 0 until 20) bytes[p + k] = 0
+                                    patched = true
+                                }
+                            }
+                            i++
+                        }
+                        if (patched) {
+                            so.writeBytes(bytes)
+                            patchedFiles++
+                        }
+                    }
+            }
+            println("build-id: cleared in $patchedFiles .so file(s) before $name")
+        }
+    }
+
 flutter {
     source = "../.."
 }
