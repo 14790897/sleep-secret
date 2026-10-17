@@ -13,7 +13,7 @@ Download the latest APK from
 
 The app is not on any app store, so Android will ask you to allow installing
 from unknown sources. The APKs are split per CPU architecture for size: one
-universal APK would be about 140 MB, each split is about 50 MB.
+universal APK would be about 68 MB, each split is 25–29 MB.
 
 The Windows build is in the same release, but it is **for testing only** —
 desktop has no foreground-service keep-alive, so overnight recording requires

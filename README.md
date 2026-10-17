@@ -183,12 +183,12 @@ diff <(cd docs && find . -name '*.md' -not -path './en/*' | sort) \
 
 | 产物 | 大小 | 说明 |
 |---|---|---|
-| `app-arm64-v8a-release.apk` | ~53MB | **现代手机装这个** |
-| `app-armeabi-v7a-release.apk` | ~43MB | 较老的 32 位设备 |
-| `app-x86_64-release.apk` | ~60MB | 模拟器 |
+| `app-arm64-v8a-release.apk` | ~27MB | **现代手机装这个** |
+| `app-armeabi-v7a-release.apk` | ~25MB | 较老的 32 位设备 |
+| `app-x86_64-release.apk` | ~29MB | 模拟器 |
 | `sleep-secret-windows-<版本>.zip` | ~30MB | **测试用途**，见下 |
 
-APK **按 ABI 分包**而不是打一个通用包：通用包约 140MB，分包后每个约 50MB。
+APK **按 ABI 分包**而不是打一个通用包：通用包约 68MB，分包后每个 25–29MB。
 代价是要选对架构——不确定的话，`arm64-v8a` 覆盖绝大多数现代手机。
 
 ⚠️ **Windows 包是开发/测试用途。** 整夜录音**可以**用，条件只有一个：**插着电**。
