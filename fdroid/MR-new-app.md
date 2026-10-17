@@ -82,23 +82,30 @@ the upstream CI and the release builds. If a submodule is required for acceptanc
 happy to add one — it just seemed backwards to change the upstream repo's structure for
 the packager's convenience.
 
-**Reproducible builds: attempted, not enabled.** I tried this properly rather than
-declaring it impossible, and removed the `binary:` / `AllowedAPKSigningKeys` fields again
-only because a declared-but-failing comparison makes the pipeline red. What was found, in
-case it is useful to someone else:
+**Reproducible builds: attempted, and narrowed to 20 bytes.** I went back to this after the
+first attempt, downloaded the failed build job's artifact (`tmp/..._218021.apk`) and diffed it
+byte-for-byte against the APK published on our release page:
 
-1. The first comparison differed in three files: `NativeAssetsManifest.json`, `libapp.so`
-   and `libdartjni.so`. Reading the actual diff showed the manifest listed
-   `android_arm`/`android_arm64`/`android_x64` upstream but only one ABI in our build —
-   because our recipe passed `--target-platform` per build block while upstream runs a
-   single `--split-per-abi`. Building all three ABIs in each block fixed that one.
-2. `libapp.so` was the Dart AOT snapshot embedding absolute paths. Moving the checkout to
-   the same path upstream builds at (`/home/runner/work/sleep-secret/sleep-secret`, as
-   `app.panoramax` does with its own CI path) fixed that one too.
-3. That left exactly one file, `libdartjni.so` — built from source by the `jni` package's
-   CMake. Pinning the NDK to `r28c` (what `flutter.ndkVersion` resolves to on Flutter
-   3.47.6, and what `app.kryfo`/`app.nightdrop` pin) did not resolve it, and I could not
-   identify the remaining input from outside the build server.
+- the two `libdartjni.so` are **the same size (81444 bytes) and identical everywhere except
+  bytes 508–527**, which is exactly `.note.gnu.build-id` (the GNU build ID is 20 bytes)
+- every other file in the APK already matched once the two upstream mismatches were fixed
+  (the per-ABI `NativeAssetsManifest.json` and the absolute build path in `libapp.so`)
+
+So the remaining gap is the linker's build ID, which is a hash over the link inputs — i.e. it
+reflects the leftover difference in toolchain paths between our CI (`/usr/local/lib/android/sdk`)
+and the build server (`/opt/android-sdk`), not anything in the code.
+
+I could not suppress it from the Flutter **native-assets** CMake build in a way I could verify:
+`LDFLAGS` and `CMAKE_SHARED_LINKER_FLAGS` are both overridden by the NDK driver's default
+`--build-id=sha1` (the user flags come before it on the link line). I have no Linux or container
+environment locally, so every attempt costs a full build-server round, and I did not want to keep
+pushing red pipelines into the review queue for an item the quick-start guide explicitly calls
+optional.
+
+`binary:` / `AllowedAPKSigningKeys` are therefore left out — declaring them with a build that does
+not reproduce is a hard CI failure. If you can point at the right knob for suppressing the NDK's
+default build ID in a native-assets build (or tell me the build ID is the only thing in the way),
+I will implement it and turn the fields back on immediately.
 
 The signing key side of it did check out: F-Droid downloaded our published APK and it
 `Verifies` against `AllowedAPKSigningKeys`, i.e. the fingerprint is correct and the key is
@@ -114,8 +121,8 @@ server has the artifacts), I will pick it straight back up.
 
 **versionCode scheme.** Flutter's `--split-per-abi` offsets each ABI's version code by
 `abiVersionCode * 1000`, with the ABI map `{armeabi-v7a: 1, arm64-v8a: 2, x86_64: 4}` (3 is
-reserved for the removed x86). For `pubspec` version `2.18.0+21800` the APKs really do get
-**22800 / 23800 / 25800**, which is what
+reserved for the removed x86). For `pubspec` version `2.19.0+21900` the APKs really do get
+**219001 / 219002 / 219003**, which is what
 `VercodeOperation: ['%c + 1000', '%c + 2000', '%c + 4000']` produces. This was verified by
 building from a clean checkout of the tagged commit and reading the result with `aapt`,
 rather than inferred from the version string.
@@ -123,9 +130,9 @@ rather than inferred from the version string.
 **No anti-features.** No ads, no tracking, and no network access unless the user configures
 their own WebDAV server for export.
 
-**First version shipped here is 2.18.2.** Everything F-Droid needs from the upstream
+**Metadata currently points at 2.19.0** (the latest release). Everything F-Droid needs from the upstream
 repository — the Fastlane metadata, the packaging fix and the ABI version-code change below —
-first appears in the `v2.18.2` tag, so the metadata points there.
+first appears in the `v2.18.2` tag; the metadata follows the newest release.
 
 **versionCode scheme.** Flutter's `--split-per-abi` defaults to offsetting each ABI's
 version code by `abiVersionCode * 1000` (`{armeabi-v7a: 1, arm64-v8a: 2, x86_64: 4}`), which
@@ -136,10 +143,10 @@ ABI outranks a newer version's low ABI — e.g. `2.18.1 x86_64 = 25801` sits abo
 version code" rule key off that ordering, so this is a real defect rather than a style
 preference (thanks linsui for catching it).
 
-`2.18.2` therefore overrides the version code in the app itself, putting the ABI digit last:
+`2.18.2` (onwards) therefore overrides the version code in the app itself, putting the ABI digit last:
 `versionCode * 10 + abiCode` with `{armeabi-v7a: 1, arm64-v8a: 2, x86_64: 3}`. The metadata
 matches with `VercodeOperation: ['%c * 10 + 1', '%c * 10 + 2', '%c * 10 + 3']`, and
-`fdroid checkupdates` computes `21802 -> 218021/218022/218023` from the real repository.
+`fdroid checkupdates` computes `21900 -> 219001/219002/219003` from the real repository.
 Confirmed against real builds too, not just the formula: with pubspec `2.18.1+21801` the
 arm64 APK comes out as `versionCode=218012`.
 
@@ -152,7 +159,7 @@ attribution, which does not apply here, so `2.18.2` turns it off with
 
 **Local verification.** `fdroid readmeta`, `fdroid lint` (no warnings),
 `fdroid rewritemeta` (byte-identical output), `fdroid checkupdates --auto` (reports
-"up to date" and computes 218021/218022/218023 from the real repository) and the metadata
+"up to date" and computes 219001/219002/219003 from the real repository) and the metadata
 JSON schema check all pass. `fdroid build` needs the build server, so instead the recipe's
 exact commands were run against a clean checkout of the tagged commit, and the resulting
 APK's version code was read with `aapt`.
