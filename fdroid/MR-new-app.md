@@ -57,7 +57,7 @@ path except an optional WebDAV export the user configures themselves.
 * [x] There is an issue tracker and contact info of the author.
 * [x] An `AuthorName` is present.
 * [ ] External repos are added as git submodules instead of srclibs — **using the srclib method; see below.**
-* [ ] Enable Reproducible Builds — **attempted; got to a single differing file, see below.**
+* [x] Enable Reproducible Builds — the build server confirms the output matches our signed APKs byte-for-byte.
 * [x] ABI split is set up (three APKs: `armeabi-v7a`, `arm64-v8a`, `x86_64`).
 * [x] Only the latest version is kept in the metadata.
 * [x] No disabled versions.
@@ -70,7 +70,7 @@ path except an optional WebDAV export the user configures themselves.
 
 ---
 
-## Notes on the two unchecked items
+## Note on the remaining unchecked item
 
 **srclibs instead of a Flutter git submodule.** The official
 `templates/build-flutter.yml` documents both methods. I used the srclib method
@@ -82,80 +82,29 @@ the upstream CI and the release builds. If a submodule is required for acceptanc
 happy to add one — it just seemed backwards to change the upstream repo's structure for
 the packager's convenience.
 
-**Reproducible builds: attempted, and narrowed to 20 bytes.** I went back to this after the
-first attempt, downloaded the failed build job's artifact (`tmp/..._218021.apk`) and diffed it
-byte-for-byte against the APK published on our release page:
+**Reproducible builds: done, and the build server confirms it byte-for-byte.** The pipeline's
+`fdroid build` job now reports `compared built binary to supplied reference binary successfully`
+for all three ABIs, with both the supplied and the signature-copied APKs verifying against
+`AllowedAPKSigningKeys`. So F-Droid will publish our own signed APKs and users can move between
+the GitHub and F-Droid builds without reinstalling.
 
-- the two `libdartjni.so` are **the same size (81444 bytes) and identical everywhere except
-  bytes 508–527**, which is exactly `.note.gnu.build-id` (the GNU build ID is 20 bytes)
-- every other file in the APK already matched once the two upstream mismatches were fixed
-  (the per-ABI `NativeAssetsManifest.json` and the absolute build path in `libapp.so`)
+Getting there took three changes, each fixing one observed difference (they are recorded here
+because the first two are non-obvious for Flutter apps):
 
-So the remaining gap is the linker's build ID, which is a hash over the link inputs — i.e. it
-reflects the leftover difference in toolchain paths between our CI (`/usr/local/lib/android/sdk`)
-and the build server (`/opt/android-sdk`), not anything in the code.
-
-I could not suppress it from the Flutter **native-assets** CMake build in a way I could verify:
-`LDFLAGS` and `CMAKE_SHARED_LINKER_FLAGS` are both overridden by the NDK driver's default
-`--build-id=sha1` (the user flags come before it on the link line). I have no Linux or container
-environment locally, so every attempt costs a full build-server round, and I did not want to keep
-pushing red pipelines into the review queue for an item the quick-start guide explicitly calls
-optional.
-
-`binary:` / `AllowedAPKSigningKeys` are therefore left out — declaring them with a build that does
-not reproduce is a hard CI failure. If you can point at the right knob for suppressing the NDK's
-default build ID in a native-assets build (or tell me the build ID is the only thing in the way),
-I will implement it and turn the fields back on immediately.
-
-The signing key side of it did check out: F-Droid downloaded our published APK and it
-`Verifies` against `AllowedAPKSigningKeys`, i.e. the fingerprint is correct and the key is
-fine. So the blocker is purely byte-level reproducibility of that one native library.
-
-I would like to revisit it — the Quick Start Guide is right that this is the moment, since
-users cannot switch between a developer-signed and a repo-signed build later without
-reinstalling. If a packager can tell me what differs inside `libdartjni.so` (the build
-server has the artifacts), I will pick it straight back up.
-
-
-## Build notes
-
-**versionCode scheme.** Flutter's `--split-per-abi` offsets each ABI's version code by
-`abiVersionCode * 1000`, with the ABI map `{armeabi-v7a: 1, arm64-v8a: 2, x86_64: 4}` (3 is
-reserved for the removed x86). For `pubspec` version `2.19.0+21900` the APKs really do get
-**219001 / 219002 / 219003**, which is what
-`VercodeOperation: ['%c + 1000', '%c + 2000', '%c + 4000']` produces. This was verified by
-building from a clean checkout of the tagged commit and reading the result with `aapt`,
-rather than inferred from the version string.
-
-**No anti-features.** No ads, no tracking, and no network access unless the user configures
-their own WebDAV server for export.
-
-**Metadata currently points at 2.19.0** (the latest release). Everything F-Droid needs from the upstream
-repository — the Fastlane metadata, the packaging fix and the ABI version-code change below —
-first appears in the `v2.18.2` tag; the metadata follows the newest release.
-
-**versionCode scheme.** Flutter's `--split-per-abi` defaults to offsetting each ABI's
-version code by `abiVersionCode * 1000` (`{armeabi-v7a: 1, arm64-v8a: 2, x86_64: 4}`), which
-puts the ABI in the *thousands* digit. That span (3000) is far larger than the version
-increment itself (a minor bump moves the pubspec code by 100), so an older version's high
-ABI outranks a newer version's low ABI — e.g. `2.18.1 x86_64 = 25801` sits above
-`2.19.0 armeabi-v7a = 22900`. Both the archiving rule and the client's "highest installable
-version code" rule key off that ordering, so this is a real defect rather than a style
-preference (thanks linsui for catching it).
-
-`2.18.2` (onwards) therefore overrides the version code in the app itself, putting the ABI digit last:
-`versionCode * 10 + abiCode` with `{armeabi-v7a: 1, arm64-v8a: 2, x86_64: 3}`. The metadata
-matches with `VercodeOperation: ['%c * 10 + 1', '%c * 10 + 2', '%c * 10 + 3']`, and
-`fdroid checkupdates` computes `21900 -> 219001/219002/219003` from the real repository.
-Confirmed against real builds too, not just the formula: with pubspec `2.18.1+21801` the
-arm64 APK comes out as `versionCode=218012`.
-
-**Dependency metadata block removed.** `2.18.0` and `2.18.1` carried an extra APK signing
-block, `Dependency metadata` (id `0x504b4453`), which the `check apk` job rejects —
-correctly, since the block is compressed and encrypted with a Google Play key and cannot be
-inspected. It is added by AGP automatically and is only useful for Play's install-size
-attribution, which does not apply here, so `2.18.2` turns it off with
-`dependenciesInfo { includeInApk = false; includeInBundle = false }`.
+1. **Build all ABIs in one invocation** (no `--target-platform` per build block). Upstream runs a
+   single `--split-per-abi`; building one ABI at a time makes `NativeAssetsManifest.json` list
+   only that ABI, so the file can never match.
+2. **Build from the same absolute path as upstream** (`/home/runner/work/sleep-secret/sleep-secret`).
+   The Dart AOT snapshot (`libapp.so`) embeds the build path. This is the `mv` dance in `prebuild`/
+   `build`.
+3. **Clear the ELF build ID before packaging.** After the first two, the only remaining difference
+   was `libdartjni.so`: same size, and identical everywhere except the 20-byte
+   `.note.gnu.build-id`. That value is a hash over the link inputs, so it moves with the toolchain
+   path. Passing `-Wl,--build-id=none`, `-ffile-prefix-map` or `-fdebug-compilation-dir` did not
+   work — the NDK driver appends its own `--build-id=sha1` after the user flags. The app's Gradle
+   file therefore zeroes the ID in every `.so` right before packaging, so both sides produce the
+   same bytes regardless of where or with which toolchain path they were built. Verified locally
+   first: building the same source in two directories gave byte-identical libraries.
 
 **Local verification.** `fdroid readmeta`, `fdroid lint` (no warnings),
 `fdroid rewritemeta` (byte-identical output), `fdroid checkupdates --auto` (reports
