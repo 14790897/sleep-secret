@@ -12,7 +12,7 @@
 
 **文档站**：<https://mygithub.sixiangjia.de/sleep-secret/>（[使用指南](https://mygithub.sixiangjia.de/sleep-secret/guide/) · [看懂报告](https://mygithub.sixiangjia.de/sleep-secret/report/) · [数据与隐私](https://mygithub.sixiangjia.de/sleep-secret/privacy/)）
 
-<img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分、鼾声指数，以及顶部的鼾声展示门槛"> <img src="docs/screenshots/6-snore-filter.png" width="170" alt="鼾声展示门槛拉到 80%：整份报告跟着变，并写着「还有 19 段更低把握的鼾声没有显示」"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图（单独一页）：模型给出的原始 AudioSet 标签与中文对照">
+<img src="docs/screenshots/1-recording-idle.png" width="170" alt="录音页待机：月亮睁着眼"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="录音中：月亮睡着了，飘着 Z"> <img src="docs/screenshots/3-reports.png" width="170" alt="报告列表与鼾声指数趋势（圆环是评分）"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="单晚报告：评分、鼾声指数，以及顶部的鼾声展示门槛"> <img src="docs/screenshots/6-snore-filter.png" width="170" alt="鼾声展示门槛拉到 80%：整份报告跟着变，并写着「还有 19 段更低把握的鼾声没有显示」"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="详细视图（单独一页）：模型给出的原始 AudioSet 标签与中文对照">
 
 <br>
 
@@ -59,7 +59,7 @@
   0 就是全部显示）。**只影响显示**——录音和分析一个字节都没动，被筛掉的鼾声还在库里、
   片段也还在，拖回 0 就全回来了。
   ⚠️ 筛掉多少会写在滑块下面（「还有 N 段更低把握的鼾声没有显示」）：报告变干净的原因
-  必须看得见，不然分不清「今晚真安静」和「被筛掉了」。**报告列表里的鼾声指数和趋势
+  必须看得见，不然分不清「今晚真安静」和「被筛掉了」。**报告列表里的评分和趋势
   也按同一个门槛算**（列表顶部会注明），否则同一晚在两处显示两个数。
   （这跟早先删掉的那道固定置信度门控不是一回事：那道是**分析时**替所有人丢窗口，
   实测在真实素材上拦截数为 0、依据还是一批合成白噪声；这个在**展示层**、默认不筛、
