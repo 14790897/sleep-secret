@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:sleep_secret/domain/analysis/sleep_score.dart';
 import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/repositories/recording_controller.dart'
@@ -18,6 +19,7 @@ RecordingSession night({
   required DateTime startedAt,
   double snoreSeconds = 240,
   int snoreCount = 3,
+  double analyzedSeconds = 28000,
 }) =>
     RecordingSession(
       id: id,
@@ -25,7 +27,7 @@ RecordingSession night({
       endedAt: startedAt.add(const Duration(hours: 8)),
       events: const [],
       stats: SessionStats(
-        analyzedSeconds: 28000,
+        analyzedSeconds: analyzedSeconds,
         windowsTotal: 9333,
         windowsInferred: 3500,
         windowsVadSkipped: 5833,
@@ -168,6 +170,48 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('鼾声展示门槛'), findsNothing);
+  });
+
+  testWidgets('列表卡片显示评分，和详情页是同一个数', (tester) async {
+    // 这条防的是用户报的「列表和详情页分数不一致」：列表圆环原来显示
+    // 鼾声指数，详情页大环显示评分，两个数根本不是一回事。
+    useTallViewport(tester);
+    final session = night(
+      id: 1,
+      startedAt: DateTime(2026, 10, 6, 23),
+      snoreSeconds: 240,
+    );
+    controller.sessions = [session];
+    final expected = scoreSession(session)!.total;
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    final ring = tester.widget<Text>(find.byKey(HomeKeys.reportCardScore));
+    expect(ring.data, '$expected');
+    expect(find.text('评分'), findsWidgets);
+  });
+
+  testWidgets('不足 90 分钟时列表卡片显示鼾声指数（和详情页同一规则）', (tester) async {
+    useTallViewport(tester);
+    final session = night(
+      id: 1,
+      startedAt: DateTime(2026, 10, 6, 23),
+      snoreSeconds: 240,
+      analyzedSeconds: 3600,
+    );
+    controller.sessions = [session];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    final ring = tester.widget<Text>(find.byKey(HomeKeys.reportCardScore));
+    expect(ring.data, session.stats.snoreIndex.toStringAsFixed(1));
+    expect(find.text('鼾声指数'), findsWidgets);
   });
 
   testWidgets('从报告页返回后会重拉列表（门槛可能改过）', (tester) async {

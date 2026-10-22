@@ -167,10 +167,12 @@ void main() {
       );
     });
 
-    test('列表不加载事件（列表页不需要）', () async {
+    test('列表带上事件（列表卡片的评分要用）', () async {
       await db.insertSession(session(events: [snoreEvent()]));
 
-      expect((await db.listSessions()).single.events, isEmpty);
+      final listed = (await db.listSessions()).single;
+      expect(listed.events, hasLength(1),
+          reason: '评分用到连续时长/干扰次数/环境声，只靠汇总列算不出来');
     });
 
     test('删除会话会级联删掉它的事件', () async {

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 
+import '../../domain/analysis/snore_display_filter.dart';
 import '../../domain/models/recording_session.dart';
 import '../../domain/models/sleep_category.dart';
 import '../../domain/models/sound_event.dart';
@@ -208,58 +209,39 @@ class SessionDatabase {
     });
   }
 
-  /// 按开始时间倒序列出全部会话（不含事件，用于列表页）。
+  /// 按开始时间倒序列出全部会话（含事件）。
   ///
-  /// [snoreThresholdPercent] 就是报告页的「鼾声展示门槛」。列表卡片上的
-  /// 鼾声指数必须和详情页一致，否则同一晚在两处显示两个数。这里不读出事件，
-  /// 只在事件表上做一次聚合，筛选规则和 `ReportViewModel._filtered` 相同：
-  /// 非鼾声全部保留，鼾声要求 `confidence * 100 >= 门槛`。
+  /// [snoreThresholdPercent] 就是报告页的「鼾声展示门槛」：列表和详情页
+  /// 必须显示同一组数，所以这里直接用同一个筛选函数（[applySnoreThreshold]）。
+  ///
+  /// 列表卡片要显示**评分**，而评分用到了事件（连续时长、干扰次数、环境声），
+  /// 只靠 sessions 表的汇总列算不出来——所以事件要一起读。每夜的事件只有
+  /// 几十条，一次查完比按会话逐个 loadSession 省得多。
   Future<List<RecordingSession>> listSessions({
     int snoreThresholdPercent = 0,
   }) async {
     final db = await open();
     final rows = await db.query('sessions', orderBy: 'started_at DESC');
-    if (snoreThresholdPercent <= 0) {
-      return rows.map(_sessionFromRow).toList(growable: false);
+    final eventRows = await db.query(
+      'events',
+      orderBy: 'session_id ASC, start_seconds ASC',
+    );
+    final eventsBySession = <int, List<SoundEvent>>{};
+    for (final row in eventRows) {
+      final id = row['session_id']! as int;
+      (eventsBySession[id] ??= []).add(_eventFromRow(row));
     }
 
-    final snore = SleepCategory.snore.name;
-    final aggregates = await db.rawQuery(
-      '''
-      SELECT session_id,
-             COUNT(*) AS total_events,
-             SUM(CASE WHEN label = ? THEN 1 ELSE 0 END) AS snore_total,
-             SUM(CASE WHEN label = ? AND confidence * 100 >= ? THEN 1 ELSE 0 END)
-               AS snore_kept,
-             SUM(CASE WHEN label = ? AND confidence * 100 >= ?
-                      THEN duration_seconds ELSE 0 END) AS snore_kept_seconds
-      FROM events
-      GROUP BY session_id
-      ''',
-      [snore, snore, snoreThresholdPercent, snore, snoreThresholdPercent],
-    );
-    final bySession = {
-      for (final row in aggregates) row['session_id']! as int: row,
-    };
-
-    return rows.map((row) {
-      final session = _sessionFromRow(row);
-      final aggregate = bySession[session.id];
-      // 没有事件的会话保持存库的统计（本来就是 0），不要造一个空聚合。
-      if (aggregate == null) return session;
-      final totalEvents = (aggregate['total_events'] as num?)?.toInt() ?? 0;
-      final snoreTotal = (aggregate['snore_total'] as num?)?.toInt() ?? 0;
-      final snoreKept = (aggregate['snore_kept'] as num?)?.toInt() ?? 0;
-      final snoreKeptSeconds =
-          (aggregate['snore_kept_seconds'] as num?)?.toDouble() ?? 0;
-      return session.copyWith(
-        stats: session.stats.copyWith(
-          eventCount: totalEvents - (snoreTotal - snoreKept),
-          snoreEventCount: snoreKept,
-          snoreSeconds: snoreKeptSeconds,
+    return [
+      for (final row in rows)
+        applySnoreThreshold(
+          _sessionFromRow(
+            row,
+            events: eventsBySession[row['id'] as int] ?? const [],
+          ),
+          snoreThresholdPercent,
         ),
-      );
-    }).toList(growable: false);
+    ];
   }
 
   /// 读取单个会话，附带全部事件。

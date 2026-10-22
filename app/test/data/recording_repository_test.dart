@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sleep_secret/data/repositories/recording_repository.dart';
 import 'package:sleep_secret/data/services/session_database.dart';
 import 'package:sleep_secret/domain/analysis/analysis_config.dart';
+import 'package:sleep_secret/domain/analysis/sleep_score.dart';
+import 'package:sleep_secret/domain/analysis/snore_display_filter.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/recording_state.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
@@ -518,9 +520,9 @@ void main() {
           startedAt: DateTime(2026, 10, 7, 23),
           endedAt: DateTime(2026, 10, 8, 7),
           stats: const SessionStats(
-            analyzedSeconds: 3600,
-            windowsTotal: 3600,
-            windowsInferred: 3600,
+            analyzedSeconds: 28800,
+            windowsTotal: 28800,
+            windowsInferred: 28800,
             windowsVadSkipped: 0,
             windowsLowConfidence: 0,
             eventCount: 3,
@@ -579,7 +581,7 @@ void main() {
       expect(list.single.stats.snoreEventCount, 1);
       expect(list.single.stats.snoreSeconds, 100);
       expect(list.single.stats.eventCount, 2, reason: '咳嗽事件必须留着');
-      expect(list.single.stats.analyzedSeconds, 3600,
+      expect(list.single.stats.analyzedSeconds, 28800,
           reason: '分析时长是录音侧的事实，不能被展示门槛改');
       await repo.dispose();
     });
@@ -599,6 +601,23 @@ void main() {
       expect(list.single.stats.snoreEventCount, 1);
       expect(list.single.stats.snoreSeconds, 100);
       await second.dispose();
+    });
+
+    test('列表和详情页算出的评分一致（用户看到的「分数不一致」）', () async {
+      await seed();
+      final repo = buildRepo(fileDb);
+      await repo.setSnoreThresholdPercent(80);
+
+      final listed = (await repo.listSessions()).single;
+      final full = (await repo.loadSession(listed.id!))!;
+      // 详情页也是先按门槛筛、再算分（ReportViewModel 走同一个函数）
+      final detail = applySnoreThreshold(full, 80);
+
+      // 列表卡片显示的就是这个评分；它必须和详情页大环里的数一样。
+      expect(scoreSession(listed)?.total, isNotNull);
+      expect(scoreSession(listed)!.total, scoreSession(detail)!.total);
+      expect(listed.events, hasLength(2), reason: '筛选后的事件也要带回来算评分');
+      await repo.dispose();
     });
   });
 }

@@ -10,6 +10,8 @@
   "noReportsBody": "Tap the button on the Sleep tab to start recording.\nYour first report shows up here the next morning.",
   "reportCardTime": "{month}/{day}  {time}",
   "reportCardSummary": "{snoreSegments} snore segments · {snoreSpan} · {eventCount} events",
+  "reportCardScoreShort": "Score",
+  "reportCardSnoreIndexShort": "Snore index",
   "delete": "Delete",
   "cancel": "Cancel",
   "deleteConfirmTitle": "Delete this recording?",

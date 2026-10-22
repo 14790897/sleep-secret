@@ -40,6 +40,8 @@
       }
     }
   },
+  "reportCardScoreShort": "评分",
+  "reportCardSnoreIndexShort": "鼾声指数",
   "delete": "删除",
   "cancel": "取消",
   "deleteConfirmTitle": "删除这条记录？",

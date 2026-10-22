@@ -179,13 +179,7 @@ class ArchiveService {
     );
   }
 
-  /// 读全部会话——`listSessions` 不带事件，导出必须逐个补上。
-  Future<List<RecordingSession>> _loadAll() async {
-    final out = <RecordingSession>[];
-    for (final summary in await _database.listSessions()) {
-      final full = await _database.loadSession(summary.id!);
-      if (full != null) out.add(full);
-    }
-    return out;
-  }
+  /// 读全部会话（`listSessions` 现在带事件了）。
+  Future<List<RecordingSession>> _loadAll() async =>
+      await _database.listSessions();
 }

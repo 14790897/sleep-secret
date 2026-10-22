@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../data/models/sleep_class_map.dart';
 import '../../../../data/services/event_player.dart';
+import '../../../../domain/analysis/snore_display_filter.dart';
 import '../../../../domain/models/recording_session.dart';
-import '../../../../domain/models/sound_event.dart';
 import '../../../../domain/models/ui_message.dart';
 import '../../../../domain/repositories/audio_clip_store.dart';
 import '../../../../domain/repositories/recording_controller.dart';
@@ -80,37 +80,10 @@ class ReportViewModel extends ChangeNotifier {
 
   RecordingSession? _visible;
 
-  RecordingSession _filtered() {
-    final percent = snoreThresholdPercent;
-    if (percent <= 0) return _session;
-    final kept = [
-      for (final e in _session.events)
-        if (!e.isSnore || e.confidence * 100 >= percent) e,
-    ];
-    if (kept.length == _session.events.length) return _session;
-    return _session.copyWith(events: kept, stats: _statsFor(kept));
-  }
-
-  /// 按筛后的事件重算**事件派生**的那几个统计。
-  ///
-  /// 其余字段（窗口数、分析时长、低置信度窗口数、原始标签计数、类别均值）
-  /// 是**录音侧的事实**，不是从事件推出来的，一个都不能动——
-  /// 改了就是在编造"这一夜录到了什么"。
-  SessionStats _statsFor(List<SoundEvent> events) {
-    var snoreSeconds = 0.0;
-    var snoreCount = 0;
-    for (final event in events) {
-      if (event.isSnore) {
-        snoreSeconds += event.durationSeconds;
-        snoreCount++;
-      }
-    }
-    return _session.stats.copyWith(
-      eventCount: events.length,
-      snoreEventCount: snoreCount,
-      snoreSeconds: snoreSeconds,
-    );
-  }
+  RecordingSession _filtered() => applySnoreThreshold(
+        _session,
+        snoreThresholdPercent,
+      );
 
   /// 正在播放的事件下标，-1 表示没有。
   int get playingIndex => _playingIndex;

@@ -141,8 +141,8 @@ void main() {
       final back = (await otherDb.listSessions()).single;
       expect(back.startedAt, night.startedAt);
 
-      // ⚠️ 事件要用 loadSession 拿。listSessions 是给列表页用的，
-      // **不带事件**——在它上面断言事件数会得到 0，而那不是 bug。
+      // 列表现在也带事件（卡片要算评分）；这里仍走 loadSession，
+      // 顺便验证按 id 单读那条路径。
       final loaded = await otherDb.loadSession(back.id!);
       expect(loaded!.events.length, 2);
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../domain/analysis/sleep_score.dart';
 import '../../../../domain/models/recording_session.dart';
 import '../../../../domain/repositories/locale_controller.dart';
 import '../../../../domain/repositories/recording_controller.dart'
@@ -256,6 +257,18 @@ class _ReportCard extends StatelessWidget {
     final s = session.stats;
     final started = session.startedAt;
 
+    // 圆环显示**评分**——和详情页左侧那个大环是同一个数。评分不可用
+    // （分析时长不足 90 分钟）时，详情页改显示鼾声指数，这里也照做。
+    // 两种情况都带一个小标签，免得把两个指标当成同一个数。
+    final score = scoreSession(session);
+    final ringValue =
+        score != null ? score.total.toDouble() : s.snoreIndex.clamp(0.0, 100.0);
+    final ringText =
+        score != null ? '${score.total}' : s.snoreIndex.toStringAsFixed(1);
+    final ringLabel = score != null
+        ? context.l10n.reportCardScoreShort
+        : context.l10n.reportCardSnoreIndexShort;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -264,21 +277,37 @@ class _ReportCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              // 左侧一个小环，扫一眼就能比较各晚的鼾声程度
+              // 左侧一个小环，扫一眼就能比较各晚
               SizedBox(
                 width: 64,
                 height: 64,
                 child: CustomPaint(
                   painter: _MiniRingPainter(
-                    progress: (s.snoreIndex / 100).clamp(0.0, 1.0),
+                    progress: (ringValue / 100).clamp(0.0, 1.0),
                   ),
                   child: Center(
-                    child: Text(
-                      s.snoreIndex.toStringAsFixed(0),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          ringText,
+                          key: HomeKeys.reportCardScore,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures(),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          ringLabel,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.textDim,
+                            fontSize: 8,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -405,6 +434,9 @@ abstract final class HomeKeys {
 
   /// 「关于」页底部那行版本号。
   static const ValueKey<String> version = ValueKey('home-version');
+
+  /// 报告列表卡片圆环里的数字（评分，或不足 90 分钟时的鼾声指数）。
+  static const ValueKey<String> reportCardScore = ValueKey('home-report-score');
 }
 
 /// 关于页：说明 App 做什么、不做什么，以及音频片段的隐私开关。
