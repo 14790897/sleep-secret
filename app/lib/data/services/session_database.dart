@@ -209,10 +209,57 @@ class SessionDatabase {
   }
 
   /// 按开始时间倒序列出全部会话（不含事件，用于列表页）。
-  Future<List<RecordingSession>> listSessions() async {
+  ///
+  /// [snoreThresholdPercent] 就是报告页的「鼾声展示门槛」。列表卡片上的
+  /// 鼾声指数必须和详情页一致，否则同一晚在两处显示两个数。这里不读出事件，
+  /// 只在事件表上做一次聚合，筛选规则和 `ReportViewModel._filtered` 相同：
+  /// 非鼾声全部保留，鼾声要求 `confidence * 100 >= 门槛`。
+  Future<List<RecordingSession>> listSessions({
+    int snoreThresholdPercent = 0,
+  }) async {
     final db = await open();
     final rows = await db.query('sessions', orderBy: 'started_at DESC');
-    return rows.map(_sessionFromRow).toList(growable: false);
+    if (snoreThresholdPercent <= 0) {
+      return rows.map(_sessionFromRow).toList(growable: false);
+    }
+
+    final snore = SleepCategory.snore.name;
+    final aggregates = await db.rawQuery(
+      '''
+      SELECT session_id,
+             COUNT(*) AS total_events,
+             SUM(CASE WHEN label = ? THEN 1 ELSE 0 END) AS snore_total,
+             SUM(CASE WHEN label = ? AND confidence * 100 >= ? THEN 1 ELSE 0 END)
+               AS snore_kept,
+             SUM(CASE WHEN label = ? AND confidence * 100 >= ?
+                      THEN duration_seconds ELSE 0 END) AS snore_kept_seconds
+      FROM events
+      GROUP BY session_id
+      ''',
+      [snore, snore, snoreThresholdPercent, snore, snoreThresholdPercent],
+    );
+    final bySession = {
+      for (final row in aggregates) row['session_id']! as int: row,
+    };
+
+    return rows.map((row) {
+      final session = _sessionFromRow(row);
+      final aggregate = bySession[session.id];
+      // 没有事件的会话保持存库的统计（本来就是 0），不要造一个空聚合。
+      if (aggregate == null) return session;
+      final totalEvents = (aggregate['total_events'] as num?)?.toInt() ?? 0;
+      final snoreTotal = (aggregate['snore_total'] as num?)?.toInt() ?? 0;
+      final snoreKept = (aggregate['snore_kept'] as num?)?.toInt() ?? 0;
+      final snoreKeptSeconds =
+          (aggregate['snore_kept_seconds'] as num?)?.toDouble() ?? 0;
+      return session.copyWith(
+        stats: session.stats.copyWith(
+          eventCount: totalEvents - (snoreTotal - snoreKept),
+          snoreEventCount: snoreKept,
+          snoreSeconds: snoreKeptSeconds,
+        ),
+      );
+    }).toList(growable: false);
   }
 
   /// 读取单个会话，附带全部事件。

@@ -146,6 +146,21 @@ class _ReportListViewState extends State<_ReportListView> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
+                  // 门槛生效时数字是筛过的，这个原因必须在列表这一层就看得见，
+                  // 否则列表和详情页的差异会像是一个 bug。
+                  if (vm.snoreThresholdPercent > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        context.l10n.reportListFilterNote(
+                          vm.snoreThresholdPercent,
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textDim,
+                              height: 1.5,
+                            ),
+                      ),
+                    ),
                   // 趋势放在最上面：只有一晚时它自己会退化成一句提示
                   TrendCard(sessions: vm.sessions),
                   const SizedBox(height: 20),
@@ -182,6 +197,9 @@ class _ReportListViewState extends State<_ReportListView> {
     ).push(MaterialPageRoute(builder: (_) => ReportView(viewModel: reportVm)));
     // 退出报告页要停掉播放并释放资源，否则声音会继续响。
     reportVm.dispose();
+    // 报告页里可能调过鼾声展示门槛；列表的鼾声指数按同一个门槛算，
+    // 回来必须重拉，否则两处又对不上了。
+    if (mounted) await widget.viewModel.loadSessions();
   }
 }
 

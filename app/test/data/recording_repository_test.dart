@@ -9,6 +9,7 @@ import 'package:sleep_secret/domain/analysis/analysis_config.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/recording_state.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
+import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/domain/repositories/recording_controller.dart'
     show
         kSnoreThresholdPercentDefault,
@@ -479,5 +480,125 @@ void main() {
       await repo.dispose();
     });
 
+  });
+
+  group('列表统计跟随鼾声展示门槛', () {
+    // 列表页只读 sessions 表、不读事件，所以过滤要在库层做聚合。
+    // 这一组盯的是：同一晚在列表和详情页不能出现两个鼾声指数。
+    late Directory dir;
+    late SessionDatabase fileDb;
+
+    RecordingRepository buildRepo(SessionDatabase db) => RecordingRepository(
+          capture: FakeAudioCapture(),
+          analyzer: FakeSleepAnalyzer(),
+          database: db,
+          foregroundService: FakeForegroundServiceController(),
+          config: testConfig,
+        );
+
+    setUp(() async {
+      await initAppStringsForTest();
+      dir = await Directory.systemTemp.createTemp('sleep_secret_list_filter');
+      fileDb = SessionDatabase(
+        factory: databaseFactoryFfi,
+        databasePath: '${dir.path}/test.db',
+      );
+    });
+
+    tearDown(() async {
+      await dir.delete(recursive: true);
+    });
+
+    /// 一晚：两段鼾声（0.92 与 0.51）+ 一次咳嗽。存库统计按未筛的算。
+    Future<void> seed() async {
+      await fileDb.open();
+      await fileDb.insertSession(
+        RecordingSession(
+          id: null,
+          startedAt: DateTime(2026, 10, 7, 23),
+          endedAt: DateTime(2026, 10, 8, 7),
+          stats: const SessionStats(
+            analyzedSeconds: 3600,
+            windowsTotal: 3600,
+            windowsInferred: 3600,
+            windowsVadSkipped: 0,
+            windowsLowConfidence: 0,
+            eventCount: 3,
+            snoreEventCount: 2,
+            snoreSeconds: 300,
+            categoryDistribution: {},
+          ),
+          events: const [
+            SoundEvent(
+              label: SleepCategory.snore,
+              startSeconds: 10,
+              durationSeconds: 100,
+              confidence: 0.92,
+              snoreProbability: 0.92,
+              windowCount: 1,
+            ),
+            SoundEvent(
+              label: SleepCategory.snore,
+              startSeconds: 200,
+              durationSeconds: 200,
+              confidence: 0.51,
+              snoreProbability: 0.51,
+              windowCount: 1,
+            ),
+            SoundEvent(
+              label: SleepCategory.cough,
+              startSeconds: 500,
+              durationSeconds: 12,
+              confidence: 0.80,
+              snoreProbability: 0.01,
+              windowCount: 1,
+            ),
+          ],
+        ),
+      );
+    }
+
+    test('默认门槛 0：列表原样读存库统计', () async {
+      await seed();
+      final repo = buildRepo(fileDb);
+      final list = await repo.listSessions();
+
+      expect(list.single.stats.snoreEventCount, 2);
+      expect(list.single.stats.snoreSeconds, 300);
+      expect(list.single.stats.eventCount, 3);
+      await repo.dispose();
+    });
+
+    test('门槛 80：低把握鼾声从列表统计里消失，别的类别不受影响', () async {
+      await seed();
+      final repo = buildRepo(fileDb);
+      await repo.setSnoreThresholdPercent(80);
+
+      final list = await repo.listSessions();
+
+      expect(list.single.stats.snoreEventCount, 1);
+      expect(list.single.stats.snoreSeconds, 100);
+      expect(list.single.stats.eventCount, 2, reason: '咳嗽事件必须留着');
+      expect(list.single.stats.analyzedSeconds, 3600,
+          reason: '分析时长是录音侧的事实，不能被展示门槛改');
+      await repo.dispose();
+    });
+
+    test('冷启动直接看列表也按存下来的门槛算（不必先录一次音）', () async {
+      await seed();
+      final first = buildRepo(fileDb);
+      await first.setSnoreThresholdPercent(80);
+      await first.dispose();
+
+      // 换实例 = 关掉 App 再打开。设置原来只在 start() 里读，
+      // 冷启动直接看报告时会退回默认 0，列表和详情又对不上。
+      final second = buildRepo(fileDb);
+      final list = await second.listSessions();
+
+      expect(second.snoreThresholdPercent, 80);
+      expect(list.single.stats.snoreEventCount, 1);
+      expect(list.single.stats.snoreSeconds, 100);
+      await second.dispose();
+    });
   });
 }

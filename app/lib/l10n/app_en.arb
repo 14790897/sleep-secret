@@ -61,6 +61,7 @@
   "reportFilterValue": "{percent}% and up",
   "reportFilterHidden": "{count} lower-confidence snore stretches are not shown",
   "reportFilterNothingHidden": "Nothing is hidden",
+  "reportListFilterNote": "Snore display threshold ≥{percent}%: the statistics below are filtered by it; adjust it in a report",
   "categorySnore": "Snoring",
   "categoryBreathing": "Breathing",
   "categoryCough": "Coughing",

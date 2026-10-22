@@ -37,6 +37,9 @@ class RecordingViewModel extends ChangeNotifier {
   bool _loadingSessions = false;
   bool get loadingSessions => _loadingSessions;
 
+  /// 全局的鼾声展示门槛（百分比）。列表统计和详情页用的是同一个值。
+  int get snoreThresholdPercent => _controller.snoreThresholdPercent;
+
   /// 开始或停止录音。行为取决于当前是否在录。
   Future<void> toggle() async {
     if (_busy) return;

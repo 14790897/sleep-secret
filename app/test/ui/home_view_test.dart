@@ -140,6 +140,61 @@ void main() {
     expect(find.text('鼾声指数趋势'), findsOneWidget);
   });
 
+  testWidgets('门槛生效时，列表顶部写明统计是按门槛筛的', (tester) async {
+    useTallViewport(tester);
+    controller.snorePercent = 80;
+    controller.sessions = [
+      night(id: 1, startedAt: DateTime(2026, 10, 6, 23), snoreSeconds: 240),
+    ];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    // 列表的鼾声指数和详情页一样按门槛算；筛过的原因必须在数字旁边。
+    expect(find.textContaining('鼾声展示门槛 ≥80%'), findsOneWidget);
+  });
+
+  testWidgets('默认门槛 0 时列表不显示筛选说明', (tester) async {
+    useTallViewport(tester);
+    controller.sessions = [
+      night(id: 1, startedAt: DateTime(2026, 10, 6, 23), snoreSeconds: 240),
+    ];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('鼾声展示门槛'), findsNothing);
+  });
+
+  testWidgets('从报告页返回后会重拉列表（门槛可能改过）', (tester) async {
+    useTallViewport(tester);
+    controller.sessions = [
+      night(id: 1, startedAt: DateTime(2026, 10, 6, 23), snoreSeconds: 240),
+    ];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+    final before = controller.listCount;
+
+    await tester.tap(find.textContaining('10月6日'));
+    await tester.pumpAndSettle();
+    expect(find.text('显示哪些鼾声'), findsOneWidget, reason: '应该进了详情页');
+
+    // pageBack() 找的是 Cupertino 返回键 / 英文 tooltip，本地化之后找不到；
+    // 直接点 Material 的 BackButton。
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    expect(controller.listCount, before + 1,
+        reason: '详情页里调整门槛后，列表的统计要跟着重算');
+  });
+
   /// 打开「关于」页，并把视口调高。
   ///
   /// ⚠️ 视口一定要调：关于页很长，而 `ListView` **只构建可见区域**——

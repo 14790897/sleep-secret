@@ -143,6 +143,15 @@
     }
   },
   "reportFilterNothingHidden": "没有藏起来的鼾声",
+  "reportListFilterNote": "鼾声展示门槛 ≥{percent}%：以下统计已按此筛选，在报告页可调",
+  "@reportListFilterNote": {
+    "description": "列表页顶部。列表的统计和详情页一样按这个门槛筛，原因要写在数字旁边。",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "categorySnore": "鼾声",
   "categoryBreathing": "呼吸声",
   "categoryCough": "咳嗽清嗓",

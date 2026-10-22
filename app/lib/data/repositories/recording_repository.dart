@@ -356,8 +356,13 @@ class RecordingRepository implements RecordingController {
 
   @override
   Future<List<RecordingSession>> listSessions() async {
+    // 冷启动直接打开报告页时 start() 还没跑过，设置得在这里补读——
+    // 否则列表会拿默认门槛 0 算，和详情页（读的是同一个字段）对不上。
+    await _ensureSettingsLoaded();
     await _database.open();
-    return _database.listSessions();
+    return _database.listSessions(
+      snoreThresholdPercent: _snoreThresholdPercent,
+    );
   }
 
   @override
