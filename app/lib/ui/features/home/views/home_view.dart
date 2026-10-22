@@ -284,6 +284,11 @@ class _ReportCard extends StatelessWidget {
                 child: CustomPaint(
                   painter: _MiniRingPainter(
                     progress: (ringValue / 100).clamp(0.0, 1.0),
+                    // 评分的颜色方向和鼾声指数相反：高分是好。
+                    color: gaugeColorFor(
+                      value: ringValue,
+                      higherIsBetter: score != null,
+                    ),
                   ),
                   child: Center(
                     child: Column(
@@ -382,9 +387,10 @@ class _ReportCard extends StatelessWidget {
 
 /// 列表里的小圆环，和详情页的大仪表同一套颜色规则。
 class _MiniRingPainter extends CustomPainter {
-  _MiniRingPainter({required this.progress});
+  _MiniRingPainter({required this.progress, required this.color});
 
   final double progress;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -393,11 +399,6 @@ class _MiniRingPainter extends CustomPainter {
       center: Offset(size.width / 2, size.height / 2),
       radius: (size.shortestSide - stroke) / 2,
     );
-    final color = progress < 0.15
-        ? AppColors.statusGood
-        : progress < 0.35
-        ? AppColors.statusWarning
-        : AppColors.statusCritical;
 
     canvas.drawCircle(
       rect.center,
@@ -421,7 +422,8 @@ class _MiniRingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_MiniRingPainter old) => old.progress != progress;
+  bool shouldRepaint(_MiniRingPainter old) =>
+      old.progress != progress || old.color != color;
 }
 
 /// 测试锚点。和 `ReportKeys` 一个规矩：**定位用 key，文案用 text**。

@@ -45,14 +45,11 @@ class ScoreGauge extends StatelessWidget {
   /// 否则颜色的含义就反了。
   final bool higherIsBetter;
 
-  Color get _ringColor {
-    final ratio = (value / maxValue).clamp(0.0, 1.0);
-    final good = higherIsBetter ? ratio : 1 - ratio;
-    if (good >= 0.85) return AppColors.statusGood;
-    if (good >= 0.70) return const Color(0xFFB8D94A);
-    if (good >= 0.45) return AppColors.statusWarning;
-    return AppColors.statusCritical;
-  }
+  Color get _ringColor => gaugeColorFor(
+        value: value,
+        maxValue: maxValue,
+        higherIsBetter: higherIsBetter,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +153,23 @@ class _GaugePainter extends CustomPainter {
   @override
   bool shouldRepaint(_GaugePainter old) =>
       old.progress != progress || old.color != color;
+}
+
+/// 圆环/仪表盘的统一配色。
+///
+/// [higherIsBetter] 决定方向：鼾声指数越高越糟，睡眠评分越高越好——
+/// 同一个配色规则要能表达两个方向，否则评分 98 会被画成红色。
+Color gaugeColorFor({
+  required double value,
+  double maxValue = 100,
+  bool higherIsBetter = false,
+}) {
+  final ratio = (value / maxValue).clamp(0.0, 1.0);
+  final good = higherIsBetter ? ratio : 1 - ratio;
+  if (good >= 0.85) return AppColors.statusGood;
+  if (good >= 0.70) return const Color(0xFFB8D94A);
+  if (good >= 0.45) return AppColors.statusWarning;
+  return AppColors.statusCritical;
 }
 
 /// 把秒数格式化成 `Xh Ym` 或 `Ym`，用于报告里的时长展示。
