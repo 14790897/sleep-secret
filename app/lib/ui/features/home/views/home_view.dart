@@ -60,19 +60,60 @@ class _HomeViewState extends State<HomeView> {
     super.dispose();
   }
 
+  /// 短于这个秒数（按**实际分析的音频**算，不是按墙钟）就视为可能误触。
+  ///
+  /// 误点开始再结束，分析到的音频只有一两秒；而真录一小段测试麦克风
+  /// 通常有十几秒。取 10 秒：几乎不会打扰正常使用，又能兜住误触。
+  static const double _accidentalRecordingSeconds = 10;
+
   /// 停止录音后自动跳到这一晚的报告。
   ///
   /// 睡醒点「结束」之后，用户要的就是这份报告——还让他自己去报告页翻，
   /// 等于把最重要的一步留给用户找。
-  void _onRecordingChanged() {
+  Future<void> _onRecordingChanged() async {
     final finished = widget.recordingViewModel.justFinished;
     if (finished == null) return;
     // 先消费掉，避免后续任何一次 notify 重复跳转。
     widget.recordingViewModel.clearJustFinished();
     if (!mounted) return;
 
+    final id = finished.id;
+
+    // 几秒内误点开始/结束：先问要不要保留。**不静默删除**——真有人会
+    // 故意录一小段；也不让它悄悄占一条空记录。
+    if (id != null &&
+        finished.stats.analyzedSeconds < _accidentalRecordingSeconds) {
+      final keep = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(dialogContext.l10n.shortSessionTitle),
+          content: Text(
+            dialogContext.l10n.shortSessionBody(
+              finished.stats.analyzedSeconds.round(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(dialogContext.l10n.delete),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(dialogContext.l10n.keep),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (keep != true) {
+        await widget.recordingViewModel.deleteSession(id);
+        return; // 留在录音页，不跳转
+      }
+    }
+
     setState(() => _tab = 1);
-    if (finished.id == null) return;
+    if (id == null) return;
     // 等这一帧把报告 tab 切过去，再推详情页。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

@@ -44,6 +44,17 @@
   "reportCardSnoreIndexShort": "鼾声指数",
   "delete": "删除",
   "cancel": "取消",
+  "keep": "保留",
+  "shortSessionTitle": "这次录音只有几秒",
+  "shortSessionBody": "只分析了 {seconds} 秒的录音。要保留这条记录吗？删除后不会出现在报告列表里。",
+  "@shortSessionBody": {
+    "description": "误点开始/结束时弹出。不要静默删除——真有人会故意录一小段测麦克风。",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "deleteConfirmTitle": "删除这条记录？",
   "deleteConfirmBody": "删除后无法恢复。",
   "aboutWhatTitle": "这个应用做什么",

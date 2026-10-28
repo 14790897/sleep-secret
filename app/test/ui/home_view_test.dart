@@ -21,11 +21,12 @@ RecordingSession night({
   double snoreSeconds = 240,
   int snoreCount = 3,
   double analyzedSeconds = 28000,
+  Duration duration = const Duration(hours: 8),
 }) =>
     RecordingSession(
       id: id,
       startedAt: startedAt,
-      endedAt: startedAt.add(const Duration(hours: 8)),
+      endedAt: startedAt.add(duration),
       events: const [],
       stats: SessionStats(
         analyzedSeconds: analyzedSeconds,
@@ -274,6 +275,61 @@ void main() {
 
     expect(find.text('点一下开始'), findsOneWidget);
     expect(find.text('显示哪些鼾声'), findsNothing);
+  });
+
+  testWidgets('几秒内误触会先问要不要保留，删除后留在录音页', (tester) async {
+    useTallViewport(tester);
+    final short = night(
+      id: 1,
+      startedAt: DateTime(2026, 10, 6, 23),
+      snoreSeconds: 0,
+      snoreCount: 0,
+      analyzedSeconds: 2,
+    );
+    controller.sessions = [short];
+    controller.finishedSession = short;
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('这次录音只有几秒'), findsOneWidget);
+
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    expect(controller.deleteCount, 1);
+    expect(find.text('点一下开始'), findsOneWidget, reason: '删除后留在录音页');
+    expect(find.text('显示哪些鼾声'), findsNothing, reason: '不该跳进空报告');
+  });
+
+  testWidgets('误触录音选择保留后照常打开报告', (tester) async {
+    useTallViewport(tester);
+    final short = night(
+      id: 1,
+      startedAt: DateTime(2026, 10, 6, 23),
+      snoreSeconds: 0,
+      snoreCount: 0,
+      analyzedSeconds: 2,
+    );
+    controller.sessions = [short];
+    controller.finishedSession = short;
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('保留'));
+    await tester.pumpAndSettle();
+
+    expect(controller.deleteCount, 0);
+    expect(find.text('显示哪些鼾声'), findsOneWidget);
   });
 
   /// 打开「关于」页，并把视口调高。
