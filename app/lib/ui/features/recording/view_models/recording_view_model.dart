@@ -40,6 +40,16 @@ class RecordingViewModel extends ChangeNotifier {
   /// 全局的鼾声展示门槛（百分比）。列表统计和详情页用的是同一个值。
   int get snoreThresholdPercent => _controller.snoreThresholdPercent;
 
+  /// 刚刚停止录音产生的那一晚。
+  ///
+  /// 停止后外壳要自动跳到这一晚的报告（睡醒了第一眼就该看到结果），
+  /// 而 [toggle] 原来把 `stop()` 的返回值丢了。界面消费一次后调用
+  /// [clearJustFinished]，避免每次 notify 都重复跳转。
+  RecordingSession? _justFinished;
+  RecordingSession? get justFinished => _justFinished;
+
+  void clearJustFinished() => _justFinished = null;
+
   /// 开始或停止录音。行为取决于当前是否在录。
   Future<void> toggle() async {
     if (_busy) return;
@@ -48,7 +58,7 @@ class RecordingViewModel extends ChangeNotifier {
 
     try {
       if (_state.isRecording) {
-        await _controller.stop();
+        _justFinished = await _controller.stop();
         await loadSessions();
       } else {
         await _controller.start();

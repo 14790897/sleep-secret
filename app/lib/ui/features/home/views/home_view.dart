@@ -49,6 +49,43 @@ class _HomeViewState extends State<HomeView> {
   int _tab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    widget.recordingViewModel.addListener(_onRecordingChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.recordingViewModel.removeListener(_onRecordingChanged);
+    super.dispose();
+  }
+
+  /// 停止录音后自动跳到这一晚的报告。
+  ///
+  /// 睡醒点「结束」之后，用户要的就是这份报告——还让他自己去报告页翻，
+  /// 等于把最重要的一步留给用户找。
+  void _onRecordingChanged() {
+    final finished = widget.recordingViewModel.justFinished;
+    if (finished == null) return;
+    // 先消费掉，避免后续任何一次 notify 重复跳转。
+    widget.recordingViewModel.clearJustFinished();
+    if (!mounted) return;
+
+    setState(() => _tab = 1);
+    if (finished.id == null) return;
+    // 等这一帧把报告 tab 切过去，再推详情页。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      openReportPage(
+        context,
+        widget.recordingViewModel,
+        widget.reportViewModelFactory,
+        finished,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.recordingViewModel,
@@ -187,21 +224,36 @@ class _ReportListViewState extends State<_ReportListView> {
     );
   }
 
-  Future<void> _openReport(RecordingSession summary) async {
-    // 列表里不带事件，进详情前按 id 取完整数据。
-    final full = await widget.viewModel.loadSession(summary.id!);
-    if (!mounted || full == null) return;
+  Future<void> _openReport(RecordingSession summary) => openReportPage(
+        context,
+        widget.viewModel,
+        widget.reportViewModelFactory,
+        summary,
+      );
+}
 
-    final reportVm = widget.reportViewModelFactory(full);
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => ReportView(viewModel: reportVm)));
-    // 退出报告页要停掉播放并释放资源，否则声音会继续响。
-    reportVm.dispose();
-    // 报告页里可能调过鼾声展示门槛；列表的鼾声指数按同一个门槛算，
-    // 回来必须重拉，否则两处又对不上了。
-    if (mounted) await widget.viewModel.loadSessions();
-  }
+/// 打开一晚的报告详情。列表卡片点击和「停止录音后自动跳转」共用。
+Future<void> openReportPage(
+  BuildContext context,
+  RecordingViewModel viewModel,
+  ReportViewModelFactory factory,
+  RecordingSession summary,
+) async {
+  // 列表里不带事件，进详情前按 id 取完整数据。
+  final id = summary.id;
+  if (id == null) return;
+  final full = await viewModel.loadSession(id);
+  if (!context.mounted || full == null) return;
+
+  final reportVm = factory(full);
+  await Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => ReportView(viewModel: reportVm)));
+  // 退出报告页要停掉播放并释放资源，否则声音会继续响。
+  reportVm.dispose();
+  // 报告页里可能调过鼾声展示门槛；列表的评分按同一个门槛算，
+  // 回来必须重拉，否则两处又对不上了。
+  if (context.mounted) await viewModel.loadSessions();
 }
 
 class _EmptyReports extends StatelessWidget {

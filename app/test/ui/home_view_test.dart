@@ -8,6 +8,7 @@ import 'package:sleep_secret/domain/repositories/recording_controller.dart'
     show kVadThresholdDbMax;
 import 'package:sleep_secret/ui/features/home/views/home_view.dart';
 import 'package:sleep_secret/ui/features/recording/view_models/recording_view_model.dart';
+import 'package:sleep_secret/ui/features/recording/views/recording_view.dart';
 import 'package:sleep_secret/ui/features/report/view_models/report_view_model.dart';
 
 import '../helpers/fake_clip_services.dart';
@@ -237,6 +238,42 @@ void main() {
 
     expect(controller.listCount, before + 1,
         reason: '详情页里调整门槛后，列表的统计要跟着重算');
+  });
+
+  testWidgets('停止录音后自动跳到当晚的报告详情', (tester) async {
+    useTallViewport(tester);
+    final session = night(id: 1, startedAt: DateTime(2026, 10, 6, 23));
+    controller.sessions = [session];
+    controller.finishedSession = session;
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+    expect(controller.state.isRecording, isTrue);
+
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+
+    // 睡醒点结束之后，第一眼就该是这一晚的报告，不该让用户自己去找。
+    expect(find.text('显示哪些鼾声'), findsOneWidget);
+  });
+
+  testWidgets('停止后没有存下会话时留在录音页', (tester) async {
+    useTallViewport(tester);
+    controller.sessions = [];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('点一下开始'), findsOneWidget);
+    expect(find.text('显示哪些鼾声'), findsNothing);
   });
 
   /// 打开「关于」页，并把视口调高。

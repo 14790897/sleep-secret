@@ -25,6 +25,10 @@ class FakeRecordingController implements RecordingController {
   /// 让 listSessions 挂起，用来观察"加载中"的界面。
   Completer<void>? blockList;
 
+  /// stop() 的返回值。设为非 null 时模拟「真的存下了一晚」——
+  /// 外壳要据此自动跳到报告页。
+  RecordingSession? finishedSession;
+
   @override
   RecordingState get state => _state;
 
@@ -85,7 +89,7 @@ class FakeRecordingController implements RecordingController {
     stopCount++;
     if (!_state.isRecording) return null;
     push(_state.copyWith(isRecording: false));
-    return null;
+    return finishedSession;
   }
 
   @override

@@ -425,35 +425,21 @@ void main() {
       await built.capture.finished;
       await settle(tester, 600);
 
-      // ---- 停止 ----
+      // ---- 停止：外壳应当**自动**打开当晚的报告 ----
       await tester.tap(stopButton);
-      await settle(tester, 2000);
+      await settle(tester, 2500);
 
-      expect(find.text('点一下开始'), findsOneWidget, reason: '停止后回到待机态');
-
-      // ---- 进报告页 ----
-      await tester.tap(find.text('报告'));
-      await settle(tester, 1500);
-      expect(find.text('历史记录'), findsOneWidget,
-          reason: '刚录完的一晚应当出现在报告列表里');
-
-      // 卡片上直接写着鼾声段数——这行文字就是「分析结果 → 界面」的证据
-      expect(find.textContaining('鼾声'), findsWidgets,
-          reason: '列表卡片应当显示鼾声统计');
-
-      // 点进详情。不能点 Card.last——列表第一个 Card 是顶部趋势卡，
-      // 点它不会跳转。按日期文本精确定位刚录的那一晚。
-      final dateLabel = '${startedAt.month}月${startedAt.day}日';
-      expect(find.textContaining(dateLabel), findsWidgets,
-          reason: '历史列表里应当能看到刚录的这一晚（$dateLabel）');
-      await tester.tap(find.textContaining(dateLabel).first);
-      await settle(tester, 2000);
-
-      // 报告页很长，ListView 只建可视区域。把视口调高让分区都建出来。
+      // 报告页很长，ListView 只建可视区域。先把视口撑高再断言，
+      // 否则「找不到」和「没跳转」分不开。
       tester.view.physicalSize = const Size(1080, 6400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await settle(tester, 1200);
+
+      // 这里没有手动点任何 tab——证明「停止 → 自动跳到当晚报告」真的发生了。
+      // 用靠顶部的筛选卡标题判断，它在首屏就能建出来。
+      expect(find.text('显示哪些鼾声'), findsOneWidget,
+          reason: '停止后应当自动打开当晚报告，而不是停在录音页');
 
       expect(find.text('事件明细'), findsOneWidget, reason: '应当进入报告详情页');
       expect(find.text('整夜声音'), findsOneWidget);
@@ -494,6 +480,15 @@ void main() {
         await settle(tester, 500);
         await binding.takeScreenshot('report-detail');
       }
+
+      // ---- 返回列表：这一晚也应当出现在历史记录里 ----
+      await tester.tap(find.byType(BackButton));
+      await settle(tester, 1500);
+      expect(find.text('历史记录'), findsOneWidget,
+          reason: '刚录完的一晚应当出现在报告列表里');
+      final dateLabel = '${startedAt.month}月${startedAt.day}日';
+      expect(find.textContaining(dateLabel), findsWidgets,
+          reason: '历史列表里应当能看到刚录的这一晚（$dateLabel）');
 
       expect(tester.takeException(), isNull);
     });
