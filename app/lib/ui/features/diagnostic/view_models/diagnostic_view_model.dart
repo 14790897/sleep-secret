@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../../data/services/diagnostic_fixtures.dart';
@@ -48,6 +50,42 @@ class ClipResult {
   }
 }
 
+/// 一次推理基准的结果。
+///
+/// 纯数据 + 纯计算，方便单测——耗时本身在测试里不可控，但「怎么从
+/// 一堆样本得到中位/最快/最慢」是可以单独验的。
+class InferenceBenchmark {
+  const InferenceBenchmark({
+    required this.runs,
+    required this.windowSeconds,
+    required this.medianMs,
+    required this.minMs,
+    required this.maxMs,
+  });
+
+  /// 从每次的毫秒耗时构造；空列表返回 null。
+  static InferenceBenchmark? fromSamples(
+    List<double> samples, {
+    required int windowSeconds,
+  }) {
+    if (samples.isEmpty) return null;
+    final sorted = [...samples]..sort();
+    return InferenceBenchmark(
+      runs: sorted.length,
+      windowSeconds: windowSeconds,
+      medianMs: sorted[sorted.length ~/ 2],
+      minMs: sorted.first,
+      maxMs: sorted.last,
+    );
+  }
+
+  final int runs;
+  final int windowSeconds;
+  final double medianMs;
+  final double minMs;
+  final double maxMs;
+}
+
 /// 诊断页的 ViewModel。
 ///
 /// 职责：加载模型、对夹具音频逐段推理、并与 PC 端期望值比对，
@@ -85,6 +123,69 @@ class DiagnosticViewModel extends ChangeNotifier {
 
   bool get allMatchPc =>
       _results.isNotEmpty && _results.every((r) => r.matchesPC);
+
+  /// 基准用的窗口长度，和 [AnalysisConfig.windowSeconds] 保持一致（3 秒）。
+  static const int benchmarkWindowSeconds = 3;
+
+  /// 预热次数：第一次推理会包含惰性分配和缓存填充，不该算进基准。
+  static const int _benchmarkWarmupRuns = 2;
+
+  /// 正式采样次数。10 次足够看出中位，又不会让用户等太久。
+  static const int _benchmarkRuns = 10;
+
+  bool _benchmarking = false;
+  bool get benchmarking => _benchmarking;
+
+  InferenceBenchmark? _benchmark;
+  InferenceBenchmark? get benchmark => _benchmark;
+
+  String? _benchmarkError;
+  String? get benchmarkError => _benchmarkError;
+
+  /// 在设备 CPU 上测「一段 3 秒窗口要处理多久」。
+  ///
+  /// 走的是和录音时完全相同的 [SleepAnalyzer.classifySamples]——
+  /// 包括预处理、推理和结果组装，所以这个数就是每个窗口的真实成本。
+  Future<void> runBenchmark() async {
+    if (_benchmarking) return;
+    _benchmarking = true;
+    _benchmarkError = null;
+    notifyListeners();
+
+    try {
+      await _analyzer.initialize();
+
+      // 固定种子的低幅噪声：模型耗时不取决于输入内容，固定下来结果才可比。
+      final rng = Random(7);
+      final samples = Float32List(16000 * benchmarkWindowSeconds);
+      for (var i = 0; i < samples.length; i++) {
+        samples[i] = (rng.nextDouble() * 2 - 1) * 0.05;
+      }
+
+      for (var i = 0; i < _benchmarkWarmupRuns; i++) {
+        await _analyzer.classifySamples(samples);
+      }
+
+      final timings = <double>[];
+      for (var i = 0; i < _benchmarkRuns; i++) {
+        final watch = Stopwatch()..start();
+        await _analyzer.classifySamples(samples);
+        watch.stop();
+        timings.add(watch.elapsedMicroseconds / 1000);
+      }
+
+      _benchmark = InferenceBenchmark.fromSamples(
+        timings,
+        windowSeconds: benchmarkWindowSeconds,
+      );
+    } catch (e, st) {
+      _benchmarkError = '$e';
+      debugPrint('推理基准失败: $e\n$st');
+    } finally {
+      _benchmarking = false;
+      notifyListeners();
+    }
+  }
 
   /// 加载模型并对全部夹具音频跑一遍。可重复调用。
   Future<void> run() async {

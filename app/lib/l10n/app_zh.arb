@@ -423,6 +423,30 @@
   "diagLoadAndRun": "加载模型并运行",
   "diagRunning": "推理中…",
   "diagUnknownError": "未知错误",
+  "diagBenchmarkTitle": "推理基准",
+  "diagBenchmarkHint": "在这台设备的 CPU 上对一段 3 秒窗口跑 10 次（另有 2 次预热）。录音时每个窗口的真实成本就是这个数。",
+  "diagBenchmarkRun": "运行基准",
+  "diagBenchmarkRunning": "正在测…",
+  "diagBenchmarkResult": "中位 {median} ms · 最快 {min} ms · 最慢 {max} ms（{runs} 次，{seconds} 秒窗口）",
+  "@diagBenchmarkResult": {
+    "placeholders": {
+      "median": {
+        "type": "String"
+      },
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      },
+      "runs": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "diagModel": "模型：{name}",
   "@diagModel": {
     "placeholders": {

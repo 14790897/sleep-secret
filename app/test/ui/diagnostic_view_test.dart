@@ -27,6 +27,9 @@ class FakeSleepAnalyzer implements SleepAnalyzer {
 
   int initializeCount = 0;
 
+  /// classifySamples 被调用的次数（推理基准要数它：预热 2 + 正式 10）。
+  int sampleCalls = 0;
+
   @override
   SleepClassMap? classMap = _stubMap();
 
@@ -52,8 +55,10 @@ class FakeSleepAnalyzer implements SleepAnalyzer {
       _prediction(logits ?? List<double>.filled(527, 0.0));
 
   @override
-  Future<SleepPrediction> classifySamples(Float32List samples) async =>
-      _prediction(logits ?? List<double>.filled(527, 0.0));
+  Future<SleepPrediction> classifySamples(Float32List samples) async {
+    sampleCalls++;
+    return _prediction(logits ?? List<double>.filled(527, 0.0));
+  }
 
   SleepPrediction _prediction(List<double> raw) {
     final asFloat = Float32List.fromList(raw);
@@ -197,5 +202,46 @@ void main() {
     await tester.tap(find.text('重试'));
     await tester.pumpAndSettle();
     expect(analyzer.initializeCount, 2);
+  });
+
+  group('推理基准', () {
+    test('中位/最快/最慢从样本里算', () {
+      final b = InferenceBenchmark.fromSamples(
+        [5, 1, 3, 2, 4],
+        windowSeconds: 3,
+      )!;
+
+      expect(b.medianMs, 3);
+      expect(b.minMs, 1);
+      expect(b.maxMs, 5);
+      expect(b.runs, 5);
+      expect(b.windowSeconds, 3);
+    });
+
+    test('空样本返回 null，而不是一个 0ms 的结果', () {
+      expect(
+        InferenceBenchmark.fromSamples(const [], windowSeconds: 3),
+        isNull,
+      );
+    });
+
+    testWidgets('点运行基准：2 次预热 + 10 次采样，并显示结果', (tester) async {
+      final analyzer = FakeSleepAnalyzer();
+      final vm = DiagnosticViewModel(
+        analyzer: analyzer,
+        fixtures:
+            FakeDiagnosticFixtures(clips: clipsWith(List<double>.filled(527, 0))),
+      );
+      await tester.pumpWidget(wrap(vm));
+      await tester.pumpAndSettle();
+
+      expect(find.text('运行基准'), findsOneWidget);
+      await tester.tap(find.text('运行基准'));
+      await tester.pumpAndSettle();
+
+      expect(analyzer.sampleCalls, 12, reason: '2 次预热 + 10 次正式');
+      expect(vm.benchmark, isNotNull);
+      expect(find.textContaining('中位'), findsOneWidget);
+    });
   });
 }

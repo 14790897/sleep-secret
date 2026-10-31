@@ -36,13 +36,7 @@ class DiagnosticView extends StatelessWidget {
         listenable: viewModel,
         builder: (context, _) {
           return switch (viewModel.status) {
-            DiagnosticStatus.idle => _Centered(
-                child: FilledButton.icon(
-                  onPressed: viewModel.run,
-                  icon: const Icon(Icons.play_arrow),
-                  label: Text(context.l10n.diagLoadAndRun),
-                ),
-              ),
+            DiagnosticStatus.idle => _IdleView(viewModel: viewModel),
             DiagnosticStatus.loading => _Centered(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -106,7 +100,114 @@ class _ResultView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         for (final result in viewModel.results) _ClipCard(result: result),
+        const SizedBox(height: 8),
+        _BenchmarkCard(viewModel: viewModel),
       ],
+    );
+  }
+}
+
+/// 还没跑诊断时的首屏：加载并运行，外加推理基准。
+class _IdleView extends StatelessWidget {
+  const _IdleView({required this.viewModel});
+
+  final DiagnosticViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Center(
+          child: FilledButton.icon(
+            onPressed: viewModel.run,
+            icon: const Icon(Icons.play_arrow),
+            label: Text(context.l10n.diagLoadAndRun),
+          ),
+        ),
+        const SizedBox(height: 24),
+        _BenchmarkCard(viewModel: viewModel),
+      ],
+    );
+  }
+}
+
+/// 推理基准：每段 3 秒窗口在**这台设备的 CPU** 上要多久。
+class _BenchmarkCard extends StatelessWidget {
+  const _BenchmarkCard({required this.viewModel});
+
+  final DiagnosticViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final result = viewModel.benchmark;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.speed, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  context.l10n.diagBenchmarkTitle,
+                  style: theme.textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.diagBenchmarkHint,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+            if (result != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                context.l10n.diagBenchmarkResult(
+                  result.medianMs.toStringAsFixed(0),
+                  result.minMs.toStringAsFixed(0),
+                  result.maxMs.toStringAsFixed(0),
+                  result.runs,
+                  result.windowSeconds,
+                ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (viewModel.benchmarkError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                viewModel.benchmarkError!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            FilledButton.tonalIcon(
+              onPressed:
+                  viewModel.benchmarking ? null : viewModel.runBenchmark,
+              icon: viewModel.benchmarking
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.timer_outlined),
+              label: Text(viewModel.benchmarking
+                  ? context.l10n.diagBenchmarkRunning
+                  : context.l10n.diagBenchmarkRun),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
