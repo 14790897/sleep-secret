@@ -174,12 +174,11 @@ jobs:
       - name: 构建 release APK
         run: flutter build apk --release
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
-          path: app/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 14
+      # 不在这里 upload-artifact：这个 job 没还原 keystore，产物是 debug 签名的
+      # 通用包，既不能覆盖安装正式版也不该分发；真正的发布产物由 release.yml
+      # 构建（split-per-abi + 正式签名）并挂到 GitHub Release。构建本身
+      # 才是这一步的价值——它验证 R8/ProGuard 规则没把运行时搞坏。
+      # 见 issue #8。
 
 # 需要真实麦克风（以及已授予的录音权限）的三个测试不在上面任何一步里，
 # 在真机/本地手动跑：
