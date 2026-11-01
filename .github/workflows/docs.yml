@@ -29,7 +29,7 @@ jobs:
           # 别把 token 留在 .git/config 里给构建期的第三方代码读
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
