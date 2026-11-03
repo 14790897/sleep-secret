@@ -171,6 +171,8 @@
   "recordingTitle": "Sleep recording",
   "recordingIdle": "Tap to start",
   "recordingActive": "Recording",
+  "recordingPaused": "Capture paused",
+  "recordingPausedHint": "Other apps' audio can interrupt the microphone capture. While paused nothing is heard and the timer keeps running. Play sleep music with earphones so speaker audio doesn't get recorded into the analysis.",
   "recordingSubtitle": "Records all night, analyses on the phone, report in the morning",
   "recordingEventCount": "{count} sound events so far",
   "recordingEventCountWithSnore": "{count} sound events so far, {snore} of them snoring",
