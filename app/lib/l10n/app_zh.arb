@@ -484,6 +484,8 @@
   "recordingTitle": "睡眠录音",
   "recordingIdle": "点一下开始",
   "recordingActive": "录音中",
+  "recordingPaused": "采集已暂停",
+  "recordingPausedHint": "其他应用的声音会中断麦克风采集。期间听不到任何声音，计时仍在走。请用耳机播放助眠音乐，避免扬声器声音被录进分析。",
   "recordingSubtitle": "整夜录音、本地分析，早上给出报告",
   "recordingEventCount": "已检出 {count} 个声音事件",
   "@recordingEventCount": {

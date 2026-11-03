@@ -51,6 +51,10 @@ class RecordingView extends StatelessWidget {
               const SizedBox(height: 16),
               _WarningBanner(message: viewModel.state.warning!.message(context)),
             ],
+            if (viewModel.state.isRecording && viewModel.state.paused) ...[
+              const SizedBox(height: 16),
+              _PausedBanner(message: context.l10n.recordingPausedHint),
+            ],
             if (viewModel.state.isRecording) ...[
               const SizedBox(height: 16),
               _LiveStatsCard(viewModel: viewModel),
@@ -170,7 +174,11 @@ class _HeroButtonState extends State<_HeroButton>
             ),
             const SizedBox(height: 20),
             Text(
-              recording ? context.l10n.recordingActive : context.l10n.recordingIdle,
+              recording
+                  ? state.paused
+                      ? context.l10n.recordingPaused
+                      : context.l10n.recordingActive
+                  : context.l10n.recordingIdle,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
@@ -472,6 +480,41 @@ class _WarningBanner extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(Icons.notifications_off_outlined,
+                color: AppColors.statusWarning),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: theme.textTheme.bodySmall?.copyWith(height: 1.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 「采集被系统暂停」的提醒。
+///
+/// 不是错误（录音会话还在，点了结束仍会保存），也不是普通提醒——它是
+/// **正在丢失数据**的诚实交代：暂停的这几分钟麦克风什么都没采到。
+class _PausedBanner extends StatelessWidget {
+  const _PausedBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      color: AppColors.statusWarning.withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.pause_circle_outline,
                 color: AppColors.statusWarning),
             const SizedBox(width: 12),
             Expanded(
