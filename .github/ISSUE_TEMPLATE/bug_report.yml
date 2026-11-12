@@ -1,0 +1,124 @@
+name: 🐛 Bug 反馈
+description: 报告一个问题或错误
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你花时间填写这个 bug 报告！
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug 描述
+      description: 清晰简洁地描述这个 bug 是什么
+      placeholder: 请详细描述遇到的问题...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 如何复现这个问题？
+      placeholder: |
+        1. 打开 '...'
+        2. 点击 '....'
+        3. 看到 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 清晰简洁地描述你期望发生什么
+      placeholder: 我期望...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 清晰简洁地描述实际发生了什么
+      placeholder: 实际上...
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图或图片
+      description: |
+        如果适用，请添加截图或图片来帮助解释你的问题。
+        你可以直接拖拽图片到这个文本框中，或者粘贴图片。
+        **报告相关的 bug 请尽量附上截图**（例如列表和详情页的数字对不上）。
+      placeholder: |
+        拖拽图片到这里，或点击上传...
+    validations:
+      required: false
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App 版本
+      description: 在「关于」页底部可以看到
+      placeholder: "例如：2.21.0 (221002)"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: 设备型号
+      description: 你使用的是什么手机？
+      placeholder: "例如：Redmi K80 / Pixel 8"
+    validations:
+      required: false
+
+  - type: input
+    id: android-version
+    attributes:
+      label: Android 版本
+      placeholder: "例如：Android 15"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: page
+    attributes:
+      label: 出现问题的页面
+      description: 问题发生在哪里？
+      options:
+        - 录音页
+        - 报告列表
+        - 报告详情
+        - 数据导出
+        - 关于
+        - 启动即崩溃
+        - 其他
+      multiple: true
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 附加信息
+      description: 在这里添加任何其他有关问题的信息（例如日志、录了多久、用的什么手机设置）
+      placeholder: 任何其他相关信息...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 确认
+      description: 在提交之前，请确认以下内容
+      options:
+        - label: 我已经搜索过现有的 issues，确认这不是重复问题
+          required: true
+        - label: 我已经阅读了文档和常见问题
+          required: false
