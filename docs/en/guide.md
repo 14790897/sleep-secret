@@ -94,8 +94,8 @@ has no way to prevent that.
 
 On the *About* tab. On by default: snore events and airway signals (gasps) are kept
 **in full**, one file per event, inside the app's private directory. Coughing is not
-kept, and sleep talking stays off unless you enable it separately on the same tab.
-Those events can be played back from the report.
+kept; sleep talking is kept by default and can be turned off separately on the same
+tab. Those events can be played back from the report.
 
 That is about **1.9 MB per minute** — a night with 20 minutes of snoring is roughly
 38 MB. Turn the switch off here if that is too much; recordings after that write no

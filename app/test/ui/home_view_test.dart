@@ -400,22 +400,22 @@ void main() {
     expect(find.text('不保留任何音频'), findsOneWidget);
   });
 
-  testWidgets('梦话片段是独立开关，默认关闭；主开关关掉后隐藏', (tester) async {
+  testWidgets('梦话片段是独立开关，默认开启；主开关关掉后隐藏', (tester) async {
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
     await tester.tap(find.text('关于'));
     await tester.pumpAndSettle();
 
-    // 梦话是说话内容，不能跟着鼾声默认录
+    // 回放梦话是主要诉求之一，默认保留；但它仍然是独立开关
     expect(find.text('也保留梦话片段'), findsOneWidget);
-    expect(controller.vocalClipRecording, isFalse);
+    expect(controller.vocalClipRecording, isTrue);
 
     final vocalSwitch = find.widgetWithText(SwitchListTile, '也保留梦话片段');
     await tester.ensureVisible(vocalSwitch);
     await tester.pumpAndSettle();
     await tester.tap(vocalSwitch);
     await tester.pumpAndSettle();
-    expect(controller.vocalClipRecording, isTrue);
+    expect(controller.vocalClipRecording, isFalse);
 
     // 主开关一关，什么都不写盘，梦话开关也不该还露在外面
     final mainSwitch =

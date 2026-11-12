@@ -84,8 +84,8 @@ class RecordingRepository implements RecordingController {
   /// 所以这里必须明确纠正，不能装作无事发生。
   bool _recordClips = true;
 
-  /// 梦话片段。默认关闭——梦话是说话内容，必须由用户显式开启。
-  bool _recordVocalClips = false;
+  /// 梦话片段。默认保留；梦话是说话内容，用户可以单独关掉。
+  bool _recordVocalClips = true;
 
   /// 能量门控。没拨过时用 [AnalysisConfig.vadEnabled] 的默认值。
   bool _vadEnabled = false;
@@ -356,7 +356,7 @@ class RecordingRepository implements RecordingController {
         await _database.readBoolSetting(_kRecordClips, fallback: true);
     _engine.recordClips = _recordClips;
     _recordVocalClips =
-        await _database.readBoolSetting(_kRecordVocalClips, fallback: false);
+        await _database.readBoolSetting(_kRecordVocalClips, fallback: true);
     _engine.recordVocalClips = _recordVocalClips;
     _vadEnabled =
         await _database.readBoolSetting(_kVadEnabled, fallback: _vadDefault);

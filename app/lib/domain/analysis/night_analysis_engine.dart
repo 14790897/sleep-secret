@@ -130,12 +130,11 @@ class NightAnalysisEngine {
   /// 用户中途关掉就该立刻停止落盘，而不是等下次启动。
   bool recordClips;
 
-  /// 是否也为**梦话**（vocal）事件保留片段。默认关闭。
+  /// 是否也为**梦话**（vocal）事件保留片段。**默认开启**。
   ///
-  /// 梦话是**说话内容**，隐私含义和鼾声不同：一段鼾声只能说明"你在打鼾"，
-  /// 一段梦话可能包含私密信息。所以它是一个独立的、默认关闭的开关，
-  /// 而不是跟着 [recordClips] 一起打开。
-  bool recordVocalClips = false;
+  /// 梦话是说话内容，隐私含义和鼾声不同——所以它是独立开关，用户可以单独
+  /// 关掉；但默认保留，因为"回放梦话"是这个应用最常见的诉求之一。
+  bool recordVocalClips = true;
 
   /// 能量门控是否启用。**可运行时切换**，和 [recordClips] 一个道理：
   /// 「关于」页上有这个开关，拨了就该立刻生效，而不是等下次录音。
@@ -257,10 +256,7 @@ class NightAnalysisEngine {
     // 连事件都成立不了，更别提片段。
     //
     // 梦话默认不录：它是说话内容，隐私含义和鼾声不同（见 [recordVocalClips]）。
-    final keep = (event.isSnore ||
-            event.isSignal ||
-            (recordVocalClips && event.label == SleepCategory.vocal)) &&
-        config.keepsEvent(event);
+    final keep = _canKeepClip(event) && config.keepsEvent(event);
 
     if (!keep || optedOut) {
       await writer.release();
@@ -276,6 +272,14 @@ class NightAnalysisEngine {
       _clipsSkipped++;
     }
   }
+
+  /// 这个事件有没有可能留下片段（不看时长）。
+  ///
+  /// 开事件时就据此决定要不要写 `.part`：不能留的类别一个字节都不该落盘。
+  bool _canKeepClip(SoundEvent event) =>
+      event.isSnore ||
+      event.isSignal ||
+      (recordVocalClips && event.label == SleepCategory.vocal);
 
   /// 跟着当前事件，把音频写到盘上。
   ///
@@ -302,6 +306,11 @@ class NightAnalysisEngine {
     final open = _accumulator.openEvent;
     // 没有开着的事件，或者这一段已经放弃（见下面的 _audioOptOut）
     if (open == null || _audioOptOut) return;
+
+    // ⚠️ 不可能留下片段的类别（梦话未开启、咳嗽等）**连 .part 都不开**。
+    // 否则事件开着的时候音频已经写到盘上了，进程被杀就永久残留——
+    // 对"梦话默认不录"这个承诺来说，这是漏洞。定案时再删已经来不及。
+    if (!_canKeepClip(open)) return;
 
     final store = _clipStore;
     if (store == null) return;

@@ -455,7 +455,7 @@ void main() {
       ]));
 
       expect(find.byKey(ReportKeys.snoreClips), findsOneWidget);
-      expect(find.text('鼾声录音'), findsOneWidget,
+      expect(find.text('录音片段'), findsOneWidget,
           reason: '标题该是用户看得懂的话，这条是**文案**断言');
       expect(find.textContaining('没有留下录音'), findsOneWidget);
       expect(find.byIcon(Icons.play_circle_outline), findsNothing);

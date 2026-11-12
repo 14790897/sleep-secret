@@ -41,7 +41,7 @@ void main() {
         clipStore: withStore ? store : null,
       );
 
-  group('梦话片段（默认关闭）', () {
+  group('梦话片段', () {
     FakeSleepAnalyzer vocalAnalyzer() => FakeSleepAnalyzer(
           responder: (_) => FakeSleepAnalyzer.prediction(
             categories: {
@@ -51,7 +51,7 @@ void main() {
           ),
         );
 
-    test('默认不保留梦话片段', () async {
+    test('默认保留梦话片段', () async {
       final engine = engineWith(analyzer: vocalAnalyzer());
       engine.start(DateTime(2026, 10, 6, 23));
 
@@ -60,22 +60,25 @@ void main() {
 
       expect(outcome.events, isNotEmpty);
       expect(outcome.events.first.label, SleepCategory.vocal);
-      expect(store.saved, isEmpty, reason: '梦话是说话内容，默认不能落盘');
-      expect(outcome.events.first.clipPath, isNull);
+      expect(store.saved.length, 1);
+      expect(outcome.events.first.clipPath, isNotNull,
+          reason: '没回填路径的话报告里没有播放入口');
     });
 
-    test('开启后梦话片段会写出并回填路径', () async {
+    test('关掉后梦话不落盘，连临时文件都不开', () async {
       final engine = engineWith(analyzer: vocalAnalyzer());
-      engine.recordVocalClips = true;
+      engine.recordVocalClips = false;
       engine.start(DateTime(2026, 10, 6, 23));
 
       await engine.feedSamples(tone(amplitude: loud, length: 16000 * 6));
       final outcome = await engine.finish();
 
       expect(outcome.events, isNotEmpty);
-      expect(store.saved.length, 1);
-      expect(outcome.events.first.clipPath, isNotNull,
-          reason: '没回填路径的话报告里没有播放入口');
+      expect(store.saved, isEmpty);
+      // 连 begin 都没发生：进程被杀时不会残留 .part 里的说话音频
+      expect(store.released, isEmpty,
+          reason: '不该先写临时文件再删——那段时间的音频已经在盘上了');
+      expect(outcome.events.first.clipPath, isNull);
     });
   });
 

@@ -467,7 +467,7 @@ void main() {
       // 电平要**能落盘再读回来**——只有内存里有的话，重启 App 就没了
       expect(full.events.where((e) => e.hasLevel), isNotEmpty,
           reason: '电平没有写进数据库，或者读回来时丢了');
-      expect(find.text('鼾声录音'), findsOneWidget);
+      expect(find.text('录音片段'), findsOneWidget);
       expect(find.textContaining('共 ${withClip.length} 段 ·'), findsOneWidget,
           reason: '鼾声录音卡应当列出全部 ${withClip.length} 段录音');
 

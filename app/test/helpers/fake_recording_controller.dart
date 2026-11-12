@@ -18,7 +18,7 @@ class FakeRecordingController implements RecordingController {
   int deleteCount = 0;
   int listCount = 0;
   bool clipRecording = true;
-  bool vocalClipRecording = false;
+  bool vocalClipRecording = true;
   bool vad = false;
   int vadDb = 54;
   int snorePercent = kSnoreThresholdPercentDefault;
