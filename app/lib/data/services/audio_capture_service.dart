@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 
 /// 麦克风采集的契约。
@@ -36,14 +35,27 @@ class RecordAudioCapture implements AudioCapture {
   ///
   /// 关掉 autoGain 和 noiseSuppress：整夜录音要的是原始声音，
   /// 自动增益会把安静段的底噪也拉上来，破坏能量门控的判据。
-  RecordConfig get _config => RecordConfig(
+  ///
+  /// `audioInterruption: none` 不是随手写的默认值：插件默认是 `pause`，
+  /// 一旦别的应用抢走音频焦点（用户放助眠音乐 / 播客），录音会被**静默
+  /// 暂停且不会自动恢复**，界面计时器却照常走。整夜下来只有放音乐前那
+  /// 十几秒进了库，报告看起来像「一夜没声音」。整夜录音必须优先保证
+  /// 采集不被打断。
+  ///
+  /// 抽成静态方法是为了让测试能在不构造 [AudioRecorder]（会碰平台通道）
+  /// 的情况下核对参数。
+  @visibleForTesting
+  static RecordConfig buildConfig({int sampleRate = 16000}) => RecordConfig(
         encoder: AudioEncoder.pcm16bits,
         sampleRate: sampleRate,
         numChannels: 1,
         autoGain: false,
         echoCancel: false,
         noiseSuppress: false,
+        audioInterruption: AudioInterruptionMode.none,
       );
+
+  RecordConfig get _config => buildConfig(sampleRate: sampleRate);
 
   @override
   Future<bool> hasPermission({bool request = true}) =>

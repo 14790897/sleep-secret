@@ -64,6 +64,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   integration_test:
     sdk: flutter
+  # 只给 integration_test_hardware/audio_focus_test.dart 用：模拟"另一个应用
+  # 播放助眠音乐、抢走音频焦点"。运行时并未把这个包编进正式功能。
+  audio_session: ^0.2.4
 flutter:
 
   # 生成 AppLocalizations（见 l10n.yaml）。生成的代码在
