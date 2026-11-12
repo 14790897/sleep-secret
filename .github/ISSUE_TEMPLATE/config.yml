@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 使用文档
+    url: https://mygithub.sixiangjia.de/sleep-secret/
+    about: 安装、使用、报告数字的含义，以及常见问题
+  - name: 📦 F-Droid
+    url: https://f-droid.org/packages/com.sleepsecret.sleep_secret/
+    about: 在 F-Droid 上查看和安装这个应用
