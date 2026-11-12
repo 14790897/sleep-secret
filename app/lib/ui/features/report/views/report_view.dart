@@ -919,7 +919,7 @@ class _DurationCard extends StatelessWidget {
     final longest = session.snoreEvents.isEmpty
         ? 0.0
         : session.snoreEvents
-              .map((e) => e.durationSeconds)
+              .map((e) => e.activeSeconds)
               .reduce((a, b) => a > b ? a : b);
 
     return SectionCard(
@@ -946,7 +946,7 @@ class _DistributionCard extends StatelessWidget {
     final byCategory = <SleepCategory, double>{};
     for (final e in session.events) {
       if (e.label.isRecessive) continue;
-      byCategory[e.label] = (byCategory[e.label] ?? 0) + e.durationSeconds;
+      byCategory[e.label] = (byCategory[e.label] ?? 0) + e.activeSeconds;
     }
 
     if (byCategory.isEmpty) {
@@ -1362,7 +1362,9 @@ class _EventRow extends StatelessWidget {
             ),
           ),
           Text(
-            '${event.durationSeconds.round()}s',
+            // 实际有声时长，不是含合并间隔的跨度——否则列表里会显示
+            // 一段 948 秒的「鼾声」，其中一大截是安静的。
+            '${event.activeSeconds.round()}s',
             style: theme.textTheme.bodySmall?.copyWith(
               color: AppColors.textDim,
             ),

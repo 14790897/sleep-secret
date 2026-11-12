@@ -124,10 +124,10 @@ SleepScore? scoreSession(RecordingSession session) {
   // ---- 2. 鼾声连续性：长时间连续鼾声比零碎鼾声更值得注意 ----
   final snoreEvents = session.events.where((e) => e.isSnore).toList();
   final totalSnoreSeconds =
-      snoreEvents.fold<double>(0, (sum, e) => sum + e.durationSeconds);
+      snoreEvents.fold<double>(0, (sum, e) => sum + e.activeSeconds);
   final longSnoreSeconds = snoreEvents
-      .where((e) => e.durationSeconds >= 120)
-      .fold<double>(0, (sum, e) => sum + e.durationSeconds);
+      .where((e) => e.activeSeconds >= 120)
+      .fold<double>(0, (sum, e) => sum + e.activeSeconds);
   final longRatio =
       totalSnoreSeconds <= 0 ? 0.0 : longSnoreSeconds / totalSnoreSeconds;
   final continuityDeduction = longRatio * _maxContinuityDeduction;
@@ -159,7 +159,7 @@ SleepScore? scoreSession(RecordingSession session) {
   // ---- 4. 环境噪音占比 ----
   final ambientSeconds = session.events
       .where((e) => e.label == SleepCategory.ambient)
-      .fold<double>(0, (sum, e) => sum + e.durationSeconds);
+      .fold<double>(0, (sum, e) => sum + e.activeSeconds);
   final ambientRatio = ambientSeconds / analyzed;
   final ambientDeduction =
       _ramp(ambientRatio, _ambientRatioAtFullDeduction) * _maxAmbientDeduction;

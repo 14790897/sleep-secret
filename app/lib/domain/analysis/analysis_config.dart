@@ -16,10 +16,17 @@ library;
 
 import '../models/sound_event.dart';
 
+/// 分析窗口的默认长度（秒）。
+///
+/// 独立成一个常量是因为**数据库迁移**也要用它：老记录没有 `active_seconds`
+/// 列，回填时按「窗口数 × 窗口长度」算实际有声时长。生产和历史的窗口一直是
+/// 3 秒；如果将来改窗口长度，回填逻辑要重新评估。
+const double kDefaultWindowSeconds = 3.0;
+
 class AnalysisConfig {
   const AnalysisConfig({
     this.sampleRate = 16000,
-    this.windowSeconds = 3.0,
+    this.windowSeconds = kDefaultWindowSeconds,
     this.hopSeconds = 3.0,
     this.vadEnabled = false,
     this.vadRms = 0.01,

@@ -337,7 +337,7 @@ String _tooltipFor(BuildContext context, SoundEvent event, String clock) {
   final base = context.l10n.timelineTooltip(
     clock,
     event.label.label(context),
-    event.durationSeconds.round(),
+    event.activeSeconds.round(),
   );
   if (!event.isSnore) return base;
   // 分隔符在 ARB 里——`·` 在英文里也该是这个，但空格数不一样

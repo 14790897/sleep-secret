@@ -15,9 +15,11 @@ RecordingSession buildSession() => RecordingSession(
           label: SleepCategory.snore,
           startSeconds: 27300,
           durationSeconds: 12,
+          // 跨度 12 秒，实际有声 6 秒——中间是合并间隔
+          activeSeconds: 6,
           confidence: 0.46,
           snoreProbability: 0.46,
-          windowCount: 4,
+          windowCount: 2,
           clipPath: '1791278973396/27300000.wav',
         ),
         const SoundEvent(
@@ -59,6 +61,7 @@ void main() {
         expect(b.label, a.label);
         expect(b.startSeconds, a.startSeconds);
         expect(b.durationSeconds, a.durationSeconds);
+        expect(b.activeSeconds, a.activeSeconds);
         expect(b.confidence, a.confidence);
         expect(b.snoreProbability, a.snoreProbability);
         expect(b.windowCount, a.windowCount);
@@ -177,6 +180,20 @@ void main() {
       expect(round.events.every((e) => e.signal == null), isTrue);
       expect(round.stats.signalsCollected, isFalse);
       expect(round.stats.rawLabelCounts, isEmpty);
+    });
+
+    test('老文件没有 activeSeconds：回退到跨度，而不是 0', () {
+      final old = jsonDecode(encodeSession(buildSession())) as Map<String, dynamic>;
+      final session = old['session'] as Map<String, dynamic>;
+      for (final e in session['events'] as List) {
+        (e as Map<String, dynamic>).remove('activeSeconds');
+      }
+
+      final round = decodeSession(jsonEncode(old));
+
+      expect(round.events.first.activeSeconds,
+          round.events.first.durationSeconds,
+          reason: '老文件只有跨度，用它当实际时长是当时唯一能做的');
     });
 
     test('计数值是坏数据时当空表，不让整份文件读不出来', () {

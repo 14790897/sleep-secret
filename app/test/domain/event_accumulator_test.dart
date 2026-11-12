@@ -284,7 +284,30 @@ void main() {
 
       expect(outcome.events.length, 1);
       expect(outcome.events.single.startSeconds, 0);
-      expect(outcome.events.single.durationSeconds, 9);
+      expect(outcome.events.single.durationSeconds, 9,
+          reason: '跨度是首尾，9 秒——时间线上画块用它');
+      expect(outcome.events.single.activeSeconds, 6,
+          reason: '实际有声只有两段各 3 秒，中间 3 秒是安静');
+      expect(outcome.stats.snoreSeconds, 6,
+          reason: '统计必须用实际有声时长，不能把合并间隔算成鼾声');
+    });
+
+    test('合并间隔不应计入鼾声总时长（真实数据上曾高估约四分之一）', () {
+      // 0-3 鼾声、3-9 安静、9-12 鼾声：跨度 12s，实际有声 6s。
+      final acc = EventAccumulator(
+        config: const AnalysisConfig(minEventSeconds: 3),
+      );
+      acc.add(obs(start: 0, label: SleepCategory.snore));
+      acc.add(obs(start: 3, label: null, inferred: false));
+      acc.add(obs(start: 6, label: null, inferred: false));
+      acc.add(obs(start: 9, label: SleepCategory.snore));
+
+      final outcome = acc.build();
+
+      expect(outcome.events.single.durationSeconds, 12);
+      expect(outcome.events.single.activeSeconds, 6);
+      expect(outcome.stats.snoreSeconds, 6,
+          reason: '鼾声指数 = snoreSeconds / analyzedSeconds，口径要一致');
     });
 
     test('静音间隔超过 mergeGap 时鼾声段不再合并', () {

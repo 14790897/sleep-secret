@@ -106,6 +106,24 @@ CREATE TABLE events (
   FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
 )''';
 
+/// v5 的建表语句：v4 的会话表加上原始标签计数列；事件表同 v4。
+const String _v5Sessions = '''
+CREATE TABLE sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at INTEGER NOT NULL,
+  ended_at INTEGER,
+  analyzed_seconds REAL NOT NULL DEFAULT 0,
+  windows_total INTEGER NOT NULL DEFAULT 0,
+  windows_inferred INTEGER NOT NULL DEFAULT 0,
+  windows_vad_skipped INTEGER NOT NULL DEFAULT 0,
+  windows_low_confidence INTEGER NOT NULL DEFAULT 0,
+  event_count INTEGER NOT NULL DEFAULT 0,
+  snore_event_count INTEGER NOT NULL DEFAULT 0,
+  snore_seconds REAL NOT NULL DEFAULT 0,
+  signals_collected INTEGER,
+  raw_label_counts TEXT
+)''';
+
 void main() {
   setUpAll(sqfliteFfiInit);
 
@@ -289,6 +307,98 @@ void main() {
     await db.close();
   }
 
+  /// 造一个 v5 的库：有原始标签计数，但**还没有实际有声时长**。
+  ///
+  /// 事件故意做成「跨度 240 秒、窗口 60 个」——也就是 180 秒 actual，
+  /// 迁移后应该按窗口数回填 180，而不是照抄跨度。
+  Future<void> createV5Database() async {
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: 5,
+        onCreate: (db, _) async {
+          await db.execute(_v5Sessions);
+          await db.execute(_v4Events);
+          await db.execute(
+            'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+          );
+        },
+      ),
+    );
+    await db.insert('sessions', {
+      'started_at': DateTime(2026, 10, 9, 23).millisecondsSinceEpoch,
+      'ended_at': DateTime(2026, 10, 10, 7).millisecondsSinceEpoch,
+      'analyzed_seconds': 28800.0,
+      'windows_total': 9600,
+      'windows_inferred': 9600,
+      'windows_vad_skipped': 0,
+      'windows_low_confidence': 0,
+      'event_count': 1,
+      'snore_event_count': 1,
+      'snore_seconds': 240.0,
+      'signals_collected': 1,
+      'raw_label_counts': '{"Snoring": 60}',
+    });
+    await db.insert('events', {
+      'session_id': 1,
+      'label': 'snore',
+      'start_seconds': 3600.0,
+      'duration_seconds': 240.0,
+      'confidence': 0.9,
+      'snore_probability': 0.9,
+      'window_count': 60,
+    });
+    await db.close();
+  }
+
+  group('v5 -> v6 迁移（加实际有声时长）', () {
+    test('老记录按窗口数回填，跨度和事件都还在', () async {
+      await createV5Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final full = await db.loadSession((await db.listSessions()).single.id!);
+      final event = full!.events.single;
+
+      expect(event.durationSeconds, 240,
+          reason: '跨度是历史数据里本来就有的，原样保留');
+      expect(event.activeSeconds, 180,
+          reason: '60 个 3 秒窗口 = 实际有声 180 秒，不能照抄含空白的跨度');
+      expect(full.stats.rawLabelCounts, {'Snoring': 60},
+          reason: '别的列不能因为加列迁移丢了');
+    });
+
+    test('新写入事件的 activeSeconds 真的落盘', () async {
+      await createV5Database();
+
+      final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      await db.insertSession(RecordingSession(
+        id: null,
+        startedAt: DateTime(2026, 10, 10, 23),
+        endedAt: DateTime(2026, 10, 11, 7),
+        events: const [
+          SoundEvent(
+            label: SleepCategory.snore,
+            startSeconds: 0,
+            durationSeconds: 9,
+            activeSeconds: 6,
+            confidence: 0.9,
+            snoreProbability: 0.9,
+            windowCount: 2,
+          ),
+        ],
+        stats: const SessionStats.empty(),
+      ));
+
+      final full = await db.loadSession((await db.listSessions()).first.id!);
+      expect(full!.events.single.durationSeconds, 9);
+      expect(full.events.single.activeSeconds, 6);
+    });
+  });
+
   group('v4 -> v5 迁移（加原始标签计数）', () {
     test('老库能打开，事件、片段、电平、信号都还在', () async {
       await createV4Database();
@@ -373,7 +483,7 @@ void main() {
       expect(full!.stats.rawLabelCounts, isEmpty);
     });
 
-    test('v1 的老库能一路升到 v5（四步迁移连着跑）', () async {
+    test('v1 的老库能一路升到 v6（五步迁移连着跑）', () async {
       await createV1Database();
 
       final db = SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);

@@ -96,6 +96,8 @@ Map<String, Object?> _encodeEvent(SoundEvent e) => {
       'label': e.label.name,
       'startSeconds': e.startSeconds,
       'durationSeconds': e.durationSeconds,
+      // 实际有声时长；老文件没有这一项，读回来会回退到跨度
+      'activeSeconds': e.activeSeconds,
       'confidence': e.confidence,
       'snoreProbability': e.snoreProbability,
       'windowCount': e.windowCount,
@@ -121,6 +123,11 @@ List<SoundEvent> _decodeEvents(Object? raw) {
           label: _category(item['label']),
           startSeconds: _double(item['startSeconds'], 'startSeconds'),
           durationSeconds: _double(item['durationSeconds'], 'durationSeconds'),
+          // 老文件没有 activeSeconds：回退到跨度（旧口径），
+          // 而不是假装它是 0 或等于窗口数推算值。
+          activeSeconds:
+              (item['activeSeconds'] as num?)?.toDouble() ??
+                  _double(item['durationSeconds'], 'durationSeconds'),
           confidence: _double(item['confidence'], 'confidence'),
           snoreProbability: _double(item['snoreProbability'], 'snoreProbability'),
           windowCount: _int(item['windowCount'], 'windowCount'),
