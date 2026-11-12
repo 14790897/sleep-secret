@@ -60,6 +60,7 @@ class RecordingRepository implements RecordingController {
   RecordingState _state = const RecordingState();
 
   StreamSubscription<Uint8List>? _pcmSubscription;
+  StreamSubscription<AudioCaptureState>? _captureStateSubscription;
   Timer? _ticker;
   DateTime? _startedAt;
 
@@ -124,6 +125,7 @@ class RecordingRepository implements RecordingController {
     if (!granted) {
       _emit(_state.copyWith(
         isRecording: false,
+        paused: false,
         error: const RecordingError(RecordingErrorKind.micDenied),
       ));
       return;
@@ -163,6 +165,18 @@ class RecordingRepository implements RecordingController {
         cancelOnError: false,
       );
 
+      // 采集器的状态流要在 start() 之前就要订阅，以免错过首个事件；
+      // 这里在 start() 之后才开始，因为状态流是懒生成的广播流，
+      // 丢失的只是"刚开始录制"的那一下——而那一瞬间我们马上会 emit
+      // 一次 isRecording，让 UI 进入录音态，所以这里只关心之后的通知。
+      //
+      // 关键的是被暂停的通知：暂停意味着**当前这几分钟什么都没录到**，
+      // 界面必须如实显示，否则用户会以为"录音还在正常跑"。
+      _captureStateSubscription?.cancel();
+      _captureStateSubscription = _capture
+          .onStateChanged()
+          .listen((s) => _onCaptureState(s));
+
       // 每秒推一次状态即可。按 PCM 块推会把界面刷爆。
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _publish());
 
@@ -177,6 +191,7 @@ class RecordingRepository implements RecordingController {
       await _teardown();
       _emit(_state.copyWith(
           isRecording: false,
+          paused: false,
           error: RecordingError(RecordingErrorKind.startFailed, detail: '$e')));
     }
   }
@@ -196,6 +211,15 @@ class RecordingRepository implements RecordingController {
         _backlog--;
       }
     });
+  }
+
+  /// 采集器状态变化。目前只关心暂停——暂停期间没有 PCM 进来，
+  /// 界面必须如实显示，不能装作一切正常。
+  void _onCaptureState(AudioCaptureState state) {
+    if (!_state.isRecording) return;
+    final paused = state == AudioCaptureState.paused;
+    if (paused == _state.paused) return;
+    _emit(_state.copyWith(paused: paused));
   }
 
   void _publish() {
@@ -238,6 +262,7 @@ class RecordingRepository implements RecordingController {
 
     _emit(_state.copyWith(
       isRecording: false,
+      paused: false,
       elapsed: endedAt.difference(startedAt),
       windowsProcessed: outcome.stats.windowsTotal,
       windowsInferred: outcome.stats.windowsInferred,
@@ -258,6 +283,9 @@ class RecordingRepository implements RecordingController {
 
     await _pcmSubscription?.cancel();
     _pcmSubscription = null;
+
+    await _captureStateSubscription?.cancel();
+    _captureStateSubscription = null;
 
     // 等队列里排着的块处理完再收尾，否则会丢掉最后几秒。
     await _queue;

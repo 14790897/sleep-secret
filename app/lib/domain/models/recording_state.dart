@@ -41,6 +41,7 @@ enum RecordingWarningKind {
 class RecordingState {
   const RecordingState({
     this.isRecording = false,
+    this.paused = false,
     this.startedAt,
     this.elapsed = Duration.zero,
     this.windowsProcessed = 0,
@@ -56,6 +57,16 @@ class RecordingState {
   });
 
   final bool isRecording;
+
+  /// 采集是否被系统临时暂停（比如 `record` 在音频焦点被抢走时）。
+  ///
+  /// **暂停期间没有 PCM 数据进来，界面绝不能装作正常**——把「暂停中」
+  /// 和「收音正常但很安静」分开是整夜录音诚实性的底线：
+  /// 用户播放助眠音乐导致焦点被抢时，电平会掉到 0，如果 UI 还显示
+  /// 「录音中」，用户会以为一切正常。加上这一位，UI 至少能如实说
+  /// 「采集暂停」。
+  final bool paused;
+
   final DateTime? startedAt;
   final Duration elapsed;
 
@@ -101,6 +112,7 @@ class RecordingState {
 
   RecordingState copyWith({
     bool? isRecording,
+    bool? paused,
     DateTime? startedAt,
     Duration? elapsed,
     int? windowsProcessed,
@@ -118,6 +130,7 @@ class RecordingState {
   }) =>
       RecordingState(
         isRecording: isRecording ?? this.isRecording,
+        paused: paused ?? this.paused,
         startedAt: startedAt ?? this.startedAt,
         elapsed: elapsed ?? this.elapsed,
         windowsProcessed: windowsProcessed ?? this.windowsProcessed,
