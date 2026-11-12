@@ -624,10 +624,10 @@ packages:
     dependency: "direct main"
     description:
       name: saf_stream
-      sha256: "3c98c0875e8946f6fd5901050f0e5e4b3f5b3162622ee99c5730cf015a9ec669"
+      sha256: "9a1b6f70527a52f7464c161f9cb05e8d471e71d460b987adbb94b15ed2b0e8cf"
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.2"
+    version: "4.0.3"
   saf_util:
     dependency: "direct main"
     description:
