@@ -199,6 +199,12 @@ void main() {
       expect(session.stats.snoreEventCount, snoreEvents.length,
           reason: '会话统计里的鼾声段数和实际事件对不上');
       expect(session.stats.eventCount, session.events.length);
+
+      // 统计必须按「实际有声时长」算；片段回填（withClip）之后也不能变回跨度。
+      final activeSnoreSeconds = snoreEvents
+          .fold<double>(0, (sum, e) => sum + e.activeSeconds);
+      expect(session.stats.snoreSeconds, closeTo(activeSnoreSeconds, 1e-9),
+          reason: 'snoreSeconds 和事件的 activeSeconds 必须是同一个口径');
       expect(session.stats.analyzedSeconds, greaterThan(0));
 
       // 鼾声事件应当带电平——不然报告里那句「约 XX 分贝」永远不出现。

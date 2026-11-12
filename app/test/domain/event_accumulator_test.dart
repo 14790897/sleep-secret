@@ -292,6 +292,23 @@ void main() {
           reason: '统计必须用实际有声时长，不能把合并间隔算成鼾声');
     });
 
+    test('回填片段不会把实际有声时长换成跨度', () {
+      // 引擎在片段落盘后用 withClip 替换事件——鼾声/信号事件默认都走这条路。
+      // withClip 漏传 activeSeconds 的话，修复会在最常看的那批事件上失效。
+      final acc = EventAccumulator(
+        config: const AnalysisConfig(minEventSeconds: 3),
+      );
+      acc.add(obs(start: 0, label: SleepCategory.snore));
+      acc.add(obs(start: 3, label: null, inferred: false));
+      acc.add(obs(start: 6, label: SleepCategory.snore));
+
+      final event = acc.build().events.single.withClip('clips/x.wav');
+
+      expect(event.durationSeconds, 9);
+      expect(event.activeSeconds, 6, reason: '回填片段只该改 clipPath');
+      expect(event.clipPath, 'clips/x.wav');
+    });
+
     test('合并间隔不应计入鼾声总时长（真实数据上曾高估约四分之一）', () {
       // 0-3 鼾声、3-9 安静、9-12 鼾声：跨度 12s，实际有声 6s。
       final acc = EventAccumulator(

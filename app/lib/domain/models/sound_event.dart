@@ -98,6 +98,10 @@ class SoundEvent {
         label: label,
         startSeconds: startSeconds,
         durationSeconds: durationSeconds,
+        // ⚠️ 必须显式带上：片段是在事件定稿后回填的，鼾声/信号事件都会走这里。
+        // 漏掉的话构造器会回退成跨度，activeSeconds 被悄悄换成含空白的时长，
+        // 统计和评分又回到修复前的错误口径。
+        activeSeconds: activeSeconds,
         confidence: confidence,
         snoreProbability: snoreProbability,
         windowCount: windowCount,

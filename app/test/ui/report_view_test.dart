@@ -21,6 +21,7 @@ SoundEvent event({
   required SleepCategory label,
   required double start,
   required double duration,
+  double? active,
   double confidence = 0.7,
   double snore = 0.0,
   String? clipPath,
@@ -31,6 +32,7 @@ SoundEvent event({
       label: label,
       startSeconds: start,
       durationSeconds: duration,
+      activeSeconds: active,
       confidence: confidence,
       snoreProbability: snore,
       windowCount: (duration / 3).round(),
@@ -129,6 +131,52 @@ void main() {
     expect(find.text('鼾声总时长'), findsOneWidget);
     expect(find.text('4m'), findsWidgets);
     expect(find.text('声音事件'), findsOneWidget);
+  });
+
+  testWidgets('事件明细显示实际有声时长，鼾声录音卡显示音频长度', (tester) async {
+    // 同一段事件（跨度 12 秒、实际有声 6 秒）在两处显示不同的数，
+    // 因为这两处的「时长」语义不同：一个是有声多久，一个是能听多长。
+    final session = buildSession(
+      events: [
+        event(
+          label: SleepCategory.snore,
+          start: 0,
+          duration: 12,
+          active: 6,
+          snore: 0.9,
+          clipPath: 'clips/a.wav',
+        ),
+      ],
+      stats: const SessionStats(
+        analyzedSeconds: 28800,
+        windowsTotal: 9600,
+        windowsInferred: 3200,
+        windowsVadSkipped: 6000,
+        windowsLowConfidence: 2900,
+        eventCount: 1,
+        snoreEventCount: 1,
+        snoreSeconds: 6,
+        categoryDistribution: {},
+      ),
+    );
+    await pumpReport(tester, session);
+
+    expect(
+      find.descendant(
+        of: find.byKey(ReportKeys.eventRow(0)),
+        matching: find.text('6s'),
+      ),
+      findsOneWidget,
+      reason: '事件明细：实际有声 6 秒',
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(ReportKeys.clipRow(0)),
+        matching: find.text('12s'),
+      ),
+      findsOneWidget,
+      reason: '鼾声录音：能听到的是整段 12 秒',
+    );
   });
 
   testWidgets('渲染整夜声音时间线', (tester) async {

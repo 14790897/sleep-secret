@@ -182,7 +182,7 @@ void main() {
       expect(round.stats.rawLabelCounts, isEmpty);
     });
 
-    test('老文件没有 activeSeconds：回退到跨度，而不是 0', () {
+    test('老文件没有 activeSeconds：按 windowCount 推算，和 DB 迁移同口径', () {
       final old = jsonDecode(encodeSession(buildSession())) as Map<String, dynamic>;
       final session = old['session'] as Map<String, dynamic>;
       for (final e in session['events'] as List) {
@@ -191,9 +191,10 @@ void main() {
 
       final round = decodeSession(jsonEncode(old));
 
-      expect(round.events.first.activeSeconds,
-          round.events.first.durationSeconds,
-          reason: '老文件只有跨度，用它当实际时长是当时唯一能做的');
+      // 第一段：2 个窗口 × 3 秒 = 6 秒；跨度是 12 秒
+      expect(round.events.first.windowCount, 2);
+      expect(round.events.first.activeSeconds, 6,
+          reason: '旧备份导入和原地升级必须得到同一个数，否则同一晚会有两种时长');
     });
 
     test('计数值是坏数据时当空表，不让整份文件读不出来', () {

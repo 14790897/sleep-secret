@@ -361,10 +361,18 @@ void main() {
       final full = await db.loadSession((await db.listSessions()).single.id!);
       final event = full!.events.single;
 
+      // 直接查列值：迁移的 UPDATE 真的写进去了，而不是靠读取时的回退兜住
+      final raw =
+          await (await db.open()).query('events', columns: ['active_seconds']);
+      expect(raw.single['active_seconds'], 180.0);
+
       expect(event.durationSeconds, 240,
           reason: '跨度是历史数据里本来就有的，原样保留');
       expect(event.activeSeconds, 180,
           reason: '60 个 3 秒窗口 = 实际有声 180 秒，不能照抄含空白的跨度');
+      expect(full.stats.snoreSeconds, 180,
+          reason: 'sessions 表缓存的是 240（旧跨度），读取时必须按事件重算');
+      expect(full.stats.snoreEventCount, 1);
       expect(full.stats.rawLabelCounts, {'Snoring': 60},
           reason: '别的列不能因为加列迁移丢了');
     });
