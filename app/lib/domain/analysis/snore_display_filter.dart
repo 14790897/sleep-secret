@@ -28,7 +28,9 @@ SessionStats _statsFor(SessionStats stats, List<SoundEvent> events) {
   var snoreCount = 0;
   for (final event in events) {
     if (event.isSnore) {
-      snoreSeconds += event.durationSeconds;
+      // 用实际有声时长，不用含合并间隔的跨度——筛选后的统计和未筛时
+      // 必须是同一个口径。
+      snoreSeconds += event.activeSeconds;
       snoreCount++;
     }
   }

@@ -49,9 +49,9 @@ List<HourBucket> hourlyBreakdown(RecordingSession session) {
     }
 
     if (e.isSnore) {
-      snore[hour] = (snore[hour] ?? 0) + e.durationSeconds;
+      snore[hour] = (snore[hour] ?? 0) + e.activeSeconds;
     } else {
-      other[hour] = (other[hour] ?? 0) + e.durationSeconds;
+      other[hour] = (other[hour] ?? 0) + e.activeSeconds;
     }
   }
 
@@ -122,8 +122,8 @@ List<DurationBin> snoreDurationHistogram(List<SoundEvent> events) {
   for (final e in snoreEvents) {
     for (var i = 0; i < _durationBins.length; i++) {
       final (_, lo, hi) = _durationBins[i];
-      final inBin = e.durationSeconds >= lo &&
-          (hi == null || e.durationSeconds < hi);
+      final inBin = e.activeSeconds >= lo &&
+          (hi == null || e.activeSeconds < hi);
       if (inBin) {
         counts[i]++;
         break;
@@ -228,7 +228,7 @@ TrendSummary? summarizeTrend(List<TrendPoint> points) {
 List<SleepCategory> categoriesPresent(RecordingSession session) {
   final totals = <SleepCategory, double>{};
   for (final e in session.events) {
-    totals[e.label] = (totals[e.label] ?? 0) + e.durationSeconds;
+    totals[e.label] = (totals[e.label] ?? 0) + e.activeSeconds;
   }
   final list = totals.keys.toList()
     ..sort((a, b) => totals[b]!.compareTo(totals[a]!));

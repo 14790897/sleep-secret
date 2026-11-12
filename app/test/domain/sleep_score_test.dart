@@ -4,10 +4,13 @@ import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 
-SoundEvent ev(SleepCategory label, double start, double duration) => SoundEvent(
+SoundEvent ev(SleepCategory label, double start, double duration,
+        {double? active}) =>
+    SoundEvent(
       label: label,
       startSeconds: start,
       durationSeconds: duration,
+      activeSeconds: active,
       confidence: 0.7,
       snoreProbability: label == SleepCategory.snore ? 0.8 : 0.0,
       windowCount: (duration / 3).round(),
@@ -18,7 +21,7 @@ RecordingSession night(List<SoundEvent> events, {double hours = 8}) {
   final analyzed = hours * 3600;
   final snoreSeconds = events
       .where((e) => e.isSnore)
-      .fold<double>(0, (s, e) => s + e.durationSeconds);
+      .fold<double>(0, (s, e) => s + e.activeSeconds);
   final snoreCount = events.where((e) => e.isSnore).length;
   return RecordingSession(
     id: 1,
@@ -129,6 +132,19 @@ void main() {
 
       expect(d.points, 0);
       expect(d.params['hasSnore'], isFalse);
+    });
+
+    test('「超过 2 分钟」按实际有声时长判断，不按含空白的跨度', () {
+      // 第一段跨度 300 秒但只有 60 秒有声；第二段 60 秒。
+      // 按跨度第一段算长鼾声（300 ≥ 120）；按实际两段都不够（60 < 120）。
+      final s = scoreSession(night([
+        ev(SleepCategory.snore, 0, 300, active: 60),
+        ev(SleepCategory.snore, 600, 60, active: 60),
+      ]))!;
+      final d = pick(s, DeductionKind.snoreContinuity);
+
+      expect(d.points, 0, reason: '没有一段实际超过 2 分钟，连续性不该扣分');
+      expect(d.params['longRatio'], 0);
     });
   });
 

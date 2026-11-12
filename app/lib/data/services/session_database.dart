@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 
+import '../../domain/analysis/analysis_config.dart';
 import '../../domain/analysis/snore_display_filter.dart';
 import '../../domain/models/recording_session.dart';
 import '../../domain/models/sleep_category.dart';
@@ -15,7 +16,7 @@ class SessionDatabase {
   SessionDatabase({DatabaseFactory? factory, this.databasePath})
       : _factory = factory ?? databaseFactory;
 
-  static const int schemaVersion = 5;
+  static const int schemaVersion = 6;
   static const String _dbName = 'sleep_secret.db';
 
   final DatabaseFactory _factory;
@@ -75,6 +76,9 @@ class SessionDatabase {
         label TEXT NOT NULL,
         start_seconds REAL NOT NULL,
         duration_seconds REAL NOT NULL,
+        -- 实际有声的时长（合并窗口之和，不含合并间隔的空白）。
+        -- v5 之前没有这一列——那时候展示用的是含空白的跨度。
+        active_seconds REAL NOT NULL,
         confidence REAL NOT NULL,
         snore_probability REAL NOT NULL,
         window_count INTEGER NOT NULL,
@@ -129,6 +133,15 @@ class SessionDatabase {
       // v4 不收集 AudioSet 原始标签。老记录保留为 NULL——报告里那张
       // 「详细视图」会说明「升级前的记录不收集它」，而不是列一张空表。
       await db.execute('ALTER TABLE sessions ADD COLUMN raw_label_counts TEXT');
+    }
+    if (from < 6) {
+      // v5 没有「实际有声时长」，展示用的是含合并间隔的跨度——鼾声总时长
+      // 因此被高估（真实数据上一晚约 24% 是空白）。
+      // 老记录回填「窗口数 × 窗口长度」：生产一直是 3 秒窗口。
+      await db.execute('ALTER TABLE events ADD COLUMN active_seconds REAL');
+      await db.execute(
+        'UPDATE events SET active_seconds = window_count * $kDefaultWindowSeconds',
+      );
     }
   }
 
@@ -197,6 +210,7 @@ class SessionDatabase {
           'label': event.label.name,
           'start_seconds': event.startSeconds,
           'duration_seconds': event.durationSeconds,
+          'active_seconds': event.activeSeconds,
           'confidence': event.confidence,
           'snore_probability': event.snoreProbability,
           'window_count': event.windowCount,
@@ -299,6 +313,18 @@ class SessionDatabase {
         DateTime.fromMillisecondsSinceEpoch(row['started_at']! as int);
     final endedRaw = row['ended_at'] as int?;
 
+    // 事件派生统计以**事件本身**为准，不用 sessions 表里的缓存列：
+    // v5 及更早的库把「含合并间隔的跨度」存进了 snore_seconds，直接读会把
+    // 旧记录的高估带进新界面。事件已经一起读出来了，重算一次最省事。
+    var snoreCount = 0;
+    var snoreSeconds = 0.0;
+    for (final event in events) {
+      if (event.isSnore) {
+        snoreCount++;
+        snoreSeconds += event.activeSeconds;
+      }
+    }
+
     return RecordingSession(
       id: row['id'] as int?,
       startedAt: startedAt,
@@ -311,9 +337,9 @@ class SessionDatabase {
         windowsInferred: row['windows_inferred']! as int,
         windowsVadSkipped: row['windows_vad_skipped']! as int,
         windowsLowConfidence: row['windows_low_confidence']! as int,
-        eventCount: row['event_count']! as int,
-        snoreEventCount: row['snore_event_count']! as int,
-        snoreSeconds: (row['snore_seconds'] as num).toDouble(),
+        eventCount: events.length,
+        snoreEventCount: snoreCount,
+        snoreSeconds: snoreSeconds,
         // 老记录这一列是 NULL，读成 false——那是「没收集」，不是「没有」
         signalsCollected: (row['signals_collected'] as int? ?? 0) != 0,
         rawLabelCounts: _rawLabelCountsFromColumn(row['raw_label_counts']),
@@ -346,6 +372,8 @@ class SessionDatabase {
         label: _categoryFromName(row['label']! as String),
         startSeconds: (row['start_seconds'] as num).toDouble(),
         durationSeconds: (row['duration_seconds'] as num).toDouble(),
+        activeSeconds: (row['active_seconds'] as num?)?.toDouble() ??
+            (row['window_count']! as int) * kDefaultWindowSeconds,
         confidence: (row['confidence'] as num).toDouble(),
         snoreProbability: (row['snore_probability'] as num).toDouble(),
         windowCount: row['window_count']! as int,

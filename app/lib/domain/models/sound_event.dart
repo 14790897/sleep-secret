@@ -9,17 +9,32 @@ class SoundEvent {
     required this.label,
     required this.startSeconds,
     required this.durationSeconds,
+    double? activeSeconds,
     required this.confidence,
     required this.snoreProbability,
     required this.windowCount,
     this.clipPath,
     this.peakRms,
     this.signal,
-  });
+  }) : activeSeconds = activeSeconds ?? durationSeconds;
 
   final SleepCategory label;
   final double startSeconds;
+
+  /// 事件在时间轴上的**首尾跨度**（合并间隔也算在里面）。
+  ///
+  /// 用于画时间线、切片段、判断事件是否够长——不是「实际有声多久」。
+  /// 那个数是 [activeSeconds]。
   final double durationSeconds;
+
+  /// 实际有声的时长：合并进来的各个窗口时长之和，**不含合并间隔的空白**。
+  ///
+  /// 合并规则允许同类窗口之间隔最多 `mergeGapSeconds`（9 秒）仍算一个事件。
+  /// 用 [durationSeconds] 当「鼾声多长」会把那些安静段一起算进去——真实
+  /// 数据上一晚能有近四分之一是空白。统计、展示、评分必须用这个字段。
+  ///
+  /// 老记录没有这一项，构造时省略会回退到 [durationSeconds]（当时的显示口径）。
+  final double activeSeconds;
 
   /// 合并的各窗口中最高的一次置信度。
   final double confidence;
@@ -83,6 +98,10 @@ class SoundEvent {
         label: label,
         startSeconds: startSeconds,
         durationSeconds: durationSeconds,
+        // ⚠️ 必须显式带上：片段是在事件定稿后回填的，鼾声/信号事件都会走这里。
+        // 漏掉的话构造器会回退成跨度，activeSeconds 被悄悄换成含空白的时长，
+        // 统计和评分又回到修复前的错误口径。
+        activeSeconds: activeSeconds,
         confidence: confidence,
         snoreProbability: snoreProbability,
         windowCount: windowCount,
@@ -100,6 +119,7 @@ class SoundEvent {
       label: label,
       startSeconds: start,
       durationSeconds: end - start,
+      activeSeconds: activeSeconds + other.activeSeconds,
       confidence: confidence > other.confidence ? confidence : other.confidence,
       snoreProbability: snoreProbability > other.snoreProbability
           ? snoreProbability

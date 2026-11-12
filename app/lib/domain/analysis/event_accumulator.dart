@@ -167,6 +167,7 @@ class EventAccumulator {
         label: label,
         startSeconds: obs.startSeconds,
         durationSeconds: obs.durationSeconds,
+        activeSeconds: obs.durationSeconds,
         confidence: obs.confidence,
         snoreProbability: obs.snoreProbability,
         windowCount: 1,
@@ -214,8 +215,10 @@ class EventAccumulator {
     );
 
     final snoreEvents = kept.where((e) => e.isSnore);
+    // 用 activeSeconds，不是 durationSeconds：后者含合并间隔的空白，
+    // 会把鼾声总时长和鼾声指数一起抬高（真实数据上约 24%）。
     final snoreSeconds =
-        snoreEvents.fold<double>(0.0, (sum, e) => sum + e.durationSeconds);
+        snoreEvents.fold<double>(0.0, (sum, e) => sum + e.activeSeconds);
 
     // 类别分布只统计真正推理过的窗口——被 VAD 跳过的窗口压根没分类结果。
     final distribution = <SleepCategory, double>{};

@@ -599,6 +599,7 @@ class _ApneaSignalCard extends StatelessWidget {
               _EventRow(
                 key: ReportKeys.signalRow(i),
                 event: session.events[i],
+                seconds: session.events[i].activeSeconds,
                 startedAt: session.startedAt,
                 isPlaying: viewModel.isPlaying(i),
                 isLoading: viewModel.isLoading(i),
@@ -678,6 +679,9 @@ class _ClipListCard extends StatelessWidget {
             _EventRow(
               key: ReportKeys.clipRow(i),
               event: events[i],
+              // 这张卡是「能听的录音」：显示的应该是音频长度（跨度），
+              // 和副标题「可听 X」同一口径。事件明细卡才显示实际有声时长。
+              seconds: events[i].durationSeconds,
               startedAt: viewModel.session.startedAt,
               isPlaying: viewModel.isPlaying(i),
               isLoading: viewModel.isLoading(i),
@@ -919,7 +923,7 @@ class _DurationCard extends StatelessWidget {
     final longest = session.snoreEvents.isEmpty
         ? 0.0
         : session.snoreEvents
-              .map((e) => e.durationSeconds)
+              .map((e) => e.activeSeconds)
               .reduce((a, b) => a > b ? a : b);
 
     return SectionCard(
@@ -946,7 +950,7 @@ class _DistributionCard extends StatelessWidget {
     final byCategory = <SleepCategory, double>{};
     for (final e in session.events) {
       if (e.label.isRecessive) continue;
-      byCategory[e.label] = (byCategory[e.label] ?? 0) + e.durationSeconds;
+      byCategory[e.label] = (byCategory[e.label] ?? 0) + e.activeSeconds;
     }
 
     if (byCategory.isEmpty) {
@@ -1239,6 +1243,7 @@ class _EventListCard extends StatelessWidget {
             _EventRow(
               key: ReportKeys.eventRow(i),
               event: events[i],
+              seconds: events[i].activeSeconds,
               startedAt: viewModel.session.startedAt,
               isPlaying: viewModel.isPlaying(i),
               isLoading: viewModel.isLoading(i),
@@ -1292,6 +1297,7 @@ class _EventRow extends StatelessWidget {
   const _EventRow({
     super.key,
     required this.event,
+    required this.seconds,
     required this.startedAt,
     required this.isPlaying,
     required this.isLoading,
@@ -1299,6 +1305,11 @@ class _EventRow extends StatelessWidget {
   });
 
   final SoundEvent event;
+
+  /// 这一行显示"多长"用哪个数：事件明细/信号卡用实际有声时长；
+  /// 「鼾声录音」卡用跨度——那是能听到的音频长度，和卡的副标题同一口径。
+  final double seconds;
+
   final DateTime startedAt;
   final bool isPlaying;
   final bool isLoading;
@@ -1362,7 +1373,7 @@ class _EventRow extends StatelessWidget {
             ),
           ),
           Text(
-            '${event.durationSeconds.round()}s',
+            '${seconds.round()}s',
             style: theme.textTheme.bodySmall?.copyWith(
               color: AppColors.textDim,
             ),

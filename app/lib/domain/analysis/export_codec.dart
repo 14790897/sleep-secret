@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'analysis_config.dart';
 import '../models/recording_session.dart';
 import '../models/sleep_category.dart';
 import '../models/sound_event.dart';
@@ -96,6 +97,8 @@ Map<String, Object?> _encodeEvent(SoundEvent e) => {
       'label': e.label.name,
       'startSeconds': e.startSeconds,
       'durationSeconds': e.durationSeconds,
+      // 实际有声时长；老文件没有这一项，读回来会回退到跨度
+      'activeSeconds': e.activeSeconds,
       'confidence': e.confidence,
       'snoreProbability': e.snoreProbability,
       'windowCount': e.windowCount,
@@ -121,6 +124,13 @@ List<SoundEvent> _decodeEvents(Object? raw) {
           label: _category(item['label']),
           startSeconds: _double(item['startSeconds'], 'startSeconds'),
           durationSeconds: _double(item['durationSeconds'], 'durationSeconds'),
+          // 老文件没有 activeSeconds：按「窗口数 × 窗口长度」推算，和数据库
+          // 迁移的回填口径一致。旧文件本来就带 windowCount；不这样做的话，
+          // 同一晚「旧备份导入」和「原地升级」会得到两个不同的鼾声时长。
+          activeSeconds:
+              (item['activeSeconds'] as num?)?.toDouble() ??
+                  _int(item['windowCount'], 'windowCount') *
+                      kDefaultWindowSeconds,
           confidence: _double(item['confidence'], 'confidence'),
           snoreProbability: _double(item['snoreProbability'], 'snoreProbability'),
           windowCount: _int(item['windowCount'], 'windowCount'),
