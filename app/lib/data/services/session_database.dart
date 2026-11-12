@@ -138,9 +138,21 @@ class SessionDatabase {
       // v5 没有「实际有声时长」，展示用的是含合并间隔的跨度——鼾声总时长
       // 因此被高估（真实数据上一晚约 24% 是空白）。
       // 老记录回填「窗口数 × 窗口长度」：生产一直是 3 秒窗口。
-      await db.execute('ALTER TABLE events ADD COLUMN active_seconds REAL');
+      //
+      // ⚠️ 必须是**幂等**的：升级过程中进程被杀、或者版本号没来得及写回，
+      // 都可能留下「列已经加了、user_version 还停在 5」的半完成状态。
+      // 这时直接 ALTER 会报 duplicate column，整个数据库打不开——
+      // 用户看到的是「所有睡眠报告都没了」（真实发生过）。
+      final columns = await db.rawQuery('PRAGMA table_info(events)');
+      final hasActive =
+          columns.any((row) => row['name'] == 'active_seconds');
+      if (!hasActive) {
+        await db.execute('ALTER TABLE events ADD COLUMN active_seconds REAL');
+      }
+      // 只补空值：重跑迁移不能把已经算好的值覆盖掉
       await db.execute(
-        'UPDATE events SET active_seconds = window_count * $kDefaultWindowSeconds',
+        'UPDATE events SET active_seconds = window_count * $kDefaultWindowSeconds '
+        'WHERE active_seconds IS NULL',
       );
     }
   }

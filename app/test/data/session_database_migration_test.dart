@@ -377,6 +377,28 @@ void main() {
           reason: '别的列不能因为加列迁移丢了');
     });
 
+    test('迁移只执行了一半也能打开，不会报 duplicate column', () async {
+      await createV5Database();
+
+      // 模拟上一次升级中途失败：列已经加上了，但 user_version 还停在 5。
+      // 真实事故：用户装完新版后报告列表全空，日志里是
+      // "duplicate column name: active_seconds"。
+      final raw = await databaseFactoryFfi.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(version: 5),
+      );
+      await raw.execute('ALTER TABLE events ADD COLUMN active_seconds REAL');
+      await raw.close();
+
+      final db =
+          SessionDatabase(factory: databaseFactoryFfi, databasePath: dbPath);
+      addTearDown(db.close);
+
+      final full = await db.loadSession((await db.listSessions()).single.id!);
+      expect(full!.events.single.activeSeconds, 180,
+          reason: '半完成的列也要回填，数据库必须能打开');
+    });
+
     test('新写入事件的 activeSeconds 真的落盘', () async {
       await createV5Database();
 
