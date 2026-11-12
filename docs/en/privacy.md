@@ -32,7 +32,7 @@ is fully captured by timestamps.
 
 Toggleable on the *About* tab. When on (the default):
 
-- Only **snore events and high-risk signals** are written; sleep talk and coughing are not
+- Only **snore events and high-risk signals** are written, plus sleep-talking clips by default (turn them off separately on the About tab); coughing is never written
 - They live in the app's private directory:
   `<app data>/clips/<session start>/<start second>.wav`
 - Other apps **cannot read** that directory (Android app-private storage)

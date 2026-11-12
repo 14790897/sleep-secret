@@ -471,6 +471,23 @@ void main() {
       await repo.dispose();
     });
 
+    test('梦话片段开关默认开启，关掉后能存下来', () async {
+      final first = buildRepo(fileDb);
+      await first.start();
+      expect(first.recordVocalClips, isTrue,
+          reason: '回放梦话是主要诉求之一，默认保留');
+
+      await first.setRecordVocalClips(false);
+      await first.stop();
+      await first.dispose();
+
+      final second = buildRepo(fileDb);
+      await second.start();
+      expect(second.recordVocalClips, isFalse);
+      await second.stop();
+      await second.dispose();
+    });
+
     test('默认不筛：没设置过的时候门槛是 0', () async {
       final repo = buildRepo(fileDb);
       await repo.start();

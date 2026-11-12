@@ -93,6 +93,14 @@ class RecordingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 是否也为梦话事件保留片段（默认关闭，隐私开关）。
+  bool get recordVocalClips => _controller.recordVocalClips;
+
+  Future<void> setRecordVocalClips(bool enabled) async {
+    await _controller.setRecordVocalClips(enabled);
+    notifyListeners();
+  }
+
   /// 是否启用能量门控（安静段跳过）。
   bool get vadEnabled => _controller.vadEnabled;
 
