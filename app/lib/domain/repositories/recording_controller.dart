@@ -38,6 +38,11 @@ abstract interface class RecordingController {
   /// 关掉之后 App 完全不落任何原始音频——这是隐私开关，会影响存储占用。
   bool get recordClips;
 
+  /// 是否也为梦话事件保留片段。**默认关闭**——梦话是说话内容。
+  bool get recordVocalClips;
+
+  Future<void> setRecordVocalClips(bool enabled);
+
   Future<void> setRecordClips(bool enabled);
 
   /// 是否启用能量门控：安静窗口直接跳过，不送进模型。

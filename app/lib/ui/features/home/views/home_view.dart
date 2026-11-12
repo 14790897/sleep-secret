@@ -727,6 +727,24 @@ class _ClipRecordingCard extends StatelessWidget {
               ),
             ),
           ),
+          // 梦话是**说话内容**，隐私含义和鼾声不同——独立开关、默认关闭。
+          // 只有主开关打开时才显示（主开关关掉时没有任何音频落盘）。
+          if (enabled)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: viewModel.recordVocalClips,
+              onChanged: (v) => viewModel.setRecordVocalClips(v),
+              title: Text(
+                context.l10n.clipVocalTitle,
+                style: theme.textTheme.bodyMedium,
+              ),
+              subtitle: Text(
+                context.l10n.clipVocalSubtitle,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.textDim,
+                ),
+              ),
+            ),
           const SizedBox(height: 4),
           Text(
             enabled ? context.l10n.clipOnBody : context.l10n.clipOffBody,

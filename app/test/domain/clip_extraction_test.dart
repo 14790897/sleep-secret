@@ -41,6 +41,44 @@ void main() {
         clipStore: withStore ? store : null,
       );
 
+  group('梦话片段（默认关闭）', () {
+    FakeSleepAnalyzer vocalAnalyzer() => FakeSleepAnalyzer(
+          responder: (_) => FakeSleepAnalyzer.prediction(
+            categories: {
+              SleepCategory.vocal: 0.9,
+              SleepCategory.ambient: 0.05,
+            },
+          ),
+        );
+
+    test('默认不保留梦话片段', () async {
+      final engine = engineWith(analyzer: vocalAnalyzer());
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: loud, length: 16000 * 6));
+      final outcome = await engine.finish();
+
+      expect(outcome.events, isNotEmpty);
+      expect(outcome.events.first.label, SleepCategory.vocal);
+      expect(store.saved, isEmpty, reason: '梦话是说话内容，默认不能落盘');
+      expect(outcome.events.first.clipPath, isNull);
+    });
+
+    test('开启后梦话片段会写出并回填路径', () async {
+      final engine = engineWith(analyzer: vocalAnalyzer());
+      engine.recordVocalClips = true;
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: loud, length: 16000 * 6));
+      final outcome = await engine.finish();
+
+      expect(outcome.events, isNotEmpty);
+      expect(store.saved.length, 1);
+      expect(outcome.events.first.clipPath, isNotNull,
+          reason: '没回填路径的话报告里没有播放入口');
+    });
+  });
+
   group('鼾声片段抽取', () {
     test('鼾声事件定案后写出片段，并回填路径', () async {
       final engine = engineWith();

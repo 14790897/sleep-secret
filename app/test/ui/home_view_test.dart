@@ -391,11 +391,40 @@ void main() {
 
     expect(find.text('保留鼾声与呼吸信号片段'), findsOneWidget);
 
-    await tester.tap(find.byType(Switch));
+    await tester.tap(
+      find.widgetWithText(SwitchListTile, '保留鼾声与呼吸信号片段'),
+    );
     await tester.pumpAndSettle();
 
     expect(controller.clipRecording, isFalse);
     expect(find.text('不保留任何音频'), findsOneWidget);
+  });
+
+  testWidgets('梦话片段是独立开关，默认关闭；主开关关掉后隐藏', (tester) async {
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关于'));
+    await tester.pumpAndSettle();
+
+    // 梦话是说话内容，不能跟着鼾声默认录
+    expect(find.text('也保留梦话片段'), findsOneWidget);
+    expect(controller.vocalClipRecording, isFalse);
+
+    final vocalSwitch = find.widgetWithText(SwitchListTile, '也保留梦话片段');
+    await tester.ensureVisible(vocalSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(vocalSwitch);
+    await tester.pumpAndSettle();
+    expect(controller.vocalClipRecording, isTrue);
+
+    // 主开关一关，什么都不写盘，梦话开关也不该还露在外面
+    final mainSwitch =
+        find.widgetWithText(SwitchListTile, '保留鼾声与呼吸信号片段');
+    await tester.ensureVisible(mainSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(mainSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('也保留梦话片段'), findsNothing);
   });
 
   testWidgets('关于页的安静段开关能改状态，并且说得出代价', (tester) async {

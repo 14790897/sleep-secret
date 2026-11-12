@@ -130,6 +130,13 @@ class NightAnalysisEngine {
   /// 用户中途关掉就该立刻停止落盘，而不是等下次启动。
   bool recordClips;
 
+  /// 是否也为**梦话**（vocal）事件保留片段。默认关闭。
+  ///
+  /// 梦话是**说话内容**，隐私含义和鼾声不同：一段鼾声只能说明"你在打鼾"，
+  /// 一段梦话可能包含私密信息。所以它是一个独立的、默认关闭的开关，
+  /// 而不是跟着 [recordClips] 一起打开。
+  bool recordVocalClips = false;
+
   /// 能量门控是否启用。**可运行时切换**，和 [recordClips] 一个道理：
   /// 「关于」页上有这个开关，拨了就该立刻生效，而不是等下次录音。
   ///
@@ -243,12 +250,17 @@ class NightAnalysisEngine {
       return;
     }
 
-    // 只留鼾声和高危信号。梦话和咳嗽也录的话，隐私含义不一样，先不做。
+    // 只留鼾声、高危信号，以及**用户显式开启**的梦话。
     //
     // 高危信号必须留：用户要的就是把那几声倒吸气翻出来听。它们靠
     // [AnalysisConfig.keepsEvent] 豁免最短时长，不然一两秒的声音
     // 连事件都成立不了，更别提片段。
-    final keep = (event.isSnore || event.isSignal) && config.keepsEvent(event);
+    //
+    // 梦话默认不录：它是说话内容，隐私含义和鼾声不同（见 [recordVocalClips]）。
+    final keep = (event.isSnore ||
+            event.isSignal ||
+            (recordVocalClips && event.label == SleepCategory.vocal)) &&
+        config.keepsEvent(event);
 
     if (!keep || optedOut) {
       await writer.release();

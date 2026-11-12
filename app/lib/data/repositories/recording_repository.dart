@@ -72,6 +72,7 @@ class RecordingRepository implements RecordingController {
   int _maxBacklog = 0;
 
   static const String _kRecordClips = 'record_clips';
+  static const String _kRecordVocalClips = 'record_vocal_clips';
   static const String _kVadEnabled = 'vad_enabled';
   static const String _kVadThresholdDb = 'vad_threshold_db';
   static const String _kSnoreThresholdPercent = 'snore_threshold_percent';
@@ -82,6 +83,9 @@ class RecordingRepository implements RecordingController {
   /// 「关于」页写着「录音期间会有一条常驻通知」——那句话在权限被拒时是假的，
   /// 所以这里必须明确纠正，不能装作无事发生。
   bool _recordClips = true;
+
+  /// 梦话片段。默认关闭——梦话是说话内容，必须由用户显式开启。
+  bool _recordVocalClips = false;
 
   /// 能量门控。没拨过时用 [AnalysisConfig.vadEnabled] 的默认值。
   bool _vadEnabled = false;
@@ -288,6 +292,19 @@ class RecordingRepository implements RecordingController {
   }
 
   @override
+  bool get recordVocalClips => _recordVocalClips;
+
+  @override
+  Future<void> setRecordVocalClips(bool enabled) async {
+    // 和上面的开关一样，立刻作用到引擎。关掉只影响之后定案的事件，
+    // 已经写出去的片段不会自动删除（用户在报告里仍能看到/删掉整晚）。
+    _recordVocalClips = enabled;
+    _engine.recordVocalClips = enabled;
+    await _database.open();
+    await _database.writeBoolSetting(_kRecordVocalClips, enabled);
+  }
+
+  @override
   bool get vadEnabled => _vadEnabled;
 
   @override
@@ -338,6 +355,9 @@ class RecordingRepository implements RecordingController {
     _recordClips =
         await _database.readBoolSetting(_kRecordClips, fallback: true);
     _engine.recordClips = _recordClips;
+    _recordVocalClips =
+        await _database.readBoolSetting(_kRecordVocalClips, fallback: false);
+    _engine.recordVocalClips = _recordVocalClips;
     _vadEnabled =
         await _database.readBoolSetting(_kVadEnabled, fallback: _vadDefault);
     _engine.vadEnabled = _vadEnabled;
