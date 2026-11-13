@@ -8,7 +8,9 @@
 
 唯一的例外是**你自己**去「导出数据」页配上坚果云 / WebDAV：那之后每晚录完会传到**你自己名下**的网盘。这个项目没有自己的服务器，也不会有。
 
-<a href="https://github.com/14790897/sleep-secret/actions/workflows/ci.yml"><img src="https://github.com/14790897/sleep-secret/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a> <a href="https://github.com/14790897/sleep-secret/releases"><img src="https://img.shields.io/github/v/release/14790897/sleep-secret" alt="最新版本"></a> <a href="LICENSE"><img src="https://img.shields.io/github/license/14790897/sleep-secret" alt="许可"></a>
+<sub>[中文](README.md) · [English](README.en.md)</sub>
+
+<a href="https://github.com/14790897/sleep-secret/actions/workflows/ci.yml"><img src="https://github.com/14790897/sleep-secret/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a> <a href="https://github.com/14790897/sleep-secret/releases"><img src="https://img.shields.io/github/v/release/14790897/sleep-secret" alt="最新版本"></a> <a href="https://f-droid.org/packages/com.sleepsecret.sleep_secret/"><img src="https://img.shields.io/f-droid/v/com.sleepsecret.sleep_secret" alt="F-Droid 版本"></a> <a href="LICENSE"><img src="https://img.shields.io/github/license/14790897/sleep-secret" alt="许可"></a>
 
 **文档站**：<https://mygithub.sixiangjia.de/sleep-secret/>（[使用指南](https://mygithub.sixiangjia.de/sleep-secret/guide/) · [看懂报告](https://mygithub.sixiangjia.de/sleep-secret/report/) · [数据与隐私](https://mygithub.sixiangjia.de/sleep-secret/privacy/)）
 
@@ -24,9 +26,12 @@
 
 ## 装到手机上
 
-到 [Releases](https://github.com/14790897/sleep-secret/releases) 下载最新一版的
-`app-arm64-v8a-release.apk`（绝大多数手机是这个架构），直接安装。没有上架任何应用商店，
-所以需要允许「安装未知来源应用」。
+<a href="https://f-droid.org/packages/com.sleepsecret.sleep_secret/"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="60"></a>
+
+- **F-Droid（推荐）**：<https://f-droid.org/packages/com.sleepsecret.sleep_secret/>。F-Droid 版与 GitHub 版**使用同一签名**，可以互相覆盖升级、不会丢数据；但 F-Droid 的索引更新有延迟，版本可能比 Releases 慢几天。
+- **GitHub Releases**：到 [Releases](https://github.com/14790897/sleep-secret/releases) 下载最新一版的
+`app-arm64-v8a-release.apk`（绝大多数手机是这个架构），直接安装。除 F-Droid 外没有上架其他应用商店，
+从 GitHub 安装需要允许「安装未知来源应用」。
 
 第一次打开要授予**录音**和**通知**权限；小米、华为这类系统还要把省电策略改成
 「无限制」、允许自启动、在最近任务里锁定应用——不设的话整夜录音可能被系统清掉，
@@ -46,7 +51,7 @@
 
 识别得到的九大类：**鼾声 / 呼吸声 / 咳嗽清嗓 / 喷嚏 / 人声梦话 / 体动床响 / 环境噪音 / 设备噪音 / 静音**。
 
-三件刻意做的事：
+刻意做的事：
 
 - **录音时看得见电平**。电平条上画了识别阈值线，麦克风有没有在工作、音量够不够，一眼就能看出来——这是排查"整夜录到静音"最直接的手段。
 - **不做后处理门控**。录到的每一段都送进模型，取给分最高的那一类。直觉上该加一道"分数不够就别报"的闸门，
@@ -126,7 +131,7 @@ flutter run -d <设备>
 ```bash
 cd app
 flutter analyze
-flutter test                                    # 507 个单元测试
+flutter test                                    # 541 个单元测试
 flutter test integration_test/all_tests.dart -d <设备>   # 28 个集成测试
 ```
 
@@ -141,6 +146,7 @@ flutter test integration_test/all_tests.dart -d <设备>   # 28 个集成测试
 ```bash
 flutter test integration_test_hardware/real_recorder_flow_test.dart -d <设备>
 flutter test integration_test_hardware/microphone_diagnostic_test.dart -d <设备>
+flutter test integration_test_hardware/audio_focus_test.dart -d <设备>   # 别的应用抢焦点时录音不能停
 ```
 
 CI 上的音频全部来自 assets 里的**真实录音回放**（`WavReplayAudioCapture` 注入到
