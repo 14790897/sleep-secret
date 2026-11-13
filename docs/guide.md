@@ -2,7 +2,13 @@
 
 ## 装到手机上
 
-到 [Releases](https://github.com/14790897/sleep-secret/releases) 下载最新一版的 APK：
+<a href="https://f-droid.org/packages/com.sleepsecret.sleep_secret/"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="60"></a>
+
+**F-Droid（推荐）**：<https://f-droid.org/packages/com.sleepsecret.sleep_secret/>。
+F-Droid 版和 GitHub 版使用**同一签名**，可以互相覆盖升级、不会丢数据；
+但 F-Droid 的索引更新有延迟，版本可能比 Releases 慢几天。
+
+也可以到 [Releases](https://github.com/14790897/sleep-secret/releases) 下载最新一版的 APK：
 
 | 包 | 装给谁 |
 |---|---|
@@ -10,7 +16,7 @@
 | `app-armeabi-v7a-release.apk` | 较老的 32 位设备 |
 | `app-x86_64-release.apk` | 模拟器 |
 
-没有上架任何应用商店，所以系统会要求你允许「安装未知来源应用」。
+除 F-Droid 外没有上架其他应用商店，从 GitHub 安装时系统会要求你允许「安装未知来源应用」。
 分期打包是为了体积：一个通用包约 68 MB，按 CPU 架构分开后每个 25–29 MB。
 
 Windows 桌面版在同一个 Release 里，但它**只是测试用途**——桌面没有 Android 那种

@@ -2,7 +2,14 @@
 
 ## Installing
 
-Download the latest APK from
+<a href="https://f-droid.org/packages/com.sleepsecret.sleep_secret/"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="60"></a>
+
+**F-Droid (recommended)**: <https://f-droid.org/packages/com.sleepsecret.sleep_secret/>.
+The F-Droid build uses the **same signing key** as the GitHub release, so you can
+switch between them with an in-place upgrade and keep your data. F-Droid's index
+updates with a delay, so its version may lag the Releases page by a few days.
+
+You can also download the latest APK from
 [Releases](https://github.com/14790897/sleep-secret/releases):
 
 | File | For |
@@ -11,9 +18,9 @@ Download the latest APK from
 | `app-armeabi-v7a-release.apk` | Older 32-bit devices |
 | `app-x86_64-release.apk` | Emulators |
 
-The app is not on any app store, so Android will ask you to allow installing
-from unknown sources. The APKs are split per CPU architecture for size: one
-universal APK would be about 68 MB, each split is 25–29 MB.
+The app is not on any other app store, so installing from GitHub means allowing
+installs from unknown sources. The APKs are split per CPU architecture for size:
+one universal APK would be about 68 MB, each split is 25–29 MB.
 
 The Windows build is in the same release, but it is **for testing only** —
 desktop has no foreground-service keep-alive, so overnight recording requires
