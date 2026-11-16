@@ -80,6 +80,13 @@ hardware and extend "hearing the night" into "sensing the night":
 - **Posture sensing**: multi-antenna radar or a belt IMU, giving a supine/lateral
   timeline to assess positional risk (whether it is worse on your back).
 
+> **Status (2026-11-16)**: none of the three is connected to the app yet. The
+> chest-strap IMU behind "posture sensing" is a separate project in progress —
+> the ESP32-C3 + BMI270 carrier board (TP4056 charger + TPS63031 regulator) is
+> designed with manufacturing files ready, but **has not been fabricated,
+> assembled or validated**; radar and the oximeter have not started. This
+> section is a plan, not a shipped feature.
+
 With every channel aligned on one timeline, the report could add a **body
 position timeline** and **candidate breathing events** — always worded as
 *suspected*: **an OSA AHI needs airflow + oxygen saturation + arousal criteria;
