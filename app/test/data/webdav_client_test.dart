@@ -39,6 +39,21 @@ void main() {
         throwsA(isA<WebDavException>()),
       );
     });
+
+    test('**非本机地址拒绝 http**——音频不允许明文出网', () {
+      expect(
+        () => WebDavClient(
+            baseUrl: 'http://dav.example.com/dav', username: 'u', password: 'p'),
+        throwsA(isA<WebDavException>()),
+      );
+    });
+
+    test('本机回环仍允许 http，供本地测试服务器使用', () {
+      final c = WebDavClient(
+          baseUrl: 'http://127.0.0.1:9/dav', username: 'u', password: 'p');
+      addTearDown(c.close);
+      expect(c, isNotNull);
+    });
   });
 
   group('WebDavClient 目录', () {

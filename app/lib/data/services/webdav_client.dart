@@ -67,6 +67,15 @@ class WebDavClient {
     if (!parsed.hasScheme || parsed.host.isEmpty) {
       throw WebDavException('地址看起来不对：$raw（应当形如 https://dav.jianguoyun.com/dav/）');
     }
+    // 录下来的音频会传到这个地址，不允许明文出网；只给本机回环留口子，
+    // 供本地测试服务器使用。
+    final isLoopback = parsed.host == 'localhost' ||
+        parsed.host == '127.0.0.1' ||
+        parsed.host == '::1';
+    if (parsed.scheme == 'http' && !isLoopback) {
+      throw WebDavException(
+          'WebDAV 地址必须用 https://（本机地址如 localhost / 127.0.0.1 除外）：$raw');
+    }
     final path = parsed.path.endsWith('/') ? parsed.path : '${parsed.path}/';
     return parsed.replace(path: path);
   }
