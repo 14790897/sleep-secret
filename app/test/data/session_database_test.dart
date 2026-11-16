@@ -36,6 +36,7 @@ SoundEvent snoreEvent({
   double confidence = 0.82,
   double snoreProbability = 0.77,
   int windowCount = 60,
+  String? clipPath,
 }) =>
     SoundEvent(
       label: SleepCategory.snore,
@@ -44,6 +45,7 @@ SoundEvent snoreEvent({
       confidence: confidence,
       snoreProbability: snoreProbability,
       windowCount: windowCount,
+      clipPath: clipPath,
     );
 
 void main() {
@@ -165,6 +167,21 @@ void main() {
         list.map((s) => s.startedAt.day),
         [6, 3, 1],
       );
+    });
+
+    test('清空片段路径后事件和统计都还在', () async {
+      await db.insertSession(
+        session(events: [snoreEvent(clipPath: 'a/b.wav')]),
+      );
+      final id = (await db.listSessions()).single.id!;
+
+      await db.clearClipPaths(id);
+
+      final full = await db.loadSession(id);
+      expect(full!.events.single.clipPath, isNull);
+      expect(full.events, hasLength(1));
+      expect(full.events.single.label, SleepCategory.snore);
+      expect(full.stats.snoreEventCount, 1);
     });
 
     test('列表带上事件（列表卡片的评分要用）', () async {

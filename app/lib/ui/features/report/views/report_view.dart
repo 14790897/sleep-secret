@@ -661,13 +661,16 @@ class _ClipListCard extends StatelessWidget {
     ];
 
     if (clipIndexes.isEmpty) {
-      // 走到这儿说明这一晚检出了鼾声、但一段录音都没留下。
-      // 说清楚为什么，不然「怎么没有」会变成一个谜。
+      // 走到这儿有两种原因：这一晚检出了鼾声但一段没留下；
+      // 或者用户刚把这一晚的片段删掉了。两种要分开说，
+      // 不然「怎么没有」会变成一个谜。
       return SectionCard(
         key: ReportKeys.snoreClips,
         title: context.l10n.reportClipsTitle,
         child: Text(
-          context.l10n.reportClipsNone,
+          viewModel.clipsDeleted
+              ? context.l10n.reportClipsDeleted
+              : context.l10n.reportClipsNone,
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppColors.textDim,
             height: 1.7,
@@ -709,9 +712,39 @@ class _ClipListCard extends StatelessWidget {
               isLoading: viewModel.isLoading(i),
               onPlay: () => _openClipPlayer(context, viewModel, i),
             ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _confirmDeleteClips(context),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: Text(context.l10n.deleteClipsAction),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteClips(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.deleteClipsConfirmTitle),
+        content: Text(ctx.l10n.deleteClipsConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ctx.l10n.deleteClipsAction),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await viewModel.deleteClips();
   }
 }
 

@@ -317,6 +317,11 @@ Future<void> openReportPage(
 
   final mergedNight = SleepNight(loaded);
   final reportVm = factory(mergedNight.merged, gaps: mergedNight.gaps);
+  // 合并夜由多段组成：删片段时要把每一段的文件都删掉。
+  reportVm.segmentIds = [
+    for (final segment in loaded)
+      if (segment.id != null) segment.id!,
+  ];
   await Navigator.of(
     context,
   ).push(MaterialPageRoute(builder: (_) => ReportView(viewModel: reportVm)));

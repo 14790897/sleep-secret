@@ -20,6 +20,7 @@ import 'package:sleep_secret/domain/repositories/recording_controller.dart'
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../helpers/fake_services.dart';
+import '../helpers/fake_clip_services.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fake_sleep_analyzer.dart';
 
@@ -290,6 +291,58 @@ void main() {
 
       expect(await repository.listSessions(), isEmpty);
       expect(await repository.loadSession(id), isNull);
+    });
+
+    test('删除片段只清路径，会话、事件和统计都保留', () async {
+      final store = FakeAudioClipStore();
+      final repo = RecordingRepository(
+        capture: FakeAudioCapture(),
+        analyzer: FakeSleepAnalyzer(),
+        database: database,
+        foregroundService: FakeForegroundServiceController(),
+        config: testConfig,
+        clipStore: store,
+      );
+      addTearDown(repo.dispose);
+
+      final id = await database.insertSession(RecordingSession(
+        id: null,
+        startedAt: DateTime(2026, 10, 6, 23, 30),
+        endedAt: DateTime(2026, 10, 7, 7),
+        events: const [
+          SoundEvent(
+            label: SleepCategory.snore,
+            startSeconds: 100,
+            durationSeconds: 30,
+            activeSeconds: 30,
+            confidence: 0.9,
+            snoreProbability: 0.9,
+            windowCount: 10,
+            clipPath: '123/456.wav',
+          ),
+        ],
+        stats: const SessionStats(
+          analyzedSeconds: 28800,
+          windowsTotal: 9600,
+          windowsInferred: 9600,
+          windowsVadSkipped: 0,
+          windowsLowConfidence: 0,
+          eventCount: 1,
+          snoreEventCount: 1,
+          snoreSeconds: 30,
+          categoryDistribution: {},
+        ),
+      ));
+
+      await repo.deleteClipsForSession(id);
+
+      expect(store.deletedSessions, [DateTime(2026, 10, 6, 23, 30)]);
+      final full = await repo.loadSession(id);
+      expect(full, isNotNull);
+      expect(full!.events.single.clipPath, isNull);
+      expect(full.events, hasLength(1));
+      expect(full.stats.snoreEventCount, 1);
+      expect(full.stats.snoreSeconds, 30);
     });
 
     test('多次录音产生多条独立会话', () async {
