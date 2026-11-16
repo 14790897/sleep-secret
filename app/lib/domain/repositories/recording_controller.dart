@@ -89,5 +89,10 @@ abstract interface class RecordingController {
 
   Future<void> deleteSession(int id);
 
+  /// 删除某一晚的录音片段，**保留事件、统计和时间线**。
+  ///
+  /// 文件删掉、事件的 `clipPath` 置空；报告里这一晚不再有播放入口。
+  Future<void> deleteClipsForSession(int sessionId);
+
   Future<void> dispose();
 }

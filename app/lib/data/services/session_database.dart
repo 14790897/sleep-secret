@@ -299,6 +299,19 @@ class SessionDatabase {
     await db.delete('sessions', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// 把某一晚所有事件的片段路径置空（文件本身由 AudioClipStore 删除）。
+  ///
+  /// 事件、统计、时间线都不动——删的只是可试听的音频。
+  Future<void> clearClipPaths(int sessionId) async {
+    final db = await open();
+    await db.update(
+      'events',
+      {'clip_path': null},
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
   /// 某个会话名下的原始事件行数。
   ///
   /// 用于校验级联删除与数据完整性——[loadSession] 走的是会话查询，

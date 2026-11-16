@@ -32,7 +32,7 @@ class ReportViewModel extends ChangeNotifier {
     });
   }
 
-  final RecordingSession _session;
+  RecordingSession _session;
   final AudioClipStore _clipStore;
 
   /// 同一晚中间停止再开始的空档。单段录音 / 老记录为空。
@@ -41,6 +41,15 @@ class ReportViewModel extends ChangeNotifier {
   /// 中间醒着的总时长。
   Duration get awakeDuration =>
       gaps.fold(Duration.zero, (sum, gap) => sum + gap.duration);
+
+  /// 这一晚包含的所有录音段 id（合并夜有多段）。删片段时逐段删。
+  ///
+  /// 默认是当前会话自己的 id；[openReportPage] 打开合并夜时会覆盖成全部段。
+  late List<int> segmentIds = [if (_session.id != null) _session.id!];
+
+  /// 用户是否在这一次打开报告时删掉了片段（删完卡片要说明原因）。
+  bool _clipsDeleted = false;
+  bool get clipsDeleted => _clipsDeleted;
 
   /// 鼾声展示门槛的读写口。
   ///
@@ -155,6 +164,26 @@ class ReportViewModel extends ChangeNotifier {
     await _player?.stop();
     _playingIndex = -1;
     _loadingIndex = -1;
+    notifyListeners();
+  }
+
+  /// 删除这一晚的所有录音片段，**保留事件、统计和时间线**。
+  ///
+  /// 先停播放：文件的目录马上要被删掉。
+  Future<void> deleteClips() async {
+    if (!_session.events.any((e) => e.hasClip)) return;
+    await stopPlayback();
+    for (final id in segmentIds) {
+      await _settings.deleteClipsForSession(id);
+    }
+    _session = _session.copyWith(
+      events: [
+        for (final event in _session.events)
+          event.hasClip ? event.withClip(null) : event,
+      ],
+    );
+    _visible = null;
+    _clipsDeleted = true;
     notifyListeners();
   }
 

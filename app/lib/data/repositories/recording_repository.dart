@@ -406,6 +406,17 @@ class RecordingRepository implements RecordingController {
   }
 
   @override
+  Future<void> deleteClipsForSession(int sessionId) async {
+    await _database.open();
+    final session = await _database.loadSession(sessionId);
+    if (session == null) return;
+
+    // 和删除整晚一样：先删文件再清路径，否则定位不到片段目录。
+    await _clipStore?.deleteSession(session.startedAt);
+    await _database.clearClipPaths(sessionId);
+  }
+
+  @override
   Future<void> dispose() async {
     await _teardown();
     await _stateController.close();

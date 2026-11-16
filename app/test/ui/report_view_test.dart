@@ -204,6 +204,78 @@ void main() {
     );
   });
 
+  testWidgets('删除片段只删音频，报告数据保留', (tester) async {
+    final settings = FakeRecordingController();
+    final session = buildSession(
+      events: [
+        event(
+          label: SleepCategory.snore,
+          start: 100,
+          duration: 30,
+          snore: 0.9,
+          clipPath: 'clips/a.wav',
+        ),
+      ],
+      stats: const SessionStats(
+        analyzedSeconds: 28800,
+        windowsTotal: 9600,
+        windowsInferred: 9600,
+        windowsVadSkipped: 0,
+        windowsLowConfidence: 0,
+        eventCount: 1,
+        snoreEventCount: 1,
+        snoreSeconds: 30,
+        categoryDistribution: {},
+      ),
+    );
+    final vm = buildVm(session, settings: settings);
+    tester.view.physicalSize = const Size(900, 4200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(localizedApp(home: ReportView(viewModel: vm)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除这些片段（保留报告）'), findsOneWidget);
+    await tester.tap(find.text('删除这些片段（保留报告）'));
+    await tester.pumpAndSettle();
+    // 对话框里的确认键和卡片按钮文案相同，按类型限定
+    await tester.tap(
+      find.widgetWithText(FilledButton, '删除这些片段（保留报告）'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(settings.deletedClipIds, [1]);
+    expect(find.text('这一晚的录音片段已删除；报告数据仍然保留。'), findsOneWidget);
+    expect(find.byIcon(Icons.play_circle_outline), findsNothing,
+        reason: '片段文件删了，就不该再有播放入口');
+    // 事件本身还在：事件明细里仍有这一条
+    expect(find.text('鼾声'), findsWidgets);
+  });
+
+  test('合并夜删片段会删掉每一段', () async {
+    final settings = FakeRecordingController();
+    final vm = buildVm(
+      buildSession(
+        events: [
+          event(
+            label: SleepCategory.snore,
+            start: 100,
+            duration: 30,
+            snore: 0.9,
+            clipPath: 'clips/a.wav',
+          ),
+        ],
+      ),
+      settings: settings,
+    );
+    vm.segmentIds = [1, 2];
+
+    await vm.deleteClips();
+
+    expect(settings.deletedClipIds, [1, 2],
+        reason: '合并夜的每一段都要删，不能只删第一段');
+  });
+
   testWidgets('渲染整夜声音时间线', (tester) async {
     await pumpReport(tester, buildSession());
 
