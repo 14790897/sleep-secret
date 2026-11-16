@@ -70,8 +70,10 @@ void main() {
     Widget homeView() => HomeView(
           localeController: FakeLocaleController(),
           recordingViewModel: recordingVm,
-          reportViewModelFactory: (session) => ReportViewModel(
+          reportViewModelFactory: (session, {gaps = const []}) =>
+              ReportViewModel(
             session: session,
+            gaps: gaps,
             clipStore: FakeAudioClipStore(),
             settings: FakeRecordingController(),
             player: FakeEventPlayer(),
@@ -252,8 +254,10 @@ void main() {
             child: HomeView(
             localeController: locale,
             recordingViewModel: vm,
-            reportViewModelFactory: (session) => ReportViewModel(
+            reportViewModelFactory: (session, {gaps = const []}) =>
+                ReportViewModel(
               session: session,
+              gaps: gaps,
               clipStore: FakeAudioClipStore(),
               settings: FakeRecordingController(),
               player: FakeEventPlayer(),

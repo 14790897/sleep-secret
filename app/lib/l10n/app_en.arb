@@ -234,6 +234,17 @@
   "reportViewTitle": "Sleep report",
   "reportHeaderStart": "{month}/{day}/{year}, started {time}",
   "reportHeaderTotal": " · {span} total",
+  "reportHeaderAwake": "{count, plural, =1{1 awakening · {span}} other{{count} awakenings · {span}}}",
+  "@reportHeaderAwake": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "span": {
+        "type": "String"
+      }
+    }
+  },
   "reportScoreTitle": "Sleep sound score",
   "reportSnoreIndex": "Snore index",
   "reportTooShortNoScore": "Too short to score",

@@ -64,8 +64,10 @@ void main() {
         home: HomeView(
           localeController: FakeLocaleController(),
           recordingViewModel: recordingVm,
-          reportViewModelFactory: (session) => ReportViewModel(
+          reportViewModelFactory: (session, {gaps = const []}) =>
+              ReportViewModel(
             session: session,
+            gaps: gaps,
             clipStore: FakeAudioClipStore(),
             settings: FakeRecordingController(),
             player: FakeEventPlayer(),
@@ -261,6 +263,33 @@ void main() {
     expect(find.text('显示哪些鼾声'), findsOneWidget);
   });
 
+  testWidgets('停止后自动打开的是合并后的一晚', (tester) async {
+    useTallViewport(tester);
+    final earlier = night(
+      id: 1,
+      startedAt: DateTime(2026, 10, 6, 23),
+      duration: const Duration(hours: 2),
+    );
+    final finished = night(
+      id: 2,
+      startedAt: DateTime(2026, 10, 7, 1, 10),
+      duration: const Duration(hours: 6),
+    );
+    controller.sessions = [earlier, finished];
+    controller.finishedSession = finished;
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(RecordingKeys.heroButton));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('中间醒过 1 次'), findsOneWidget,
+        reason: '停止后应该打开整夜，而不是只显示刚录的这段');
+  });
+
   testWidgets('停止后没有存下会话时留在录音页', (tester) async {
     useTallViewport(tester);
     controller.sessions = [];
@@ -330,6 +359,68 @@ void main() {
 
     expect(controller.deleteCount, 0);
     expect(find.text('显示哪些鼾声'), findsOneWidget);
+  });
+
+  testWidgets('同一晚中间停止再开始，列表合并成一晚并标出醒过', (tester) async {
+    useTallViewport(tester);
+    final first = night(
+      id: 1,
+      startedAt: DateTime(2026, 10, 6, 23),
+      duration: const Duration(hours: 2),
+    );
+    final second = night(
+      id: 2,
+      startedAt: DateTime(2026, 10, 7, 1, 10),
+      duration: const Duration(hours: 6),
+    );
+    controller.sessions = [second, first];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    // 一晚只一张卡（合并后以第一段的 id 为键）
+    expect(find.byKey(HomeKeys.reportCard(1)), findsOneWidget);
+    expect(find.byKey(HomeKeys.reportCard(2)), findsNothing);
+
+    // 详情页标出中间醒过，总时长包含空档这件事必须看得见
+    await tester.tap(find.byKey(HomeKeys.reportCard(1)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('中间醒过 1 次'), findsOneWidget);
+  });
+
+  testWidgets('删除合并后的一晚会把所有段一起删掉', (tester) async {
+    useTallViewport(tester);
+    final first = night(
+      id: 1,
+      startedAt: DateTime(2026, 10, 6, 23),
+      duration: const Duration(hours: 2),
+    );
+    final second = night(
+      id: 2,
+      startedAt: DateTime(2026, 10, 7, 1, 10),
+      duration: const Duration(hours: 6),
+    );
+    controller.sessions = [second, first];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(HomeKeys.reportCard(1)),
+        matching: find.byIcon(Icons.delete_outline),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    expect(controller.deleteCount, 2, reason: '合并后的一晚要删掉所有段');
+    expect(find.byKey(HomeKeys.reportCard(1)), findsNothing);
   });
 
   /// 打开「关于」页，并把视口调高。
