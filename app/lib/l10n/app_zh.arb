@@ -708,7 +708,7 @@
   "reportNoDeduction": "不扣",
   "reportHundredPoints": "100 分逐项扣完",
   "reportClipsTitle": "录音片段",
-  "reportClipsNone": "这一晚没有留下录音。到「关于」页打开「保留鼾声与呼吸信号片段」，之后录的就会留下——咳嗽不录；梦话默认也保留。",
+  "reportClipsNone": "这一晚没有留下录音——可能录制时没保留片段，或者片段已经被删掉。到「关于」页打开「保留鼾声与呼吸信号片段」，之后录的就会留下——咳嗽不录；梦话默认也保留。",
   "deleteClipsAction": "删除这些片段（保留报告）",
   "deleteClipsConfirmTitle": "删除这一晚的录音片段？",
   "deleteClipsConfirmBody": "删除后这一晚不能再试听，但事件、时间线和统计都会保留。无法恢复。",
