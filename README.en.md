@@ -67,6 +67,41 @@ Deliberate choices:
 - **No sleep staging** (deep/light/REM) — that needs movement or heart rate; audio alone can't do it. The "sleep sound score" only reflects **how noisy** the night was, not sleep quality.
 - **Not calibrated to you.** It uses a general-purpose audio event model; individual differences will change detection rates.
 
+## Future outlook: from listening to sensing
+
+Today the app only has a microphone. The next step is to bring in non-contact
+hardware and extend "hearing the night" into "sensing the night":
+
+- **60 GHz mmWave radar** (non-contact): respiration waveform, candidate
+  breathing-pause segments, movement and turning, in-bed/out-of-bed; some
+  modules also report heart rate and body position.
+- **BLE pulse oximeter** (finger clip or ring): overnight SpO₂ and pulse rate,
+  used to confirm whether a breathing pause came with a ≥3% desaturation.
+- **Posture sensing**: multi-antenna radar or a belt IMU, giving a supine/lateral
+  timeline to assess positional risk (whether it is worse on your back).
+
+With every channel aligned on one timeline, the report could add a **body
+position timeline** and **candidate breathing events** — always worded as
+*suspected*: **an OSA AHI needs airflow + oxygen saturation + arousal criteria;
+no single channel is enough.**
+
+Order of work (by information value and cost):
+
+1. **BLE oximeter** — the smallest useful step; confirms desaturation events.
+2. **60 GHz radar** — non-contact respiration and presence; before buying a
+   module, verify it exposes a **respiration waveform**, not just a rate.
+3. **Multi-antenna radar or a belt** — posture and respiratory effort, to
+   separate obstructive from central events.
+
+Prerequisites:
+
+- Every channel must be validated against PSG / home sleep apnoea testing
+  (HSAT), starting with event-level sensitivity and specificity;
+- Any claim of "detecting sleep apnoea" is a medical device under
+  NMPA / FDA / MDR and needs certification;
+- Still no clinical inference: report measured signals and *suspected* events,
+  never a diagnosis.
+
 ## How it works
 
 ```
