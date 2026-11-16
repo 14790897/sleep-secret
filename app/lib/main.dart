@@ -239,8 +239,9 @@ class _SleepSecretAppState extends State<SleepSecretApp> {
       home: HomeView(
         localeController: _localeRepository,
         recordingViewModel: _recordingViewModel,
-        reportViewModelFactory: (session) => ReportViewModel(
+        reportViewModelFactory: (session, {gaps = const []}) => ReportViewModel(
           session: session,
+          gaps: gaps,
           clipStore: _clipStore,
           player: _player,
           // 报告页的鼾声展示门槛存在录音仓库那边（settings 表的唯一所有者）

@@ -401,8 +401,10 @@ void main() {
         home: HomeView(
           localeController: FakeLocaleController(),
           recordingViewModel: RecordingViewModel(controller: built.repository),
-          reportViewModelFactory: (session) => ReportViewModel(
+          reportViewModelFactory: (session, {gaps = const []}) =>
+              ReportViewModel(
             session: session,
+            gaps: gaps,
             clipStore: clipStore,
             player: player,
             // 和 main.dart 一样：门槛存在录音仓库那边

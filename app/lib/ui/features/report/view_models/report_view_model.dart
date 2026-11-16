@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../data/models/sleep_class_map.dart';
 import '../../../../data/services/event_player.dart';
+import '../../../../domain/analysis/night_grouping.dart';
 import '../../../../domain/analysis/snore_display_filter.dart';
 import '../../../../domain/models/recording_session.dart';
 import '../../../../domain/models/ui_message.dart';
@@ -18,6 +19,7 @@ class ReportViewModel extends ChangeNotifier {
     required this._session,
     required this._clipStore,
     required this._settings,
+    this.gaps = const [],
     this._player,
     this.classMap,
   }) {
@@ -32,6 +34,13 @@ class ReportViewModel extends ChangeNotifier {
 
   final RecordingSession _session;
   final AudioClipStore _clipStore;
+
+  /// 同一晚中间停止再开始的空档。单段录音 / 老记录为空。
+  final List<SessionGap> gaps;
+
+  /// 中间醒着的总时长。
+  Duration get awakeDuration =>
+      gaps.fold(Duration.zero, (sum, gap) => sum + gap.duration);
 
   /// 鼾声展示门槛的读写口。
   ///

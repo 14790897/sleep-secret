@@ -58,28 +58,50 @@ class ReportView extends StatelessWidget {
           appBar: AppBar(
             title: Text(context.l10n.reportViewTitle),
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(24),
+              preferredSize: Size.fromHeight(
+                viewModel.gaps.isEmpty ? 24 : 44,
+              ),
               child: Padding(
                 padding: const EdgeInsets.only(left: 16, bottom: 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    context.l10n.reportHeaderStart(
-                          started.year,
-                          started.month,
-                          started.day,
-                          _hhmm(started),
-                        ) +
-                        (session.endedAt != null
-                            ? context.l10n.reportHeaderTotal(
-                                formatSpan(
-                                  session.duration.inSeconds.toDouble(),
-                                ),
-                              )
-                            : ''),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textDim,
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.reportHeaderStart(
+                              started.year,
+                              started.month,
+                              started.day,
+                              _hhmm(started),
+                            ) +
+                            (session.endedAt != null
+                                ? context.l10n.reportHeaderTotal(
+                                    formatSpan(
+                                      session.duration.inSeconds.toDouble(),
+                                    ),
+                                  )
+                                : ''),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.textDim,
+                        ),
+                      ),
+                      // 这一夜中间醒过：报告里的总时长包含这段空档，
+                      // 不标出来就会以为「睡了 7 小时」。
+                      if (viewModel.gaps.isNotEmpty)
+                        Text(
+                          context.l10n.reportHeaderAwake(
+                            viewModel.gaps.length,
+                            formatSpan(
+                              viewModel.awakeDuration.inSeconds.toDouble(),
+                            ),
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.statusWarning,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),

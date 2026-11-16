@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../domain/analysis/night_grouping.dart';
 import '../../../../domain/analysis/sleep_score.dart';
 import '../../../../domain/models/recording_session.dart';
 import '../../../../domain/repositories/locale_controller.dart';
@@ -21,10 +22,12 @@ import '../../trend/views/trend_card.dart';
 /// 会话 -> 报告页 ViewModel 的工厂。
 ///
 /// 外壳不需要知道片段存储和播放器怎么装配，只要求"给一个会话，
-/// 还我一个能用的报告 ViewModel"。
+/// 还我一个能用的报告 ViewModel"。[gaps] 是同一晚中间醒着的空档
+/// （单段录音时为空）。
 typedef ReportViewModelFactory = ReportViewModel Function(
-  RecordingSession session,
-);
+  RecordingSession session, {
+  List<SessionGap> gaps,
+});
 
 /// 应用外壳：底部导航 + 三个页面。
 class HomeView extends StatefulWidget {
@@ -114,6 +117,17 @@ class _HomeViewState extends State<HomeView> {
 
     setState(() => _tab = 1);
     if (id == null) return;
+    // 停止后 sessions 已经重拉过：如果这段和前面的录音属于同一晚，
+    // 直接打开**合并后的那一夜**，和列表里的分组保持一致。
+    SleepNight? night;
+    for (final candidate
+        in groupSessionsIntoNights(widget.recordingViewModel.sessions)) {
+      if (candidate.ids.contains(id)) {
+        night = candidate;
+        break;
+      }
+    }
+    final target = night ?? SleepNight([finished]);
     // 等这一帧把报告 tab 切过去，再推详情页。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -121,7 +135,7 @@ class _HomeViewState extends State<HomeView> {
         context,
         widget.recordingViewModel,
         widget.reportViewModelFactory,
-        finished,
+        target,
       );
     });
   }
@@ -213,12 +227,14 @@ class _ReportListViewState extends State<_ReportListView> {
   @override
   Widget build(BuildContext context) {
     final vm = widget.viewModel;
+    // 同一晚中间停止再开始的几段，展示时合并成一晚；数据仍是一段一条。
+    final nights = groupSessionsIntoNights(vm.sessions).reversed.toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.reportTitle)),
       body: vm.loadingSessions
           ? const Center(child: CircularProgressIndicator())
-          : vm.sessions.isEmpty
+          : nights.isEmpty
           ? _EmptyReports()
           : RefreshIndicator(
               onRefresh: vm.loadSessions,
@@ -240,8 +256,9 @@ class _ReportListViewState extends State<_ReportListView> {
                             ),
                       ),
                     ),
-                  // 趋势放在最上面：只有一晚时它自己会退化成一句提示
-                  TrendCard(sessions: vm.sessions),
+                  // 趋势放在最上面：只有一晚时它自己会退化成一句提示。
+                  // 传合并后的夜，趋势才是一晚一个点。
+                  TrendCard(sessions: [for (final n in nights) n.merged]),
                   const SizedBox(height: 20),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -250,13 +267,15 @@ class _ReportListViewState extends State<_ReportListView> {
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
-                  for (final s in vm.sessions)
+                  for (final night in nights)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _ReportCard(
-                        session: s,
-                        onTap: () => _openReport(s),
-                        onDelete: () => vm.deleteSession(s.id!),
+                        key: HomeKeys.reportCard(night.merged.id!),
+                        session: night.merged,
+                        onTap: () => _openNight(night),
+                        // 一晚可能由多段组成，删除要删整晚
+                        onDelete: () => vm.deleteNight(night.ids),
                       ),
                     ),
                 ],
@@ -265,11 +284,11 @@ class _ReportListViewState extends State<_ReportListView> {
     );
   }
 
-  Future<void> _openReport(RecordingSession summary) => openReportPage(
+  Future<void> _openNight(SleepNight night) => openReportPage(
         context,
         widget.viewModel,
         widget.reportViewModelFactory,
-        summary,
+        night,
       );
 }
 
@@ -278,15 +297,21 @@ Future<void> openReportPage(
   BuildContext context,
   RecordingViewModel viewModel,
   ReportViewModelFactory factory,
-  RecordingSession summary,
+  SleepNight night,
 ) async {
-  // 列表里不带事件，进详情前按 id 取完整数据。
-  final id = summary.id;
-  if (id == null) return;
-  final full = await viewModel.loadSession(id);
-  if (!context.mounted || full == null) return;
+  // 列表里不带事件，进详情前按 id 取完整数据。一晚可能由多段组成，
+  // 每段都要读——拼起来才是这一夜。
+  final loaded = <RecordingSession>[];
+  for (final segment in night.segments) {
+    final id = segment.id;
+    if (id == null) continue;
+    final full = await viewModel.loadSession(id);
+    if (full != null) loaded.add(full);
+  }
+  if (!context.mounted || loaded.isEmpty) return;
 
-  final reportVm = factory(full);
+  final mergedNight = SleepNight(loaded);
+  final reportVm = factory(mergedNight.merged, gaps: mergedNight.gaps);
   await Navigator.of(
     context,
   ).push(MaterialPageRoute(builder: (_) => ReportView(viewModel: reportVm)));
@@ -335,6 +360,7 @@ class _EmptyReports extends StatelessWidget {
 
 class _ReportCard extends StatelessWidget {
   const _ReportCard({
+    super.key,
     required this.session,
     required this.onTap,
     required this.onDelete,
@@ -532,6 +558,10 @@ abstract final class HomeKeys {
 
   /// 报告列表卡片圆环里的数字（评分，或不足 90 分钟时的鼾声指数）。
   static const ValueKey<String> reportCardScore = ValueKey('home-report-score');
+
+  /// 报告列表里的一晚（合并后以第一段的 id 为键）。
+  static ValueKey<String> reportCard(int id) =>
+      ValueKey('home-report-card-$id');
 }
 
 /// 关于页：说明 App 做什么、不做什么，以及音频片段的隐私开关。

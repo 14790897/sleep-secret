@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../helpers/fake_recording_controller.dart';
 import '../helpers/pump_app.dart';
 import 'package:sleep_secret/data/models/sleep_class_map.dart';
+import 'package:sleep_secret/domain/analysis/night_grouping.dart';
 import 'package:sleep_secret/domain/analysis/sleep_score.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
@@ -81,9 +82,12 @@ void main() {
   });
 
   ReportViewModel buildVm(RecordingSession session,
-          {SleepClassMap? classMap, FakeRecordingController? settings}) =>
+          {SleepClassMap? classMap,
+          FakeRecordingController? settings,
+          List<SessionGap> gaps = const []}) =>
       ReportViewModel(
         session: session,
+        gaps: gaps,
         clipStore: clipStore,
         settings: settings ?? FakeRecordingController(),
         player: player,
@@ -131,6 +135,27 @@ void main() {
     expect(find.text('鼾声总时长'), findsOneWidget);
     expect(find.text('4m'), findsWidgets);
     expect(find.text('声音事件'), findsOneWidget);
+  });
+
+  testWidgets('合并夜在头部标出中间醒过几次、共多久', (tester) async {
+    tester.view.physicalSize = const Size(900, 4200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final vm = buildVm(
+      buildSession(),
+      gaps: [
+        SessionGap(
+          start: DateTime(2026, 10, 7, 1),
+          end: DateTime(2026, 10, 7, 1, 12),
+        ),
+      ],
+    );
+    await tester.pumpWidget(localizedApp(home: ReportView(viewModel: vm)));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('中间醒过 1 次 · 12m'), findsOneWidget,
+        reason: '总时长包含醒着的空档，必须标出来');
   });
 
   testWidgets('事件明细显示实际有声时长，鼾声录音卡显示音频长度', (tester) async {

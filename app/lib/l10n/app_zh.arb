@@ -659,6 +659,18 @@
     }
   },
   "reportHeaderTotal": " · 共 {span}",
+  "reportHeaderAwake": "中间醒过 {count} 次 · {span}",
+  "@reportHeaderAwake": {
+    "description": "这一夜由多段录音合并时显示。总时长包含醒着的空档，必须标出来。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "span": {
+        "type": "String"
+      }
+    }
+  },
   "@reportHeaderTotal": {
     "placeholders": {
       "span": {

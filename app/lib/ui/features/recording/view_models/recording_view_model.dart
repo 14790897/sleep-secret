@@ -122,6 +122,14 @@ class RecordingViewModel extends ChangeNotifier {
     await loadSessions();
   }
 
+  /// 删除一晚（可能由多段录音组成）。
+  Future<void> deleteNight(List<int> ids) async {
+    for (final id in ids) {
+      await _controller.deleteSession(id);
+    }
+    await loadSessions();
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();
