@@ -24,6 +24,13 @@
 
 </div>
 
+## 视频介绍
+
+- [基于本地小模型的打鼾睡眠记录开源软件](https://www.bilibili.com/video/BV1etxk65Ea7/)（2:45）——项目总览：动机、端侧推理与报告
+- [Sleep Secret｜把夜晚听清楚：整夜录音，手机本地分析](https://www.bilibili.com/video/BV1gWWY6uEjQ/)（3:24）——功能演示与使用流程
+
+比赛项目介绍见 [COMPETITION.md](COMPETITION.md)。
+
 ## 装到手机上
 
 <a href="https://f-droid.org/packages/com.sleepsecret.sleep_secret/"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="60"></a>

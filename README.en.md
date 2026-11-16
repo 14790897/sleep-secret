@@ -24,6 +24,13 @@ The only exception is if **you** set up Nutstore / WebDAV on the export page —
 
 </div>
 
+## Videos
+
+- [基于本地小模型的打鼾睡眠记录开源软件 (On-device snore recognition, open source)](https://www.bilibili.com/video/BV1etxk65Ea7/) (2:45) — project overview (Chinese)
+- [Sleep Secret｜把夜晚听清楚 (Hearing the night clearly)](https://www.bilibili.com/video/BV1gWWY6uEjQ/) (3:24) — feature walkthrough (Chinese)
+
+Project introduction for the competition (Chinese): [COMPETITION.md](COMPETITION.md).
+
 ## Install
 
 <a href="https://f-droid.org/packages/com.sleepsecret.sleep_secret/"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="60"></a>
