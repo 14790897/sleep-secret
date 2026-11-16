@@ -174,8 +174,13 @@ class _HomeViewState extends State<HomeView> {
               ),
               NavigationDestination(
                 icon: Badge(
-                  isLabelVisible: widget.recordingViewModel.sessions.isNotEmpty,
-                  label: Text('${widget.recordingViewModel.sessions.length}'),
+                  isLabelVisible:
+                      widget.recordingViewModel.sessions.isNotEmpty,
+                  // 数字是「几晚」，不是「几段录音」——列表里合并后是
+                  // 一晚一张卡，角标要和列表对得上。
+                  label: Text(
+                    '${groupSessionsIntoNights(widget.recordingViewModel.sessions).length}',
+                  ),
                   child: const Icon(Icons.bar_chart_outlined),
                 ),
                 selectedIcon: const Icon(Icons.bar_chart),
