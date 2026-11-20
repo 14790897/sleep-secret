@@ -14,7 +14,7 @@ The only exception is if **you** set up Nutstore / WebDAV on the export page —
 
 **Docs**: <https://mygithub.sixiangjia.de/sleep-secret/en/> ([Guide](https://mygithub.sixiangjia.de/sleep-secret/en/guide/) · [Reading the report](https://mygithub.sixiangjia.de/sleep-secret/en/report/) · [Data & privacy](https://mygithub.sixiangjia.de/sleep-secret/en/privacy/))
 
-<img src="docs/screenshots/1-recording-idle.png" width="170" alt="Recording screen, idle: the moon has its eyes open"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="Recording: the moon is asleep, floating Zs"> <img src="docs/screenshots/3-reports.png" width="170" alt="Report list and snore-index trend (the ring is the score)"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="A single night: score, snore index, and the snore display threshold at the top"> <img src="docs/screenshots/6-snore-filter.png" width="170" alt="Snore display threshold at 80%: the whole report follows, with “19 lower-confidence snores are not shown”"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="Detailed view: the raw AudioSet labels the model produced">
+<img src="docs/screenshots/1-recording-idle.png" width="170" alt="Recording screen, idle: the moon has its eyes open"> <img src="docs/screenshots/2-recording-active.png" width="170" alt="Recording: the moon is asleep, floating Zs"> <img src="docs/screenshots/3-reports.png" width="170" alt="Report list and score trend"> <img src="docs/screenshots/4-report-detail.png" width="170" alt="A single night: score and the snore display threshold at the top"> <img src="docs/screenshots/6-snore-filter.png" width="170" alt="Snore display threshold at 80%: the whole report follows, with “19 lower-confidence snores are not shown”"> <img src="docs/screenshots/5-detailed-view.png" width="170" alt="Detailed view: the raw AudioSet labels the model produced">
 
 <br>
 
@@ -47,7 +47,7 @@ Tap once before bed, tap again in the morning, and the report for that night **o
 (If you tap start and immediately stop, and less than 10 seconds of audio was analysed, it asks whether to keep or delete the recording instead of silently leaving an empty night. If you deliberately recorded a short microphone test, choose "Keep".)
 
 - **All-night sound timeline** — when there was sound, what it was, how long it lasted
-- **Snore index** — snoring time as a percentage of analysed time, for comparing nights
+- **Score** — a 0–100 sleep-sound score (how noisy the night was), for comparing nights; snore time is the first component
 - **Category and hourly distributions** — which hours were the loudest
 - **Event details** — time, category and confidence for every event; snore (and, if enabled, sleep-talking) clips can be played back
 

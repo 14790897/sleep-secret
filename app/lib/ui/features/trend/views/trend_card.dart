@@ -38,32 +38,35 @@ class TrendCard extends StatelessWidget {
     return SectionCard(
       title: context.l10n.trendTitle,
       subtitle: context.l10n.trendSubtitle(
-          summary.nights, summary.averageIndex.toStringAsFixed(1)),
+          summary.nights, summary.averageScore.toStringAsFixed(0)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           TrendChart(
             points: points,
-            threshold: summary.averageIndex,
+            threshold: summary.averageScore,
             thresholdLabel: context.l10n.trendYourAverage,
+            unit: context.l10n.scoreUnitSuffix,
+            // 评分是 0–100 的固定量表，固定纵轴才方便跨晚比较。
+            maxValue: 100,
           ),
           const SizedBox(height: 16),
           MetricRow(
             children: [
               MetricTile(
-                value: summary.averageIndex.toStringAsFixed(1),
-                unit: '%',
+                value: summary.averageScore.toStringAsFixed(0),
+                unit: context.l10n.scoreUnitSuffix,
                 label: context.l10n.trendAverage,
               ),
               MetricTile(
-                value: summary.bestIndex.toStringAsFixed(1),
-                unit: '%',
+                value: summary.bestScore.toStringAsFixed(0),
+                unit: context.l10n.scoreUnitSuffix,
                 label: context.l10n.trendBestNight,
                 valueColor: AppColors.statusGood,
               ),
               MetricTile(
-                value: summary.worstIndex.toStringAsFixed(1),
-                unit: '%',
+                value: summary.worstScore.toStringAsFixed(0),
+                unit: context.l10n.scoreUnitSuffix,
                 label: context.l10n.trendWorstNight,
                 valueColor: AppColors.statusCritical,
               ),
@@ -92,15 +95,15 @@ class _ChangeNote extends StatelessWidget {
     final delta = summary.changeFromFirst;
     final (text, color, icon) = summary.improving
         ? (
-            context.l10n.trendDeltaDown(delta.abs().toStringAsFixed(1)),
+            context.l10n.trendDeltaUp(delta.abs().toStringAsFixed(0)),
             AppColors.statusGood,
-            Icons.trending_down
+            Icons.trending_up
           )
         : summary.worsening
             ? (
-                context.l10n.trendDeltaUp(delta.abs().toStringAsFixed(1)),
+                context.l10n.trendDeltaDown(delta.abs().toStringAsFixed(0)),
                 AppColors.statusCritical,
-                Icons.trending_up
+                Icons.trending_down
               )
             : (context.l10n.trendDeltaFlat, AppColors.textDim, Icons.trending_flat);
 

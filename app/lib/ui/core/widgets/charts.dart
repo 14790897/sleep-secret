@@ -186,6 +186,8 @@ class TrendChart extends StatelessWidget {
     this.height = 168,
     this.threshold,
     this.thresholdLabel,
+    this.unit = '',
+    this.maxValue,
   });
 
   final List<TrendPoint> points;
@@ -200,6 +202,12 @@ class TrendChart extends StatelessWidget {
   /// 为 null 时用默认的「参考」——那个词要按语言来，所以默认值不能在
   /// 参数上写死（参数默认值必须是编译期常量）。
   final String? thresholdLabel;
+
+  /// 数值单位后缀（如「分」/「pts」），画在坐标轴和数值标签上。
+  final String unit;
+
+  /// 固定纵轴上限。评分固定用 100，这样不同晚上的图可以直接比较。
+  final double? maxValue;
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +235,8 @@ class TrendChart extends StatelessWidget {
         points: points,
         threshold: threshold,
         thresholdLabel: thresholdLabel ?? context.l10n.chartThresholdLegend,
+        unit: unit,
+        maxValue: maxValue,
       ),
       ),
     );
@@ -238,11 +248,15 @@ class _TrendPainter extends CustomPainter {
     required this.points,
     required this.threshold,
     required this.thresholdLabel,
+    required this.unit,
+    required this.maxValue,
   });
 
   final List<TrendPoint> points;
   final double? threshold;
   final String thresholdLabel;
+  final String unit;
+  final double? maxValue;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -253,11 +267,11 @@ class _TrendPainter extends CustomPainter {
     final plotH = baseline - topPad;
     final plotW = size.width - leftPad;
 
-    final values = points.map((p) => p.snoreIndex).toList();
-    var maxV = values.reduce((a, b) => a > b ? a : b);
+    final values = points.map((p) => p.score).toList();
+    var maxV = maxValue ?? values.reduce((a, b) => a > b ? a : b);
     if (threshold != null) maxV = math.max(maxV, threshold!);
-    // 留点顶部余量，否则最高点会贴着边
-    maxV = maxV <= 0 ? 1.0 : maxV * 1.2;
+    // 留点顶部余量，否则最高点会贴着边。固定上限（如评分 100）时不缩放。
+    if (maxValue == null) maxV = maxV <= 0 ? 1.0 : maxV * 1.2;
 
     double xAt(int i) => leftPad + plotW * (i / (points.length - 1));
     double yAt(double v) => baseline - plotH * (v / maxV);
@@ -266,7 +280,7 @@ class _TrendPainter extends CustomPainter {
     for (final f in const [0.0, 0.5, 1.0]) {
       final y = baseline - plotH * f;
       canvas.drawLine(Offset(leftPad, y), Offset(size.width, y), grid);
-      final tp = label('${(maxV * f).toStringAsFixed(1)}%', AppColors.textDim);
+      final tp = label('${(maxV * f).toStringAsFixed(0)}$unit', AppColors.textDim);
       tp.paint(canvas, Offset(0, y - tp.height / 2));
     }
 
@@ -279,7 +293,7 @@ class _TrendPainter extends CustomPainter {
       for (var x = leftPad; x < size.width; x += 7) {
         canvas.drawLine(Offset(x, y), Offset(math.min(x + 4, size.width), y), dashed);
       }
-      final tp = label('$thresholdLabel ${threshold!.toStringAsFixed(0)}%',
+      final tp = label('$thresholdLabel ${threshold!.toStringAsFixed(0)}$unit',
           AppColors.statusCritical, size: 9);
       tp.paint(canvas, Offset(size.width - tp.width, y - tp.height - 2));
     }
@@ -313,7 +327,7 @@ class _TrendPainter extends CustomPainter {
       canvas.drawCircle(c, r, Paint()..color = AppColors.accent);
 
       if (labelled) {
-        final tp = label('${values[i].toStringAsFixed(1)}%',
+        final tp = label('${values[i].toStringAsFixed(0)}$unit',
             Colors.white, size: 10, bold: true);
         final ty = c.dy - tp.height - 4;
         final tx = (c.dx + tp.width / 2 > size.width)
@@ -349,7 +363,9 @@ class _TrendPainter extends CustomPainter {
   bool shouldRepaint(_TrendPainter old) =>
       old.points != points ||
       old.threshold != threshold ||
-      old.thresholdLabel != thresholdLabel;
+      old.thresholdLabel != thresholdLabel ||
+      old.unit != unit ||
+      old.maxValue != maxValue;
 }
 
 // ---------------------------------------------------------------- 时长分布

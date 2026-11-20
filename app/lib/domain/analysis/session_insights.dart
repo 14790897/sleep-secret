@@ -1,6 +1,7 @@
 import '../models/recording_session.dart';
 import '../models/sleep_category.dart';
 import '../models/sound_event.dart';
+import 'sleep_score.dart';
 
 /// 某个钟点内各类声音的时长。
 class HourBucket {
@@ -142,36 +143,26 @@ List<DurationBin> snoreDurationHistogram(List<SoundEvent> events) {
   ];
 }
 
-/// 趋势图上的一个点，代表一晚。
+/// 趋势图上的一个点，代表一晚的评分。
 class TrendPoint {
-  const TrendPoint({
-    required this.night,
-    required this.snoreIndex,
-    required this.snoreSeconds,
-    required this.snoreEventCount,
-    required this.analyzedSeconds,
-  });
+  const TrendPoint({required this.night, required this.score});
 
   /// 这一晚的开始时刻。
   final DateTime night;
 
-  final double snoreIndex;
-  final double snoreSeconds;
-  final int snoreEventCount;
-  final double analyzedSeconds;
+  /// 这一晚的评分（0–100，越高越好）。
+  final double score;
 }
 
-/// 取出最近若干晚的趋势序列，按时间从旧到新。
+/// 取出最近若干晚的评分趋势，按时间从旧到新。
 ///
-/// 时长为零或没有分析数据的会话会被跳过——它们的鼾声指数是 0/0，
-/// 画上去会得到一个假的"零鼾声"点，比缺一个点更误导。
+/// 拿不到评分的会话（分析时长不足 90 分钟）会被跳过——把它们画成 0 分
+/// 比缺一个点更误导。
 List<TrendPoint> buildTrend(
   List<RecordingSession> sessions, {
   int maxNights = 14,
 }) {
-  final usable = sessions
-      .where((s) => s.stats.analyzedSeconds > 0)
-      .toList()
+  final usable = sessions.where((s) => scoreSession(s) != null).toList()
     ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
 
   final tail =
@@ -179,47 +170,41 @@ List<TrendPoint> buildTrend(
 
   return [
     for (final s in tail)
-      TrendPoint(
-        night: s.startedAt,
-        snoreIndex: s.stats.snoreIndex,
-        snoreSeconds: s.stats.snoreSeconds,
-        snoreEventCount: s.stats.snoreEventCount,
-        analyzedSeconds: s.stats.analyzedSeconds,
-      ),
+      TrendPoint(night: s.startedAt, score: scoreSession(s)!.total.toDouble()),
   ];
 }
 
 /// 趋势的概要：均值、极值、以及改善了还是变差了。
 class TrendSummary {
   const TrendSummary({
-    required this.averageIndex,
-    required this.bestIndex,
-    required this.worstIndex,
+    required this.averageScore,
+    required this.bestScore,
+    required this.worstScore,
     required this.changeFromFirst,
     required this.nights,
   });
 
-  final double averageIndex;
-  final double bestIndex;
-  final double worstIndex;
+  final double averageScore;
+  final double bestScore;
+  final double worstScore;
 
-  /// 最近一晚相对最早一晚的变化（百分点）。正数表示变差。
+  /// 最近一晚相对最早一晚的变化（分）。正数表示变好。
   final double changeFromFirst;
   final int nights;
 
-  bool get improving => changeFromFirst < -0.5;
-  bool get worsening => changeFromFirst > 0.5;
+  bool get improving => changeFromFirst > 0.5;
+  bool get worsening => changeFromFirst < -0.5;
 }
 
 TrendSummary? summarizeTrend(List<TrendPoint> points) {
   if (points.isEmpty) return null;
-  final indices = points.map((p) => p.snoreIndex).toList();
-  final avg = indices.reduce((a, b) => a + b) / indices.length;
+  final scores = points.map((p) => p.score).toList();
+  final avg = scores.reduce((a, b) => a + b) / scores.length;
   return TrendSummary(
-    averageIndex: avg,
-    bestIndex: indices.reduce((a, b) => a < b ? a : b),
-    worstIndex: indices.reduce((a, b) => a > b ? a : b),
-    changeFromFirst: indices.last - indices.first,
+    averageScore: avg,
+    bestScore: scores.reduce((a, b) => a > b ? a : b),
+    worstScore: scores.reduce((a, b) => a < b ? a : b),
+    changeFromFirst: scores.last - scores.first,
     nights: points.length,
   );
 }
