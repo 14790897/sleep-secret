@@ -4,12 +4,13 @@ Every number in the report comes from the model's judgement of 3-second windows 
 nothing else. This page explains how each one is computed, and **what cannot be
 concluded from it**.
 
-## Snore index
+## Snore index (a score component)
 
 > snoring time ÷ analysed time × 100%
 
-A single number for comparing night to night. It only counts time classified as the
-snoring category — breathing, coughing and ambient noise are excluded.
+It only counts time classified as the snoring category — breathing, coughing and
+ambient noise are excluded. It is now the raw value behind the score's "snore ratio"
+deduction and is **no longer the cross-night metric** — compare nights by score.
 
 ## Sleep sound score
 

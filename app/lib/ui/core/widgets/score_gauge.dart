@@ -6,8 +6,8 @@ import '../theme.dart';
 
 /// 环形仪表盘：一个圆环 + 中间的大数字。
 ///
-/// 蜗牛睡眠用这个展示睡眠得分。我们展示的是**鼾声指数**——
-/// 只用真实算得出来的指标，不编造综合评分。
+/// 用来展示睡眠声音评分（0–100，越高越好）。录音太短、拿不到评分时
+/// 传 `formattedValue: '—'` 和 [ringColor]，把圆环置灰，不表达好坏。
 class ScoreGauge extends StatelessWidget {
   const ScoreGauge({
     super.key,
@@ -19,6 +19,7 @@ class ScoreGauge extends StatelessWidget {
     this.size = 148,
     this.maxValue = 100,
     this.higherIsBetter = false,
+    this.ringColor,
   });
 
   /// 当前值，范围 0..[maxValue]。
@@ -45,7 +46,12 @@ class ScoreGauge extends StatelessWidget {
   /// 否则颜色的含义就反了。
   final bool higherIsBetter;
 
-  Color get _ringColor => gaugeColorFor(
+  /// 指定圆环颜色（如拿不到评分时置灰）。为 null 时按 [higherIsBetter] 自动取色。
+  final Color? ringColor;
+
+  Color get _ringColor =>
+      ringColor ??
+      gaugeColorFor(
         value: value,
         maxValue: maxValue,
         higherIsBetter: higherIsBetter,
