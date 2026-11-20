@@ -9,6 +9,7 @@
   "noReportsTitle": "No sleep reports yet",
   "noReportsBody": "Tap the button on the Sleep tab to start recording.\nYour first report shows up here the next morning.",
   "reportCardTime": "{month}/{day}  {time}",
+  "reportCardSleepDuration": "Sleep {duration}",
   "reportCardSummary": "{snoreSegments} snore segments · {snoreSpan} · {eventCount} events",
   "reportCardScoreShort": "Score",
   "reportCardSnoreIndexShort": "Snore index",

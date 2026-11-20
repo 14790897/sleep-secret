@@ -464,6 +464,17 @@ class _ReportCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (session.endedAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        context.l10n.reportCardSleepDuration(
+                          formatSpan(session.duration.inSeconds.toDouble()),
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.textDim,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     Text(
                       context.l10n.reportCardSummary(

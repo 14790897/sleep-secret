@@ -144,6 +144,8 @@ void main() {
     expect(find.text('历史记录'), findsOneWidget);
     expect(find.textContaining('10月6日'), findsOneWidget);
     expect(find.textContaining('10月5日'), findsOneWidget);
+    // 列表项直接能看到这一晚睡了多久
+    expect(find.text('睡眠 8h 0m'), findsWidgets);
     // 两晚以上要出趋势图
     expect(find.text('鼾声指数趋势'), findsOneWidget);
   });
