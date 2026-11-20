@@ -51,7 +51,6 @@
     }
   },
   "reportCardScoreShort": "评分",
-  "reportCardSnoreIndexShort": "鼾声指数",
   "delete": "删除",
   "cancel": "取消",
   "keep": "保留",
@@ -388,9 +387,9 @@
       }
     }
   },
-  "trendTitle": "鼾声指数趋势",
+  "trendTitle": "评分趋势",
   "trendSingleNight": "再记录一晚就能看出变化了。",
-  "trendSubtitle": "最近 {nights} 晚，虚线是你的平均值 {average}%",
+  "trendSubtitle": "最近 {nights} 晚，虚线是你的平均分 {average}",
   "@trendSubtitle": {
     "placeholders": {
       "nights": {
@@ -405,7 +404,7 @@
   "trendAverage": "平均",
   "trendBestNight": "最好一晚",
   "trendWorstNight": "最差一晚",
-  "trendDeltaDown": "比第一晚少了 {delta} 个百分点",
+  "trendDeltaDown": "比第一晚低了 {delta} 分",
   "@trendDeltaDown": {
     "placeholders": {
       "delta": {
@@ -413,7 +412,7 @@
       }
     }
   },
-  "trendDeltaUp": "比第一晚多了 {delta} 个百分点",
+  "trendDeltaUp": "比第一晚高了 {delta} 分",
   "@trendDeltaUp": {
     "placeholders": {
       "delta": {
@@ -421,6 +420,7 @@
       }
     }
   },
+  "scoreUnitSuffix": "分",
   "trendDeltaFlat": "和第一晚基本持平",
   "trendTotalNights": "共 {nights} 晚",
   "@trendTotalNights": {
@@ -689,7 +689,6 @@
     }
   },
   "reportScoreTitle": "睡眠声音评分",
-  "reportSnoreIndex": "鼾声指数",
   "reportTooShortNoScore": "录音太短，暂不计分",
   "reportSnoreTotal": "鼾声总时长",
   "reportSnoreSegments": "共 {count} 段",

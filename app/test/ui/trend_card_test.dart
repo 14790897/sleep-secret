@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../helpers/pump_app.dart';
 import 'package:sleep_secret/domain/analysis/session_insights.dart';
+import 'package:sleep_secret/domain/analysis/sleep_score.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/ui/core/widgets/charts.dart';
@@ -32,6 +33,8 @@ RecordingSession night({
       ),
     );
 
+int scoreOf(RecordingSession s) => scoreSession(s)!.total;
+
 void main() {
   Future<void> pump(WidgetTester tester, List<RecordingSession> sessions) async {
     tester.view.physicalSize = const Size(900, 2400);
@@ -48,7 +51,7 @@ void main() {
   testWidgets('只有一晚时提示还需要一晚', (tester) async {
     await pump(tester, [night(startedAt: DateTime(2026, 10, 6, 23), snoreIndex: 12)]);
 
-    expect(find.text('鼾声指数趋势'), findsOneWidget);
+    expect(find.text('评分趋势'), findsOneWidget);
     expect(find.textContaining('再记录一晚'), findsOneWidget);
     expect(find.byType(TrendChart), findsNothing);
   });
@@ -56,50 +59,62 @@ void main() {
   testWidgets('没有记录时整张卡不渲染', (tester) async {
     await pump(tester, const []);
 
-    expect(find.text('鼾声指数趋势'), findsNothing);
+    expect(find.text('评分趋势'), findsNothing);
   });
 
-  testWidgets('多晚时渲染趋势图与统计', (tester) async {
-    await pump(tester, [
+  testWidgets('多晚时渲染评分趋势图与统计', (tester) async {
+    final sessions = [
       night(startedAt: DateTime(2026, 9, 30, 23), snoreIndex: 25),
       night(startedAt: DateTime(2026, 10, 2, 23), snoreIndex: 20),
       night(startedAt: DateTime(2026, 10, 4, 23), snoreIndex: 15),
       night(startedAt: DateTime(2026, 10, 6, 23), snoreIndex: 6),
-    ]);
+    ];
+    final scores = sessions.map(scoreOf).toList();
+    final avg = (scores.reduce((a, b) => a + b) / scores.length).round();
+    final best = scores.reduce((a, b) => a > b ? a : b);
+    final worst = scores.reduce((a, b) => a < b ? a : b);
+
+    await pump(tester, sessions);
 
     expect(find.byType(TrendChart), findsOneWidget);
-    expect(find.text('最近 4 晚，虚线是你的平均值 16.5%'), findsOneWidget);
+    expect(find.text('最近 4 晚，虚线是你的平均分 $avg'), findsOneWidget);
     expect(find.text('平均'), findsOneWidget);
     expect(find.text('最好一晚'), findsOneWidget);
     expect(find.text('最差一晚'), findsOneWidget);
-    expect(find.text('25.0'), findsOneWidget); // 最差
-    expect(find.text('6.0'), findsOneWidget); // 最好
+    expect(find.text('$best'), findsWidgets); // 评分越高越好
+    expect(find.text('$worst'), findsWidgets);
   });
 
-  testWidgets('变好时给出下降结论', (tester) async {
-    await pump(tester, [
+  testWidgets('评分变高时给出上升结论', (tester) async {
+    final sessions = [
       night(startedAt: DateTime(2026, 10, 4, 23), snoreIndex: 22),
       night(startedAt: DateTime(2026, 10, 6, 23), snoreIndex: 8),
-    ]);
+    ];
+    final delta = (scoreOf(sessions[1]) - scoreOf(sessions[0])).abs();
 
-    expect(find.textContaining('比第一晚少了 14.0 个百分点'), findsOneWidget);
-    expect(find.byIcon(Icons.trending_down), findsOneWidget);
+    await pump(tester, sessions);
+
+    expect(find.textContaining('比第一晚高了 $delta 分'), findsOneWidget);
+    expect(find.byIcon(Icons.trending_up), findsOneWidget);
   });
 
-  testWidgets('变差时给出上升结论', (tester) async {
-    await pump(tester, [
+  testWidgets('评分变低时给出下降结论', (tester) async {
+    final sessions = [
       night(startedAt: DateTime(2026, 10, 4, 23), snoreIndex: 5),
       night(startedAt: DateTime(2026, 10, 6, 23), snoreIndex: 19),
-    ]);
+    ];
+    final delta = (scoreOf(sessions[1]) - scoreOf(sessions[0])).abs();
 
-    expect(find.textContaining('比第一晚多了 14.0 个百分点'), findsOneWidget);
-    expect(find.byIcon(Icons.trending_up), findsOneWidget);
+    await pump(tester, sessions);
+
+    expect(find.textContaining('比第一晚低了 $delta 分'), findsOneWidget);
+    expect(find.byIcon(Icons.trending_down), findsOneWidget);
   });
 
   testWidgets('基本持平时不给方向性结论', (tester) async {
     await pump(tester, [
       night(startedAt: DateTime(2026, 10, 4, 23), snoreIndex: 10),
-      night(startedAt: DateTime(2026, 10, 6, 23), snoreIndex: 10.2),
+      night(startedAt: DateTime(2026, 10, 6, 23), snoreIndex: 10),
     ]);
 
     expect(find.text('和第一晚基本持平'), findsOneWidget);
@@ -114,8 +129,8 @@ void main() {
       night(startedAt: DateTime(2026, 10, 6, 23), snoreIndex: 10),
     ]);
 
-    // 副标题已经写明是平均值，图里的线必须一致
-    expect(find.textContaining('你的平均值'), findsOneWidget);
+    // 副标题已经写明是平均分，图里的线必须一致
+    expect(find.textContaining('你的平均分'), findsWidgets);
   });
 
   group('空态与边界', () {

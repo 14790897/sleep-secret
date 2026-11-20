@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sleep_secret/domain/analysis/session_insights.dart';
+import 'package:sleep_secret/domain/analysis/sleep_score.dart';
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
@@ -169,8 +170,8 @@ void main() {
       expect(trend.map((p) => p.night.day), [1, 3, 6]);
     });
 
-    test('跳过没有分析数据的会话', () {
-      // analyzedSeconds 为 0 时鼾声指数是 0/0，画上去是个假的"零鼾声"点
+    test('跳过拿不到评分的会话', () {
+      // 分析时长为 0 时评分不可用，画上去会得到一个假的 0 分点
       final trend = buildTrend([
         sess(startedAt: DateTime(2026, 10, 1, 23), analyzedSeconds: 0),
         sess(startedAt: DateTime(2026, 10, 2, 23), analyzedSeconds: 28800),
@@ -198,28 +199,24 @@ void main() {
       expect(buildTrend(const []), isEmpty);
     });
 
-    test('鼾声指数取自会话统计', () {
-      final trend = buildTrend([
-        sess(
-          startedAt: DateTime(2026, 10, 6, 23),
-          analyzedSeconds: 36000,
-          snoreSeconds: 3600,
-        ),
-      ]);
+    test('评分取自会话的睡眠声音评分', () {
+      final session = sess(
+        startedAt: DateTime(2026, 10, 6, 23),
+        analyzedSeconds: 36000,
+        snoreSeconds: 3600,
+      );
+      final trend = buildTrend([session]);
 
-      expect(trend.single.snoreIndex, closeTo(10.0, 1e-9));
+      expect(trend.single.score, scoreSession(session)!.total.toDouble());
     });
   });
 
   group('summarizeTrend', () {
-    List<TrendPoint> points(List<double> indices) => [
-          for (var i = 0; i < indices.length; i++)
+    List<TrendPoint> points(List<double> scores) => [
+          for (var i = 0; i < scores.length; i++)
             TrendPoint(
               night: DateTime(2026, 10, 1 + i, 23),
-              snoreIndex: indices[i],
-              snoreSeconds: indices[i] * 288,
-              snoreEventCount: 1,
-              analyzedSeconds: 28800,
+              score: scores[i],
             ),
         ];
 
@@ -230,22 +227,23 @@ void main() {
     test('均值与极值正确', () {
       final s = summarizeTrend(points([5, 15, 10]))!;
 
-      expect(s.averageIndex, closeTo(10, 1e-9));
-      expect(s.bestIndex, 5);
-      expect(s.worstIndex, 15);
+      expect(s.averageScore, closeTo(10, 1e-9));
+      // 评分越高越好：最好一晚是最高分
+      expect(s.bestScore, 15);
+      expect(s.worstScore, 5);
       expect(s.nights, 3);
     });
 
-    test('识别改善', () {
-      final s = summarizeTrend(points([20, 15, 8]))!;
+    test('识别改善（评分变高）', () {
+      final s = summarizeTrend(points([8, 15, 20]))!;
 
-      expect(s.changeFromFirst, closeTo(-12, 1e-9));
+      expect(s.changeFromFirst, closeTo(12, 1e-9));
       expect(s.improving, isTrue);
       expect(s.worsening, isFalse);
     });
 
-    test('识别变差', () {
-      final s = summarizeTrend(points([5, 10, 18]))!;
+    test('识别变差（评分变低）', () {
+      final s = summarizeTrend(points([18, 10, 5]))!;
 
       expect(s.worsening, isTrue);
       expect(s.improving, isFalse);

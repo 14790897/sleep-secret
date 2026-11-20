@@ -136,6 +136,28 @@ jobs:
 
       - run: flutter pub get
 
+      # flutter_onnxruntime 1.9.0 在 Windows 构建时从
+      # github.com/microsoft/onnxruntime/releases 下载 zip；该仓库现在 404
+      # （2026-11-20 实测），下载失败会让 CMake 报「extraction directory
+      # doesn't exist」。改从 NuGet 取同样的二进制，预填插件期望的目录，
+      # CMake 看到 include 已存在就会跳过下载。
+      #
+      # 目录名里的 1.28.3 是插件里的默认版本常量，只当路径用；实际链接的是
+      # NuGet 包里的 1.22.0（C API 稳定，不影响现有调用）。
+      - name: 提供 Windows 版 ONNX Runtime
+        shell: pwsh
+        run: |
+          $ver = "1.22.0"
+          $zip = Join-Path $env:RUNNER_TEMP "onnxruntime.zip"
+          $dir = Join-Path $env:RUNNER_TEMP "onnxruntime"
+          Invoke-WebRequest "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ver" -OutFile $zip
+          Expand-Archive $zip -DestinationPath $dir -Force
+          $dest = "build/windows/x64/plugins/flutter_onnxruntime/onnxruntime/onnxruntime-win-x64-1.28.3"
+          New-Item -ItemType Directory -Force -Path "$dest/include", "$dest/lib" | Out-Null
+          Copy-Item "$dir/build/native/include/*" "$dest/include/"
+          Copy-Item "$dir/runtimes/win-x64/native/onnxruntime.dll" "$dest/lib/"
+          Copy-Item "$dir/runtimes/win-x64/native/onnxruntime.lib" "$dest/lib/"
+
       # ⚠️ 这条能不能在托管 runner 上跑起来，取决于**有没有可用的桌面会话**。
       # 需要窗口才能建出来的东西会在这里失败——失败了看日志确认是环境问题
       # 还是代码问题，别直接删掉这一步。

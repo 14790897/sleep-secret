@@ -256,8 +256,8 @@ class _SnoreFilterCardState extends State<_SnoreFilterCard> {
 
 /// 头部：环形评分 + 两个关键数字。
 ///
-/// 有评分时圆环显示评分（越高越好），录音太短拿不到评分时退回显示鼾声指数。
-/// 标签会跟着变，不会让人误读同一个圆环。
+/// 统一用评分这一个指标；录音太短拿不到评分时圆环显示「—」，
+/// 不再退回鼾声指数——两个数替来替去只会让人误读。
 class _OverviewCard extends StatelessWidget {
   const _OverviewCard({required this.session});
 
@@ -281,11 +281,14 @@ class _OverviewCard extends StatelessWidget {
                 higherIsBetter: true,
               )
             else
+              // 统一用评分这一个指标：录音太短拿不到分时显示「—」，
+              // 不再退回鼾声指数——两个数替来替去只会让人误读。
               ScoreGauge(
-                value: stats.snoreIndex.clamp(0, 100),
-                label: context.l10n.reportSnoreIndex,
-                formattedValue: stats.snoreIndex.toStringAsFixed(1),
-                unit: '%',
+                value: 0,
+                label: context.l10n.reportScoreTitle,
+                formattedValue: '—',
+                higherIsBetter: true,
+                ringColor: AppColors.textDim,
                 subLabel: context.l10n.reportTooShortNoScore,
               ),
             const SizedBox(width: 20),
@@ -293,12 +296,6 @@ class _OverviewCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  MetricTile(
-                    value: stats.snoreIndex.toStringAsFixed(1),
-                    unit: '%',
-                    label: context.l10n.reportSnoreIndex,
-                  ),
-                  const SizedBox(height: 14),
                   MetricTile(
                     value: formatSpan(stats.snoreSeconds),
                     label: context.l10n.reportSnoreTotal,
