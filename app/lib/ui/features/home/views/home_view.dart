@@ -237,13 +237,14 @@ class _ReportListViewState extends State<_ReportListView> {
 
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.reportTitle)),
-      body: vm.loadingSessions
+      body: vm.loadingSessions && nights.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : nights.isEmpty
           ? _EmptyReports()
           : RefreshIndicator(
               onRefresh: vm.loadSessions,
               child: ListView(
+                key: const PageStorageKey<String>('report-list'),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
                   // 门槛生效时数字是筛过的，这个原因必须在列表这一层就看得见，
