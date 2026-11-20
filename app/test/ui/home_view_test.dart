@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -142,8 +144,55 @@ void main() {
     expect(find.text('历史记录'), findsOneWidget);
     expect(find.textContaining('10月6日'), findsOneWidget);
     expect(find.textContaining('10月5日'), findsOneWidget);
+    // 列表项直接能看到这一晚睡了多久
+    expect(find.text('睡眠 8h 0m'), findsWidgets);
     // 两晚以上要出趋势图
     expect(find.text('评分趋势'), findsOneWidget);
+  });
+
+  testWidgets('已有数据时刷新列表，不收起列表也不重置滚动位置', (tester) async {
+    // 从详情页返回会触发一次 loadSessions；以前 loadingSessions 一置位
+    // 整个 body 被 spinner 顶掉，ListView 销毁，滚动位置回到顶部。
+    tester.view.physicalSize = const Size(900, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    controller.sessions = [
+      for (var i = 0; i < 20; i++)
+        night(id: i + 1, startedAt: DateTime(2026, 10, 20 - i, 23)),
+    ];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    final list = find.byKey(const PageStorageKey<String>('report-list'));
+    expect(list, findsOneWidget);
+
+    await tester.drag(list, const Offset(0, -400));
+    await tester.pumpAndSettle();
+
+    ScrollableState scrollable() => tester.state<ScrollableState>(
+          find.descendant(of: list, matching: find.byType(Scrollable)),
+        );
+    final before = scrollable().position.pixels;
+    expect(before, greaterThan(0));
+
+    // 挂起刷新，观察「加载中」这一帧
+    controller.blockList = Completer<void>();
+    final refresh = recordingVm.loadSessions();
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byKey(const PageStorageKey<String>('report-list')),
+        findsOneWidget);
+    expect(scrollable().position.pixels, closeTo(before, 1));
+
+    controller.blockList!.complete();
+    await refresh;
+    await tester.pumpAndSettle();
+    expect(scrollable().position.pixels, closeTo(before, 1));
   });
 
   testWidgets('门槛生效时，列表顶部写明统计是按门槛筛的', (tester) async {

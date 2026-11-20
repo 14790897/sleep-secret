@@ -24,6 +24,16 @@
       }
     }
   },
+  "reportCardSleepDuration": "睡眠 {duration}",
+  "@reportCardSleepDuration": {
+    "description": "报告卡上的睡眠时长",
+    "placeholders": {
+      "duration": {
+        "type": "String",
+        "example": "7 小时 12 分"
+      }
+    }
+  },
   "reportCardSummary": "鼾声 {snoreSegments} 段 · {snoreSpan} · {eventCount} 个事件",
   "@reportCardSummary": {
     "description": "报告卡上的第二行",
