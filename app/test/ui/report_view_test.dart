@@ -125,13 +125,16 @@ void main() {
   Finder inCard(ValueKey<String> card, Finder matching) =>
       find.descendant(of: find.byKey(card), matching: matching);
 
-  testWidgets('头部展示鼾声指数与关键数字', (tester) async {
-    await pumpReport(tester, buildSession());
+  testWidgets('头部展示评分与关键数字', (tester) async {
+    final session = buildSession();
+    await pumpReport(tester, session);
+    final score = scoreSession(session)!.total;
 
-    // 鼾声指数 = 240 / 28800 * 100 = 0.83%
     expect(find.byType(ScoreGauge), findsOneWidget);
-    expect(find.text('0.8'), findsOneWidget);
-    expect(find.text('鼾声指数'), findsOneWidget);
+    expect(find.text('$score'), findsOneWidget);
+    expect(find.text('睡眠声音评分'), findsWidgets);
+    // 统一用评分这一个指标：鼾声指数不再单独显示
+    expect(find.text('鼾声指数'), findsNothing);
     expect(find.text('鼾声总时长'), findsOneWidget);
     expect(find.text('4m'), findsWidgets);
     expect(find.text('声音事件'), findsOneWidget);
@@ -688,8 +691,9 @@ void main() {
 
       expect(scoreSession(short), isNull);
       expect(find.textContaining('不给出评分'), findsOneWidget);
-      // 退回显示鼾声指数，并注明为什么
-      expect(find.text('鼾声指数'), findsWidgets);
+      // 统一用评分：拿不到分时圆环显示「—」，不再退回鼾声指数
+      expect(find.text('—'), findsOneWidget);
+      expect(find.text('鼾声指数'), findsNothing);
       expect(find.textContaining('录音太短'), findsOneWidget);
     });
 

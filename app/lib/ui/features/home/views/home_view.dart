@@ -386,17 +386,13 @@ class _ReportCard extends StatelessWidget {
     final s = session.stats;
     final started = session.startedAt;
 
-    // 圆环显示**评分**——和详情页左侧那个大环是同一个数。评分不可用
-    // （分析时长不足 90 分钟）时，详情页改显示鼾声指数，这里也照做。
-    // 两种情况都带一个小标签，免得把两个指标当成同一个数。
+    // 列表只用一个指标：评分（和详情页左侧大环是同一个数）。
+    // 录音太短拿不到评分时显示「—」，不再退回鼾声指数——
+    // 两个指标换着显示，读的人分不清这个圆环到底代表什么。
     final score = scoreSession(session);
-    final ringValue =
-        score != null ? score.total.toDouble() : s.snoreIndex.clamp(0.0, 100.0);
-    final ringText =
-        score != null ? '${score.total}' : s.snoreIndex.toStringAsFixed(1);
-    final ringLabel = score != null
-        ? context.l10n.reportCardScoreShort
-        : context.l10n.reportCardSnoreIndexShort;
+    final ringValue = score != null ? score.total.toDouble() : 0.0;
+    final ringText = score != null ? '${score.total}' : '—';
+    final ringLabel = context.l10n.reportCardScoreShort;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -413,11 +409,10 @@ class _ReportCard extends StatelessWidget {
                 child: CustomPaint(
                   painter: _MiniRingPainter(
                     progress: (ringValue / 100).clamp(0.0, 1.0),
-                    // 评分的颜色方向和鼾声指数相反：高分是好。
-                    color: gaugeColorFor(
-                      value: ringValue,
-                      higherIsBetter: score != null,
-                    ),
+                    // 评分越高越好；拿不到分时圆环置灰，不表达好坏。
+                    color: score != null
+                        ? gaugeColorFor(value: ringValue, higherIsBetter: true)
+                        : AppColors.textDim,
                   ),
                   child: Center(
                     child: Column(

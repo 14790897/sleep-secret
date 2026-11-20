@@ -143,7 +143,7 @@ void main() {
     expect(find.textContaining('10月6日'), findsOneWidget);
     expect(find.textContaining('10月5日'), findsOneWidget);
     // 两晚以上要出趋势图
-    expect(find.text('鼾声指数趋势'), findsOneWidget);
+    expect(find.text('评分趋势'), findsOneWidget);
   });
 
   testWidgets('门槛生效时，列表顶部写明统计是按门槛筛的', (tester) async {
@@ -198,7 +198,7 @@ void main() {
     expect(find.text('评分'), findsWidgets);
   });
 
-  testWidgets('不足 90 分钟时列表卡片显示鼾声指数（和详情页同一规则）', (tester) async {
+  testWidgets('不足 90 分钟时列表卡片显示「—」，不换指标', (tester) async {
     useTallViewport(tester);
     final session = night(
       id: 1,
@@ -214,8 +214,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final ring = tester.widget<Text>(find.byKey(HomeKeys.reportCardScore));
-    expect(ring.data, session.stats.snoreIndex.toStringAsFixed(1));
-    expect(find.text('鼾声指数'), findsWidgets);
+    expect(ring.data, '—');
+    expect(find.text('评分'), findsWidgets);
+    expect(find.text('鼾声指数'), findsNothing);
   });
 
   testWidgets('从报告页返回后会重拉列表（门槛可能改过）', (tester) async {
