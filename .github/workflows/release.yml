@@ -207,6 +207,25 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      # 与 ci.yml 相同：flutter_onnxruntime 1.9.0 从 microsoft/onnxruntime
+      # 的 GitHub Release 下载 ORT，而上游已 404（#45）。改从 NuGet 取，
+      # 预填插件期望的目录，CMake 看到 include 已存在就会跳过下载。
+      # 目录名里的 1.28.3 是插件常量，只当路径用；实际链接 NuGet 的 1.22.0。
+      - name: 提供 Windows 版 ONNX Runtime
+        working-directory: app
+        shell: pwsh
+        run: |
+          $ver = "1.22.0"
+          $zip = Join-Path $env:RUNNER_TEMP "onnxruntime.zip"
+          $dir = Join-Path $env:RUNNER_TEMP "onnxruntime"
+          Invoke-WebRequest "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ver" -OutFile $zip
+          Expand-Archive $zip -DestinationPath $dir -Force
+          $dest = "build/windows/x64/plugins/flutter_onnxruntime/onnxruntime/onnxruntime-win-x64-1.28.3"
+          New-Item -ItemType Directory -Force -Path "$dest/include", "$dest/lib" | Out-Null
+          Copy-Item "$dir/build/native/include/*" "$dest/include/"
+          Copy-Item "$dir/runtimes/win-x64/native/onnxruntime.dll" "$dest/lib/"
+          Copy-Item "$dir/runtimes/win-x64/native/onnxruntime.lib" "$dest/lib/"
+
       - name: 构建 Windows 桌面版
         working-directory: app
         run: flutter build windows --release
