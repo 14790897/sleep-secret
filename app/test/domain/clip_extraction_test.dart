@@ -349,6 +349,132 @@ void main() {
     });
   });
 
+  group('诊断片段', () {
+    FakeSleepAnalyzer ambientAnalyzer() => FakeSleepAnalyzer(
+          responder: (_) => FakeSleepAnalyzer.prediction(categories: const {
+            SleepCategory.ambient: 0.9,
+            SleepCategory.snore: 0.05,
+          }),
+        );
+
+    AnalysisConfig diagnosticConfig({int cap = 200 * 1024 * 1024}) =>
+        testConfig.copyWith(
+          recordDiagnosticClips: true,
+          diagnosticClipNightCapBytes: cap,
+        );
+
+    test('默认关闭：非鼾声事件不落盘', () async {
+      final engine = engineWith(analyzer: ambientAnalyzer());
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: loud, length: 16000 * 6));
+      final outcome = await engine.finish();
+
+      expect(outcome.events, isNotEmpty);
+      expect(outcome.events.first.label, SleepCategory.ambient);
+      expect(store.saved, isEmpty);
+      expect(outcome.events.first.clipPath, isNull);
+    });
+
+    test('打开后短事件保存实际长度，并回填路径', () async {
+      final engine = engineWith(
+        analyzer: ambientAnalyzer(),
+        config: diagnosticConfig(),
+      );
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: loud, length: 16000 * 6));
+      final outcome = await engine.finish();
+
+      expect(store.saved.length, 1);
+      expect(outcome.events.first.clipPath, isNotNull);
+      expect(store.saved.values.single.length / 16000, closeTo(6, 1));
+      expect(engine.clipsSaved, 1);
+    });
+
+    test('长事件只留最响窗口结尾的 60 秒', () async {
+      final engine = engineWith(
+        analyzer: ambientAnalyzer(),
+        // 关掉 VAD，否则中间那段安静会被跳过、事件断开
+        config: testConfig.copyWith(
+          recordDiagnosticClips: true,
+          vadEnabled: false,
+        ),
+      );
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      // 先开一个事件，中间长时间安静（仍属于这段），
+      // 最后来一段更响的——样本应该以它结尾。
+      await engine.feedSamples(tone(amplitude: 0.2, length: 16000 * 3));
+      await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 70));
+      await engine.feedSamples(tone(amplitude: 0.8, length: 16000 * 3));
+      final outcome = await engine.finish();
+
+      final saved = store.saved.values.single;
+      expect(saved.length / 16000, closeTo(60, 1));
+      var peak = 0.0;
+      for (final v in saved) {
+        if (v.abs() > peak) peak = v.abs();
+      }
+      expect(peak, closeTo(0.8, 0.05),
+          reason: '样本必须包含事件里最响的那一段，否则诊断没有意义');
+      expect(outcome.events.first.clipPath, isNotNull);
+    });
+
+    test('超过每晚上限后停止保存并计数', () async {
+      final engine = engineWith(
+        analyzer: FakeSleepAnalyzer(
+          responder: (s) => EnergyVad.rms(s) > 0.35
+              ? FakeSleepAnalyzer.prediction(categories: const {
+                  SleepCategory.cough: 0.9,
+                  SleepCategory.ambient: 0.05,
+                })
+              : FakeSleepAnalyzer.prediction(categories: const {
+                  SleepCategory.ambient: 0.9,
+                  SleepCategory.snore: 0.05,
+                }),
+        ),
+        // 6 秒片段约 192 KB；上限只够一段
+        config: diagnosticConfig(cap: 250 * 1024),
+      );
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: 0.2, length: 16000 * 6));
+      await engine.feedSamples(tone(amplitude: 0.5, length: 16000 * 6));
+      await engine.finish();
+
+      expect(store.saved.length, 1, reason: '第二段应该被每晚上限挡住');
+      expect(engine.diagnosticClipCapHits, 1);
+      expect(engine.clipsSkipped, greaterThanOrEqualTo(1));
+
+      // 引擎跨录音复用：上限必须按「一晚」清零，不能跨夜累计
+      engine.reset();
+      expect(engine.diagnosticClipCapHits, 0);
+    });
+
+    test('诊断开关不会把梦话录下来', () async {
+      final engine = engineWith(
+        analyzer: FakeSleepAnalyzer(
+          responder: (_) => FakeSleepAnalyzer.prediction(categories: const {
+            SleepCategory.vocal: 0.9,
+            SleepCategory.ambient: 0.05,
+          }),
+        ),
+        config: diagnosticConfig(),
+      );
+      engine.recordVocalClips = false;
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: loud, length: 16000 * 6));
+      final outcome = await engine.finish();
+
+      expect(outcome.events, isNotEmpty);
+      expect(store.saved, isEmpty,
+          reason: '梦话是说话内容，关掉梦话片段后诊断开关也不能留语音');
+      expect(outcome.events.first.clipPath, isNull);
+    });
+  });
+
   group('完整一夜的片段归属', () {
     test('每段鼾声各得一个片段，路径互不相同', () async {
       final engine = engineWith();

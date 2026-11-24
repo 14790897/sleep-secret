@@ -101,6 +101,14 @@ class RecordingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 是否为非鼾声事件保留诊断片段（默认关闭）。
+  bool get recordDiagnosticClips => _controller.recordDiagnosticClips;
+
+  Future<void> setRecordDiagnosticClips(bool enabled) async {
+    await _controller.setRecordDiagnosticClips(enabled);
+    notifyListeners();
+  }
+
   /// 是否启用能量门控（安静段跳过）。
   bool get vadEnabled => _controller.vadEnabled;
 

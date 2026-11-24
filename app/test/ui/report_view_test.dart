@@ -595,6 +595,24 @@ void main() {
           reason: '不打鼾还占一张卡，就是往报告里塞噪音');
     });
 
+    testWidgets('诊断片段按 60 秒上限计入「可听」，不拿事件时长虚报', (tester) async {
+      // 一条环境噪音事件可能有 10 分钟，但诊断样本只有 60 秒。
+      // 汇总要是按事件时长算，用户会以为有 10 分钟可以听。
+      await pumpReport(tester, buildSession(events: [
+        event(
+          label: SleepCategory.ambient,
+          start: 100,
+          duration: 600,
+          clipPath: 'sess/a.wav',
+        ),
+      ]));
+
+      expect(find.byKey(ReportKeys.snoreClips), findsOneWidget);
+      expect(find.textContaining('共 1 段 · 1 分'), findsOneWidget,
+          reason: '可听时长必须按片段本身算');
+      expect(find.textContaining('共 1 段 · 10 分'), findsNothing);
+    });
+
     testWidgets('打了鼾却一段录音都没有 —— 说清楚为什么', (tester) async {
       // 用户把「保留鼾声片段」关了，或者那是关闭之前的记录。
       // 不给理由的话，「怎么没有」会变成一个谜。

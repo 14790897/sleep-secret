@@ -73,6 +73,7 @@ class RecordingRepository implements RecordingController {
 
   static const String _kRecordClips = 'record_clips';
   static const String _kRecordVocalClips = 'record_vocal_clips';
+  static const String _kRecordDiagnosticClips = 'record_diagnostic_clips';
   static const String _kVadEnabled = 'vad_enabled';
   static const String _kVadThresholdDb = 'vad_threshold_db';
   static const String _kSnoreThresholdPercent = 'snore_threshold_percent';
@@ -86,6 +87,9 @@ class RecordingRepository implements RecordingController {
 
   /// 梦话片段。默认保留；梦话是说话内容，用户可以单独关掉。
   bool _recordVocalClips = true;
+
+  /// 非鼾声事件的诊断片段。默认关闭。
+  bool _recordDiagnosticClips = false;
 
   /// 能量门控。没拨过时用 [AnalysisConfig.vadEnabled] 的默认值。
   bool _vadEnabled = false;
@@ -305,6 +309,17 @@ class RecordingRepository implements RecordingController {
   }
 
   @override
+  bool get recordDiagnosticClips => _recordDiagnosticClips;
+
+  @override
+  Future<void> setRecordDiagnosticClips(bool enabled) async {
+    _recordDiagnosticClips = enabled;
+    _engine.recordDiagnosticClips = enabled;
+    await _database.open();
+    await _database.writeBoolSetting(_kRecordDiagnosticClips, enabled);
+  }
+
+  @override
   bool get vadEnabled => _vadEnabled;
 
   @override
@@ -358,6 +373,11 @@ class RecordingRepository implements RecordingController {
     _recordVocalClips =
         await _database.readBoolSetting(_kRecordVocalClips, fallback: true);
     _engine.recordVocalClips = _recordVocalClips;
+    _recordDiagnosticClips = await _database.readBoolSetting(
+      _kRecordDiagnosticClips,
+      fallback: false,
+    );
+    _engine.recordDiagnosticClips = _recordDiagnosticClips;
     _vadEnabled =
         await _database.readBoolSetting(_kVadEnabled, fallback: _vadDefault);
     _engine.vadEnabled = _vadEnabled;
