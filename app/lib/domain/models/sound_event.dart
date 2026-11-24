@@ -91,6 +91,14 @@ class SoundEvent {
 
   bool get isSnore => label == SleepCategory.snore;
 
+  /// 这个类别的片段是**整段保留**的（鼾声、高危信号、梦话）。
+  ///
+  /// 其余类别只有用户打开「诊断片段」时才留音频，长度以
+  /// `kDiagnosticClipSeconds` 为上限——界面上汇总「可听多久」必须用
+  /// 实际片段长度，不能拿事件时长代替。
+  bool get keepsFullClip =>
+      isSnore || isSignal || label == SleepCategory.vocal;
+
   bool get hasClip => clipPath != null && clipPath!.isNotEmpty;
 
   /// 补上片段路径。片段是在事件定案后才写盘的，所以事件本身先于片段存在。

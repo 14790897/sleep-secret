@@ -90,9 +90,11 @@
   "clipOff": "不保留任何音频",
   "clipOnSubtitle": "整段保留，约每分钟 1.9 MB，存在应用私有目录里",
   "clipOffSubtitle": "分析完即丢弃，历史记录里无法试听",
-  "clipOnBody": "鼾声和倒吸气这类呼吸信号会**整段**留下——报告里显示多久，就能听到多久。咳嗽不保留；梦话默认保留，可在上面单独关掉。\n\n音频是 16kHz 单声道 WAV，约每分钟 1.9 MB：打鼾 20 分钟的一夜约 38 MB。存在应用私有目录，其他应用读不到；删除某晚记录时会连同片段一起删掉。",
+  "clipOnBody": "鼾声和倒吸气这类呼吸信号会**整段**留下——报告里显示多久，就能听到多久。咳嗽默认不保留（打开下面的「诊断片段」后会留最多 60 秒）；梦话默认保留，可在上面单独关掉。\n\n音频是 16kHz 单声道 WAV，约每分钟 1.9 MB：打鼾 20 分钟的一夜约 38 MB。存在应用私有目录，其他应用读不到；删除某晚记录时会连同片段一起删掉。",
   "clipVocalTitle": "也保留梦话片段",
   "clipVocalSubtitle": "梦话是说话内容，默认保留；关掉后不再保存，同样只存在应用私有目录",
+  "clipDiagnosticTitle": "为其他声音保留诊断片段",
+  "clipDiagnosticSubtitle": "环境噪音、呼吸声等每段最多 60 秒，每晚最多 200 MB；用来确认模型有没有把鼾声认错",
   "clipOffBody": "关掉之后 App 不写出任何音频文件，只保留事件的时间点和类别。",
   "vadCardTitle": "安静段跳过",
   "vadCardSubtitle": "安静的部分要不要送进模型",
@@ -747,7 +749,7 @@
   "clipPlayerUnreadable": "这段音频读不出来——文件可能已经不在了",
   "clipPlayerExcerpt": "这一段声音全长 {total} 秒，保留了其中 {clip} 秒——拖波形可以跳着听。",
   "@clipPlayerExcerpt": {
-    "description": "片段正常就是整段事件，只有超过 maxEventClipSeconds（20 分钟）的失控情况才会比事件短。**不要说「末尾」**：截断时留下的是开头，说末尾会误导。",
+    "description": "片段正常是整段事件；比事件短有两种情况：超过 maxEventClipSeconds（20 分钟）的截断，或非鼾声事件只保留 60 秒诊断样本。**不要说「末尾」**：两种情况保留的位置不同，说末尾会误导。",
     "placeholders": {
       "total": {
         "type": "int"

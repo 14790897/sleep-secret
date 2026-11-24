@@ -541,6 +541,23 @@ void main() {
       await second.dispose();
     });
 
+    test('诊断片段开关默认关闭，打开后能存下来', () async {
+      final first = buildRepo(fileDb);
+      await first.start();
+      expect(first.recordDiagnosticClips, isFalse,
+          reason: '会给非鼾声事件留音频，必须由用户主动打开');
+
+      await first.setRecordDiagnosticClips(true);
+      await first.stop();
+      await first.dispose();
+
+      final second = buildRepo(fileDb);
+      await second.start();
+      expect(second.recordDiagnosticClips, isTrue);
+      await second.stop();
+      await second.dispose();
+    });
+
     test('默认不筛：没设置过的时候门槛是 0', () async {
       final repo = buildRepo(fileDb);
       await repo.start();

@@ -792,6 +792,24 @@ class _ClipRecordingCard extends StatelessWidget {
                 ),
               ),
             ),
+          // 诊断片段只保留一小段，用来确认「这段到底是不是鼾声」。
+          // 默认关闭：会给环境噪音也留下音频，存储成本需要用户主动接受。
+          if (enabled)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: viewModel.recordDiagnosticClips,
+              onChanged: (v) => viewModel.setRecordDiagnosticClips(v),
+              title: Text(
+                context.l10n.clipDiagnosticTitle,
+                style: theme.textTheme.bodyMedium,
+              ),
+              subtitle: Text(
+                context.l10n.clipDiagnosticSubtitle,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.textDim,
+                ),
+              ),
+            ),
           const SizedBox(height: 4),
           Text(
             enabled ? context.l10n.clipOnBody : context.l10n.clipOffBody,

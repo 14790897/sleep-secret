@@ -568,6 +568,23 @@ void main() {
     expect(find.text('也保留梦话片段'), findsNothing);
   });
 
+  testWidgets('诊断片段默认关闭，打开后能改状态', (tester) async {
+    await pumpAbout(tester);
+
+    expect(find.text('为其他声音保留诊断片段'), findsOneWidget);
+    expect(controller.diagnosticClipRecording, isFalse,
+        reason: '会给非鼾声事件留音频，默认必须是关的');
+
+    final switchTile =
+        find.widgetWithText(SwitchListTile, '为其他声音保留诊断片段');
+    await tester.ensureVisible(switchTile);
+    await tester.pumpAndSettle();
+    await tester.tap(switchTile);
+    await tester.pumpAndSettle();
+
+    expect(controller.diagnosticClipRecording, isTrue);
+  });
+
   testWidgets('关于页的安静段开关能改状态，并且说得出代价', (tester) async {
     // 关于页是 ListView，这一张卡在片段卡下面——视口不够高就根本没构建出来，
     // 找不见不是"功能没了"，是"它在屏幕外"。加高视口是最省事的解法。

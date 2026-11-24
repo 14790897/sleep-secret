@@ -43,6 +43,11 @@ abstract interface class RecordingController {
 
   Future<void> setRecordVocalClips(bool enabled);
 
+  /// 是否为非鼾声事件保留诊断片段。默认关闭。
+  bool get recordDiagnosticClips;
+
+  Future<void> setRecordDiagnosticClips(bool enabled);
+
   Future<void> setRecordClips(bool enabled);
 
   /// 是否启用能量门控：安静窗口直接跳过，不送进模型。

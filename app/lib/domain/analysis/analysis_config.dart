@@ -23,6 +23,14 @@ import '../models/sound_event.dart';
 /// 3 秒；如果将来改窗口长度，回填逻辑要重新评估。
 const double kDefaultWindowSeconds = 3.0;
 
+/// 非鼾声事件诊断片段的最长秒数。
+///
+/// 界面汇总「可听多久」也要用它：诊断片段不是整段，不能拿事件时长代替。
+const double kDiagnosticClipSeconds = 60.0;
+
+/// 每晚诊断片段的 PCM 字节上限。200 MB ≈ 104 分钟音频。
+const int kDiagnosticClipNightCapBytes = 200 * 1024 * 1024;
+
 class AnalysisConfig {
   const AnalysisConfig({
     this.sampleRate = 16000,
@@ -39,6 +47,9 @@ class AnalysisConfig {
     this.minEventSeconds = 6.0,
     this.mergeGapSeconds = 9.0,
     this.recordClips = true,
+    this.recordDiagnosticClips = false,
+    this.diagnosticClipSeconds = kDiagnosticClipSeconds,
+    this.diagnosticClipNightCapBytes = kDiagnosticClipNightCapBytes,
     this.clipPaddingSeconds = 1.0,
     this.maxEventClipSeconds = 1200.0, // 20 分钟，给失控情况兜底
     this.clipBufferSeconds = 60.0,
@@ -181,6 +192,27 @@ class AnalysisConfig {
   /// 这一项在界面上给用户开关。
   final bool recordClips;
 
+  /// 是否为**非鼾声事件**额外保留诊断片段。
+  ///
+  /// 默认关闭。打开后，环境噪音、呼吸声、咳嗽、体动等事件会保留一段
+  /// 有上限的音频样本，用来确认模型是否把鼾声判成了别的类别。
+  ///
+  /// 鼾声、高危信号和（可选的）梦话仍走整段保留，不受这个开关影响。
+  final bool recordDiagnosticClips;
+
+  /// 诊断片段最长多少秒。
+  ///
+  /// 不是整段：一条环境噪音事件可能横跨几小时，整段保留会把存储打满。
+  /// 取事件里**最响窗口结尾**的这么多秒，既覆盖最可能听出问题的部分，
+  /// 又让每段成本可预测（60 秒 ≈ 1.9 MB）。
+  final double diagnosticClipSeconds;
+
+  /// 每晚诊断片段的 PCM 字节上限。
+  ///
+  /// 200 MB 约等于 104 分钟音频、一百多条 60 秒样本。超出后当晚不再保存，
+  /// 只计数，不悄悄删掉已经写好的片段。
+  final int diagnosticClipNightCapBytes;
+
   /// 片段前后各留多少秒。
   ///
   /// 不留余量的话，片段会从声音正中开始、在正中结束，听起来很突兀，
@@ -240,6 +272,9 @@ class AnalysisConfig {
     double? minEventSeconds,
     double? mergeGapSeconds,
     bool? recordClips,
+    bool? recordDiagnosticClips,
+    double? diagnosticClipSeconds,
+    int? diagnosticClipNightCapBytes,
   }) =>
       AnalysisConfig(
         sampleRate: sampleRate,
@@ -257,6 +292,12 @@ class AnalysisConfig {
         minEventSeconds: minEventSeconds ?? this.minEventSeconds,
         mergeGapSeconds: mergeGapSeconds ?? this.mergeGapSeconds,
         recordClips: recordClips ?? this.recordClips,
+        recordDiagnosticClips:
+            recordDiagnosticClips ?? this.recordDiagnosticClips,
+        diagnosticClipSeconds:
+            diagnosticClipSeconds ?? this.diagnosticClipSeconds,
+        diagnosticClipNightCapBytes:
+            diagnosticClipNightCapBytes ?? this.diagnosticClipNightCapBytes,
         clipPaddingSeconds: clipPaddingSeconds,
         maxEventClipSeconds: maxEventClipSeconds,
         clipBufferSeconds: clipBufferSeconds,

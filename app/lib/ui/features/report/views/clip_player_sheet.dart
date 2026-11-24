@@ -141,8 +141,8 @@ class _ClipPlayerSheetState extends State<ClipPlayerSheet> {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
-  /// 播放的是这一段**末尾**的摘录（见 [AnalysisConfig.clipRangeFor]），
-  /// 所以只有事件明显更长时才解释，免得短事件上多一句废话。
+  /// 播放的是摘录：超过 20 分钟上限的截断，或非鼾声事件的诊断样本
+  /// （最多 60 秒）。只有事件明显更长时才解释，免得短事件上多一句废话。
   bool get _isExcerpt =>
       widget.eventSeconds > _clipDuration.inMilliseconds / 1000 + 1.5;
 

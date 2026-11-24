@@ -22,6 +22,7 @@ class FakeRecordingController implements RecordingController {
   final List<int> deletedClipIds = [];
   bool clipRecording = true;
   bool vocalClipRecording = true;
+  bool diagnosticClipRecording = false;
   bool vad = false;
   int vadDb = 54;
   int snorePercent = kSnoreThresholdPercentDefault;
@@ -58,6 +59,14 @@ class FakeRecordingController implements RecordingController {
   @override
   Future<void> setRecordVocalClips(bool enabled) async {
     vocalClipRecording = enabled;
+  }
+
+  @override
+  bool get recordDiagnosticClips => diagnosticClipRecording;
+
+  @override
+  Future<void> setRecordDiagnosticClips(bool enabled) async {
+    diagnosticClipRecording = enabled;
   }
 
   @override
