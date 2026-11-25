@@ -312,6 +312,18 @@ class SessionDatabase {
     );
   }
 
+  /// 把所有事件的片段路径置空（文件本身由 AudioClipStore 删除）。
+  ///
+  /// 报告列表页的「清理全部录音片段」用：只删音频，事件、评分、时间线都保留。
+  Future<void> clearAllClipPaths() async {
+    final db = await open();
+    await db.update(
+      'events',
+      {'clip_path': null},
+      where: 'clip_path IS NOT NULL',
+    );
+  }
+
   /// 某个会话名下的原始事件行数。
   ///
   /// 用于校验级联删除与数据完整性——[loadSession] 走的是会话查询，

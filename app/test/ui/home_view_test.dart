@@ -473,6 +473,30 @@ void main() {
     expect(find.byKey(HomeKeys.reportCard(1)), findsNothing);
   });
 
+  testWidgets('报告页可以一键清理全部录音片段，报告保留', (tester) async {
+    controller.sessions = [night(id: 1, startedAt: DateTime(2026, 10, 6, 23))];
+    controller.clipBytes = 2 * 1024 * 1024;
+    useTallViewport(tester);
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_sweep_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('清理全部录音片段'), findsOneWidget);
+    expect(find.textContaining('约 2.0 MB'), findsOneWidget,
+        reason: '确认框要说清楚会删掉多少');
+
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(controller.deleteAllClipsCount, 1);
+    expect(find.text('已删除全部录音片段，报告保留'), findsOneWidget);
+  });
+
   /// 打开「关于」页，并把视口调高。
   ///
   /// ⚠️ 视口一定要调：关于页很长，而 `ListView` **只构建可见区域**——

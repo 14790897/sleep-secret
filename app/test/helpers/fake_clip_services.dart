@@ -98,9 +98,16 @@ class FakeAudioClipStore implements AudioClipStore {
 
   @override
   Future<void> deleteAll() async {
+    deleteAllCount++;
     saved.clear();
     savedSessions.clear();
   }
+
+  int deleteAllCount = 0;
+  int totalBytesValue = 0;
+
+  @override
+  Future<int> totalBytes() async => totalBytesValue;
 }
 
 /// 只记录调用的播放器——测试环境没有音频设备。

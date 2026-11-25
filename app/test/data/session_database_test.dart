@@ -184,6 +184,31 @@ void main() {
       expect(full.stats.snoreEventCount, 1);
     });
 
+    test('清空全部片段路径只动 clip_path，报告数据都保留', () async {
+      await db.insertSession(
+        session(
+          startedAt: DateTime(2026, 10, 5, 23),
+          events: [snoreEvent(clipPath: 'a/1.wav')],
+        ),
+      );
+      await db.insertSession(
+        session(
+          startedAt: DateTime(2026, 10, 6, 23),
+          events: [snoreEvent(clipPath: 'a/2.wav')],
+        ),
+      );
+
+      await db.clearAllClipPaths();
+
+      final all = await db.listSessions();
+      expect(all, hasLength(2));
+      for (final s in all) {
+        expect(s.events.single.clipPath, isNull);
+        expect(s.events, hasLength(1));
+        expect(s.stats.snoreEventCount, 1);
+      }
+    });
+
     test('列表带上事件（列表卡片的评分要用）', () async {
       await db.insertSession(session(events: [snoreEvent()]));
 
