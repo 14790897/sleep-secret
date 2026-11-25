@@ -20,6 +20,12 @@ class FakeRecordingController implements RecordingController {
 
   /// 调用过 deleteClipsForSession 的会话 id。
   final List<int> deletedClipIds = [];
+
+  /// deleteAllClips 的调用次数。
+  int deleteAllClipsCount = 0;
+
+  /// totalClipBytes 的返回值。
+  int clipBytes = 0;
   bool clipRecording = true;
   bool vocalClipRecording = true;
   bool diagnosticClipRecording = false;
@@ -134,6 +140,15 @@ class FakeRecordingController implements RecordingController {
   Future<void> deleteClipsForSession(int sessionId) async {
     deletedClipIds.add(sessionId);
   }
+
+  @override
+  Future<void> deleteAllClips() async {
+    if (_state.isRecording) return;
+    deleteAllClipsCount++;
+  }
+
+  @override
+  Future<int> totalClipBytes() async => clipBytes;
 
   @override
   Future<void> dispose() async => _controller.close();

@@ -236,7 +236,18 @@ class _ReportListViewState extends State<_ReportListView> {
     final nights = groupSessionsIntoNights(vm.sessions).reversed.toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.reportTitle)),
+      appBar: AppBar(
+        title: Text(context.l10n.reportTitle),
+        actions: [
+          // 录音中片段目录里还有正在写的 .part，这时候不给清理入口。
+          if (vm.sessions.isNotEmpty && !vm.state.isRecording)
+            IconButton(
+              tooltip: context.l10n.reportDeleteAllClips,
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: () => _confirmDeleteAllClips(context),
+            ),
+        ],
+      ),
       body: vm.loadingSessions && nights.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : nights.isEmpty
@@ -296,6 +307,59 @@ class _ReportListViewState extends State<_ReportListView> {
         widget.reportViewModelFactory,
         night,
       );
+
+  Future<void> _confirmDeleteAllClips(BuildContext context) async {
+    final vm = widget.viewModel;
+    final bytes = await vm.totalClipBytes();
+    if (!context.mounted) return;
+
+    if (bytes <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.reportDeleteAllClipsEmpty)),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.reportDeleteAllClips),
+        content: Text(
+          context.l10n.reportDeleteAllClipsBody(_formatBytes(bytes)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(context.l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    // 对话框开着的时候用户可能已经回去开始录音了；别再报一个假的「已删除」。
+    if (vm.state.isRecording) return;
+
+    await vm.deleteAllClips();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.reportDeleteAllClipsDone)),
+    );
+  }
+}
+
+/// 把字节数变成人看得懂的大小（确认对话框里用）。
+String _formatBytes(int bytes) {
+  if (bytes >= 1 << 30) {
+    return '${(bytes / (1 << 30)).toStringAsFixed(1)} GB';
+  }
+  if (bytes >= 1 << 20) {
+    return '${(bytes / (1 << 20)).toStringAsFixed(1)} MB';
+  }
+  return '${(bytes / 1024).toStringAsFixed(0)} KB';
 }
 
 /// 打开一晚的报告详情。列表卡片点击和「停止录音后自动跳转」共用。

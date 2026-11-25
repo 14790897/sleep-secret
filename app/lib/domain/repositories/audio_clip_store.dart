@@ -67,4 +67,7 @@ abstract interface class AudioClipStore {
 
   /// 删除全部片段。
   Future<void> deleteAll();
+
+  /// 全部片段占用的字节数，用于清理前的确认提示。
+  Future<int> totalBytes();
 }

@@ -345,6 +345,64 @@ void main() {
       expect(full.stats.snoreSeconds, 30);
     });
 
+    test('清理全部片段：删文件、清所有路径、报告保留', () async {
+      final store = FakeAudioClipStore()..totalBytesValue = 5 * 1024 * 1024;
+      final repo = RecordingRepository(
+        capture: FakeAudioCapture(),
+        analyzer: FakeSleepAnalyzer(),
+        database: database,
+        foregroundService: FakeForegroundServiceController(),
+        config: testConfig,
+        clipStore: store,
+      );
+      addTearDown(repo.dispose);
+
+      Future<int> insertNight(DateTime at, String clip) =>
+          database.insertSession(RecordingSession(
+            id: null,
+            startedAt: at,
+            endedAt: at.add(const Duration(hours: 8)),
+            events: [
+              SoundEvent(
+                label: SleepCategory.snore,
+                startSeconds: 100,
+                durationSeconds: 30,
+                activeSeconds: 30,
+                confidence: 0.9,
+                snoreProbability: 0.9,
+                windowCount: 10,
+                clipPath: clip,
+              ),
+            ],
+            stats: const SessionStats(
+              analyzedSeconds: 28800,
+              windowsTotal: 9600,
+              windowsInferred: 9600,
+              windowsVadSkipped: 0,
+              windowsLowConfidence: 0,
+              eventCount: 1,
+              snoreEventCount: 1,
+              snoreSeconds: 30,
+              categoryDistribution: {},
+            ),
+          ));
+
+      final first = await insertNight(DateTime(2026, 10, 5, 23), 'a/1.wav');
+      final second = await insertNight(DateTime(2026, 10, 6, 23), 'a/2.wav');
+
+      expect(await repo.totalClipBytes(), 5 * 1024 * 1024);
+
+      await repo.deleteAllClips();
+
+      expect(store.deleteAllCount, 1);
+      for (final id in [first, second]) {
+        final full = await repo.loadSession(id);
+        expect(full!.events.single.clipPath, isNull);
+        expect(full.events, hasLength(1));
+        expect(full.stats.snoreEventCount, 1);
+      }
+    });
+
     test('多次录音产生多条独立会话', () async {
       for (var i = 0; i < 3; i++) {
         // 每次录音把可控时钟往前拨一天，制造出三个不同的会话

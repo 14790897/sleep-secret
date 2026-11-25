@@ -150,6 +150,7 @@ class FileAudioClipStore implements AudioClipStore {
   }
 
   /// 全部片段占用的字节数。界面上用来告诉用户会多占多少空间。
+  @override
   Future<int> totalBytes() async {
     final root = await _ensureRoot();
     if (!await root.exists()) return 0;
