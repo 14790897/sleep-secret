@@ -5,6 +5,17 @@
   "tabReport": "报告",
   "tabAbout": "关于",
   "reportTitle": "睡眠报告",
+  "reportDeleteAllClips": "清理全部录音片段",
+  "reportDeleteAllClipsBody": "将删除全部夜晚的录音片段（约 {size}）。事件、评分、时间线都会保留。\n\n删除后不能恢复。",
+  "@reportDeleteAllClipsBody": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "reportDeleteAllClipsEmpty": "没有可删除的录音片段",
+  "reportDeleteAllClipsDone": "已删除全部录音片段，报告保留",
   "historyTitle": "历史记录",
   "noReportsTitle": "还没有睡眠报告",
   "noReportsBody": "到「睡眠」页点开始录音，\n第二天早上这里就会出现这一晚的分析。",

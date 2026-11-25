@@ -437,6 +437,21 @@ class RecordingRepository implements RecordingController {
   }
 
   @override
+  Future<void> deleteAllClips() async {
+    // 录音中片段目录里还有正在写的 .part，不能连根删掉。
+    if (_state.isRecording) return;
+    await _database.open();
+    // 先删文件再清路径：路径是定位片段目录的依据，顺序反了就找不到了。
+    await _clipStore?.deleteAll();
+    await _database.clearAllClipPaths();
+  }
+
+  @override
+  Future<int> totalClipBytes() async {
+    return await _clipStore?.totalBytes() ?? 0;
+  }
+
+  @override
   Future<void> dispose() async {
     await _teardown();
     await _stateController.close();

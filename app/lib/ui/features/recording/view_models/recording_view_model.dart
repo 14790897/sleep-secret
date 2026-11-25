@@ -138,6 +138,14 @@ class RecordingViewModel extends ChangeNotifier {
     await loadSessions();
   }
 
+  /// 删除全部录音片段，保留报告。录音中调用是 no-op。
+  Future<void> deleteAllClips() async {
+    await _controller.deleteAllClips();
+    await loadSessions();
+  }
+
+  Future<int> totalClipBytes() => _controller.totalClipBytes();
+
   @override
   void dispose() {
     _subscription?.cancel();
