@@ -645,6 +645,29 @@ abstract final class HomeKeys {
       ValueKey('home-report-card-$id');
 }
 
+/// 关于页的分组小标题：把「设置 / 关于 / 数据与工具」分开。
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel(this.text, {this.top = 12});
+
+  final String text;
+  final double top;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(4, top, 4, 8),
+      child: Text(
+        text,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: AppColors.accent,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 /// 关于页：说明 App 做什么、不做什么，以及音频片段的隐私开关。
 class _AboutView extends StatelessWidget {
   const _AboutView({required this.viewModel, required this.localeController});
@@ -663,8 +686,14 @@ class _AboutView extends StatelessWidget {
         builder: (context, _) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
+            _GroupLabel(context.l10n.aboutGroupSettings, top: 4),
             _LanguageCard(controller: localeController),
             const SizedBox(height: 12),
+            _ClipRecordingCard(viewModel: viewModel),
+            const SizedBox(height: 12),
+            _AdvancedCard(viewModel: viewModel),
+            const SizedBox(height: 20),
+            _GroupLabel(context.l10n.aboutGroupAbout),
             SectionCard(
               title: context.l10n.aboutWhatTitle,
               child: Text(
@@ -672,10 +701,6 @@ class _AboutView extends StatelessWidget {
                 style: theme.textTheme.bodySmall?.copyWith(height: 1.7),
               ),
             ),
-            const SizedBox(height: 12),
-            _ClipRecordingCard(viewModel: viewModel),
-            const SizedBox(height: 12),
-            _VadCard(viewModel: viewModel),
             const SizedBox(height: 12),
             SectionCard(
               title: context.l10n.aboutPrivacyTitle,
@@ -711,7 +736,8 @@ class _AboutView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            _GroupLabel(context.l10n.aboutGroupTools),
             Card(
               child: ListTile(
                 leading: const Icon(
@@ -888,6 +914,70 @@ class _ClipRecordingCard extends StatelessWidget {
   }
 }
 
+/// 关于页的「高级」折叠：安静段跳过（能量门控）。
+///
+/// 默认收起，避免一屏都是技术选项；展开后的文案仍然是警告式的
+/// （理由见 [_VadControls]）。
+class _AdvancedCard extends StatefulWidget {
+  const _AdvancedCard({required this.viewModel});
+
+  final RecordingViewModel viewModel;
+
+  @override
+  State<_AdvancedCard> createState() => _AdvancedCardState();
+}
+
+class _AdvancedCardState extends State<_AdvancedCard> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.tune, color: AppColors.accent),
+            title: Text(context.l10n.aboutAdvancedTitle),
+            subtitle: Text(
+              context.l10n.aboutAdvancedSubtitle,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textDim,
+              ),
+            ),
+            trailing: Icon(_open ? Icons.expand_less : Icons.expand_more),
+            onTap: () => setState(() => _open = !_open),
+          ),
+          if (_open)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.vadCardTitle,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    context.l10n.vadCardSubtitle,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.textDim,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _VadControls(viewModel: widget.viewModel),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 安静段跳过（能量门控）开关。
 ///
 /// ## 为什么这个开关的文案是警告式的
@@ -898,16 +988,16 @@ class _ClipRecordingCard extends StatelessWidget {
 /// 而界面上不会报错，报告只会是空的。
 ///
 /// 所以文案不是"省电小技巧"，是"开之前先看一眼电平条"。
-class _VadCard extends StatefulWidget {
-  const _VadCard({required this.viewModel});
+class _VadControls extends StatefulWidget {
+  const _VadControls({required this.viewModel});
 
   final RecordingViewModel viewModel;
 
   @override
-  State<_VadCard> createState() => _VadCardState();
+  State<_VadControls> createState() => _VadControlsState();
 }
 
-class _VadCardState extends State<_VadCard> {
+class _VadControlsState extends State<_VadControls> {
   /// 拖动滑块时的临时值。
   ///
   /// ⚠️ 不能每一帧都调 `setVadThresholdDb`：那会**每帧写一次数据库**，
@@ -922,12 +1012,9 @@ class _VadCardState extends State<_VadCard> {
     final enabled = vm.vadEnabled;
     final shownDb = _dragDb ?? vm.vadThresholdDb.toDouble();
 
-    return SectionCard(
-      title: context.l10n.vadCardTitle,
-      subtitle: context.l10n.vadCardSubtitle,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: enabled,
@@ -996,8 +1083,7 @@ class _VadCardState extends State<_VadCard> {
               height: 1.6,
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }

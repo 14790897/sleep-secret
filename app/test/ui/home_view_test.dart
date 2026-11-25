@@ -104,7 +104,8 @@ void main() {
 
     await tester.tap(find.text('关于'));
     await tester.pumpAndSettle();
-    expect(find.text('这个应用做什么'), findsOneWidget);
+    // 关于页最上面现在是「设置」分组；应用说明在下面，默认视口看不全
+    expect(find.text('设置'), findsOneWidget);
 
     await tester.tap(find.text('睡眠'));
     await tester.pumpAndSettle();
@@ -609,6 +610,16 @@ void main() {
     expect(controller.diagnosticClipRecording, isTrue);
   });
 
+  testWidgets('关于页按设置/关于/数据与工具分组，高级默认收起', (tester) async {
+    await pumpAbout(tester);
+
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('数据与工具'), findsOneWidget);
+    expect(find.text('高级'), findsOneWidget);
+    expect(find.text('每一段都分析'), findsNothing,
+        reason: '安静段跳过收在「高级」折叠里，默认不展开');
+  });
+
   testWidgets('关于页的安静段开关能改状态，并且说得出代价', (tester) async {
     // 关于页是 ListView，这一张卡在片段卡下面——视口不够高就根本没构建出来，
     // 找不见不是"功能没了"，是"它在屏幕外"。加高视口是最省事的解法。
@@ -621,6 +632,12 @@ void main() {
     await tester.tap(find.text('关于'));
     await tester.pumpAndSettle();
 
+    // 安静段跳过收在「高级」折叠里，默认收起
+    await tester.ensureVisible(find.text('高级'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('高级'));
+    await tester.pumpAndSettle();
+
     // 默认关着——和 AnalysisConfig.vadEnabled 的生产默认值一致
     expect(find.text('每一段都分析'), findsOneWidget);
     expect(controller.vad, isFalse);
@@ -629,7 +646,11 @@ void main() {
       of: find.text('每一段都分析'),
       matching: find.byType(SwitchListTile),
     );
-    await tester.tap(find.descendant(of: tile, matching: find.byType(Switch)));
+    await tester.ensureVisible(tile);
+    await tester.pumpAndSettle();
+    // 直接点标题：ExpansionTile 展开后，SwitchListTile 外层 RenderBox
+    // 和实际命中的 ListTile 不是同一个，点中心会打空。
+    await tester.tap(find.text('每一段都分析'));
     await tester.pumpAndSettle();
 
     expect(controller.vad, isTrue);
@@ -649,6 +670,11 @@ void main() {
     await tester.tap(find.text('关于'));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('高级'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('高级'));
+    await tester.pumpAndSettle();
+
     // 关着的时候没有滑块——那时候"门槛"这个东西不存在
     expect(find.byType(Slider), findsNothing);
 
@@ -656,7 +682,11 @@ void main() {
       of: find.text('每一段都分析'),
       matching: find.byType(SwitchListTile),
     );
-    await tester.tap(find.descendant(of: tile, matching: find.byType(Switch)));
+    await tester.ensureVisible(tile);
+    await tester.pumpAndSettle();
+    // 直接点标题：ExpansionTile 展开后，SwitchListTile 外层 RenderBox
+    // 和实际命中的 ListTile 不是同一个，点中心会打空。
+    await tester.tap(find.text('每一段都分析'));
     await tester.pumpAndSettle();
 
     expect(find.byType(Slider), findsOneWidget);
