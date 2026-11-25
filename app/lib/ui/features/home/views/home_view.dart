@@ -340,6 +340,8 @@ class _ReportListViewState extends State<_ReportListView> {
       ),
     );
     if (confirmed != true || !context.mounted) return;
+    // 对话框开着的时候用户可能已经回去开始录音了；别再报一个假的「已删除」。
+    if (vm.state.isRecording) return;
 
     await vm.deleteAllClips();
     if (!context.mounted) return;
