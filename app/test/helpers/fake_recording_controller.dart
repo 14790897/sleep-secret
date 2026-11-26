@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:sleep_secret/domain/models/recording_session.dart';
 import 'package:sleep_secret/domain/models/recording_state.dart';
+import 'package:sleep_secret/domain/models/sound_event.dart';
 import 'package:sleep_secret/domain/repositories/recording_controller.dart';
 
 /// 可编程的假录音控制器——测试环境没有麦克风也没有前台服务。
@@ -23,6 +24,9 @@ class FakeRecordingController implements RecordingController {
 
   /// deleteAllClips 的调用次数。
   int deleteAllClipsCount = 0;
+
+  /// updateEventUserLabel 的调用记录。
+  final List<(int, EventUserLabel?)> userLabelUpdates = [];
 
   /// totalClipBytes 的返回值。
   int clipBytes = 0;
@@ -168,6 +172,14 @@ class FakeRecordingController implements RecordingController {
 
   @override
   Future<int> totalClipBytes() async => clipBytes;
+
+  @override
+  Future<void> updateEventUserLabel(
+    int eventId,
+    EventUserLabel? label,
+  ) async {
+    userLabelUpdates.add((eventId, label));
+  }
 
   @override
   Future<void> dispose() async => _controller.close();

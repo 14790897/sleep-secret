@@ -410,6 +410,8 @@ class _ScoreBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final score = scoreSession(session);
+    final rejected =
+        session.events.where((e) => e.isUserRejectedSnore).length;
 
     if (score == null) {
       return SectionCard(
@@ -500,6 +502,16 @@ class _ScoreBreakdownCard extends StatelessWidget {
               ),
             ],
           ),
+          if (rejected > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.reportUserMarkedNotSnoreCount(rejected),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.accent,
+                height: 1.5,
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           // 这一段必须原样展示。分数很容易被当成"睡眠质量"，
           // 而它只反映声音——不说清楚就是误导。
@@ -713,6 +725,9 @@ class _ClipListCard extends StatelessWidget {
               isPlaying: viewModel.isPlaying(i),
               isLoading: viewModel.isLoading(i),
               onPlay: () => _openClipPlayer(context, viewModel, i),
+              onUndoNotSnore: events[i].isUserRejectedSnore
+                  ? () => viewModel.setUserLabelForEvent(events[i], null)
+                  : null,
             ),
           const SizedBox(height: 4),
           Align(
@@ -838,6 +853,15 @@ Future<void> _openClipPlayer(
     clipPath: clip.path,
     title: '${ReportView._hhmm(at)} · ${event.label.label(context)}',
     eventSeconds: clip.eventSeconds,
+    onMarkNotSnore: event.isSnore && !event.isUserRejectedSnore
+        ? () => viewModel.setUserLabelForEvent(
+              event,
+              EventUserLabel.notSnore,
+            )
+        : null,
+    onUndoNotSnore: event.isUserRejectedSnore
+        ? () => viewModel.setUserLabelForEvent(event, null)
+        : null,
   );
 }
 
@@ -1307,6 +1331,9 @@ class _EventListCard extends StatelessWidget {
               onPlay: events[i].hasClip
                   ? () => _openClipPlayer(context, viewModel, i)
                   : null,
+              onUndoNotSnore: events[i].isUserRejectedSnore
+                  ? () => viewModel.setUserLabelForEvent(events[i], null)
+                  : null,
             ),
         ],
       ),
@@ -1359,6 +1386,7 @@ class _EventRow extends StatelessWidget {
     required this.isPlaying,
     required this.isLoading,
     required this.onPlay,
+    this.onUndoNotSnore,
   });
 
   final SoundEvent event;
@@ -1373,6 +1401,9 @@ class _EventRow extends StatelessWidget {
 
   /// 为 null 表示这条没有片段，不显示播放按钮。
   final VoidCallback? onPlay;
+
+  /// 撤销「这不是鼾声」的标记；只有被标记过的事件才给。
+  final VoidCallback? onUndoNotSnore;
 
   @override
   Widget build(BuildContext context) {
@@ -1404,28 +1435,44 @@ class _EventRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(
-                  child: Text(
-                    event.displayName(context),
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        event.displayName(context),
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // 把把握程度露出来。
+                    //
+                    // 以前这里只有类别，「0.93 的鼾声」和「0.33 的鼾声」长得一模一样，
+                    // 而后者其实是模型在两个几乎相同的分数里挑了一个。
+                    // 与其用一条门槛把它藏掉，不如标出来让用户自己判断。
+                    Text(
+                      '${(event.confidence * 100).round()}%',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: event.confidence < _lowConfidenceMark
+                            ? AppColors.statusWarning
+                            : AppColors.textDim,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                // 把把握程度露出来。
-                //
-                // 以前这里只有类别，「0.93 的鼾声」和「0.33 的鼾声」长得一模一样，
-                // 而后者其实是模型在两个几乎相同的分数里挑了一个。
-                // 与其用一条门槛把它藏掉，不如标出来让用户自己判断。
-                Text(
-                  '${(event.confidence * 100).round()}%',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: event.confidence < _lowConfidenceMark
-                        ? AppColors.statusWarning
-                        : AppColors.textDim,
+                if (event.isUserRejectedSnore && onUndoNotSnore != null)
+                  GestureDetector(
+                    onTap: onUndoNotSnore,
+                    child: Text(
+                      context.l10n.reportMarkedNotSnoreUndo,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.accent,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
           ),

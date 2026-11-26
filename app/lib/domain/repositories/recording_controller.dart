@@ -1,5 +1,6 @@
 import '../models/recording_session.dart';
 import '../models/recording_state.dart';
+import '../models/sound_event.dart';
 
 /// 门控基准门槛能调的范围（估算的 dB SPL，见 [RecordingController.vadThresholdDb]）。
 ///
@@ -117,6 +118,9 @@ abstract interface class RecordingController {
 
   /// 全部片段占用的字节数，用于删除前的确认提示。
   Future<int> totalClipBytes();
+
+  /// 设置/清除单个事件的用户标注（「这不是鼾声」）。
+  Future<void> updateEventUserLabel(int eventId, EventUserLabel? label);
 
   Future<void> dispose();
 }

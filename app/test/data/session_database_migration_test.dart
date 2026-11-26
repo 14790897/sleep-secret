@@ -351,6 +351,78 @@ void main() {
     await db.close();
   }
 
+  /// 造一个 v6 的库：有实际有声时长，但**还没有用户标注**。
+  Future<void> createV6Database() async {
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: 6,
+        onCreate: (db, _) async {
+          await db.execute(_v5Sessions);
+          await db.execute(_v4Events);
+          await db.execute(
+            'ALTER TABLE events ADD COLUMN active_seconds REAL',
+          );
+          await db.execute(
+            'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+          );
+        },
+      ),
+    );
+    await db.insert('sessions', {
+      'started_at': DateTime(2026, 10, 9, 23).millisecondsSinceEpoch,
+      'ended_at': DateTime(2026, 10, 10, 7).millisecondsSinceEpoch,
+      'analyzed_seconds': 28800.0,
+      'windows_total': 9600,
+      'windows_inferred': 9600,
+      'windows_vad_skipped': 0,
+      'windows_low_confidence': 0,
+      'event_count': 1,
+      'snore_event_count': 1,
+      'snore_seconds': 180.0,
+      'signals_collected': 1,
+      'raw_label_counts': '{"Snoring": 60}',
+    });
+    await db.insert('events', {
+      'session_id': 1,
+      'label': 'snore',
+      'start_seconds': 3600.0,
+      'duration_seconds': 240.0,
+      'active_seconds': 180.0,
+      'confidence': 0.9,
+      'snore_probability': 0.9,
+      'window_count': 60,
+    });
+    await db.close();
+  }
+
+  group('v6 -> v7 迁移（加用户标注）', () {
+    test('老记录读成「没标注」，之后能写能清', () async {
+      await createV6Database();
+
+      final db = SessionDatabase(
+        factory: databaseFactoryFfi,
+        databasePath: dbPath,
+      );
+      final listed = await db.listSessions();
+      expect(listed, hasLength(1));
+      expect(listed.single.events.single.userLabel, isNull,
+          reason: '升级前的记录是「没标注」，不是「用户说是鼾声」');
+      expect(listed.single.events.single.activeSeconds, 180);
+
+      final id = listed.single.events.single.id!;
+      await db.updateEventUserLabel(id, EventUserLabel.notSnore);
+      final full = await db.loadSession(listed.single.id!);
+      expect(full!.events.single.userLabel, EventUserLabel.notSnore);
+      expect(full.stats.snoreEventCount, 0);
+
+      await db.updateEventUserLabel(id, null);
+      final again = await db.loadSession(listed.single.id!);
+      expect(again!.events.single.userLabel, isNull);
+      await db.close();
+    });
+  });
+
   group('v5 -> v6 迁移（加实际有声时长）', () {
     test('老记录按窗口数回填，跨度和事件都还在', () async {
       await createV5Database();

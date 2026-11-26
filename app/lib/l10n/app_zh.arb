@@ -768,6 +768,10 @@
     }
   },
   "clipPlayerUnreadable": "这段音频读不出来——文件可能已经不在了",
+  "clipPlayerNotSnore": "这不是鼾声",
+  "clipPlayerUndoNotSnore": "撤销「不是鼾声」",
+  "reportMarkedNotSnoreUndo": "已标记：不是鼾声 · 点此撤销",
+  "reportUserMarkedNotSnoreCount": "其中 {count} 段已由你标记为不是鼾声，不计入评分。",
   "clipPlayerExcerpt": "这一段声音全长 {total} 秒，保留了其中 {clip} 秒——拖波形可以跳着听。",
   "@clipPlayerExcerpt": {
     "description": "片段正常是整段事件；比事件短有两种情况：超过 maxEventClipSeconds（20 分钟）的截断，或非鼾声事件只保留 60 秒诊断样本。**不要说「末尾」**：两种情况保留的位置不同，说末尾会误导。",

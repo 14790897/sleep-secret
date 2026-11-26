@@ -49,7 +49,7 @@ List<HourBucket> hourlyBreakdown(RecordingSession session) {
       firstOffset[hour] = e.startSeconds;
     }
 
-    if (e.isSnore) {
+    if (e.countsAsSnore) {
       snore[hour] = (snore[hour] ?? 0) + e.activeSeconds;
     } else {
       other[hour] = (other[hour] ?? 0) + e.activeSeconds;
@@ -117,7 +117,7 @@ const List<(DurationBinKind, double, double?)> _durationBins = [
 ];
 
 List<DurationBin> snoreDurationHistogram(List<SoundEvent> events) {
-  final snoreEvents = events.where((e) => e.isSnore);
+  final snoreEvents = events.where((e) => e.countsAsSnore);
   final counts = List<int>.filled(_durationBins.length, 0);
 
   for (final e in snoreEvents) {

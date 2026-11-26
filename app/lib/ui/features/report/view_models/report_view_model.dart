@@ -6,6 +6,7 @@ import '../../../../data/services/event_player.dart';
 import '../../../../domain/analysis/night_grouping.dart';
 import '../../../../domain/analysis/snore_display_filter.dart';
 import '../../../../domain/models/recording_session.dart';
+import '../../../../domain/models/sound_event.dart';
 import '../../../../domain/models/ui_message.dart';
 import '../../../../domain/repositories/audio_clip_store.dart';
 import '../../../../domain/repositories/recording_controller.dart';
@@ -186,6 +187,32 @@ class ReportViewModel extends ChangeNotifier {
     _clipsDeleted = true;
     notifyListeners();
   }
+
+  /// 标记/撤销单个事件的用户标注（「这不是鼾声」）。
+  ///
+  /// 按事件 id 定位，而不是按下标：报告页可能先按展示门槛筛过事件，
+  /// 筛后的下标和原始事件列表对不上。
+  Future<void> setUserLabelForEvent(
+    SoundEvent event,
+    EventUserLabel? label,
+  ) async {
+    final events = [..._session.events];
+    final index = events.indexWhere((e) => e.id != null && e.id == event.id);
+    if (index < 0) return;
+    final id = events[index].id!;
+    await _settings.updateEventUserLabel(id, label);
+    events[index] = events[index].withUserLabel(label);
+    _session = _session.copyWith(
+      events: events,
+      stats: statsForEvents(_session.stats, events),
+    );
+    _visible = null;
+    notifyListeners();
+  }
+
+  /// 测试/内部用的按下标版本（下标针对**未筛**的原始事件）。
+  Future<void> setUserLabel(int index, EventUserLabel? label) =>
+      setUserLabelForEvent(_session.events[index], label);
 
   @override
   void dispose() {

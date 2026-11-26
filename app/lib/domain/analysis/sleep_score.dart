@@ -122,7 +122,8 @@ SleepScore? scoreSession(RecordingSession session) {
       _maxSnoreDeduction;
 
   // ---- 2. 鼾声连续性：长时间连续鼾声比零碎鼾声更值得注意 ----
-  final snoreEvents = session.events.where((e) => e.isSnore).toList();
+  final snoreEvents =
+      session.events.where((e) => e.countsAsSnore).toList();
   final totalSnoreSeconds =
       snoreEvents.fold<double>(0, (sum, e) => sum + e.activeSeconds);
   final longSnoreSeconds = snoreEvents

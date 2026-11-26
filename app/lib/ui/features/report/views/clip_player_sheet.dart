@@ -26,6 +26,8 @@ Future<void> showClipPlayer(
   required String clipPath,
   required String title,
   required double eventSeconds,
+  VoidCallback? onMarkNotSnore,
+  VoidCallback? onUndoNotSnore,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -39,6 +41,8 @@ Future<void> showClipPlayer(
       clipPath: clipPath,
       title: title,
       eventSeconds: eventSeconds,
+      onMarkNotSnore: onMarkNotSnore,
+      onUndoNotSnore: onUndoNotSnore,
     ),
   );
 }
@@ -50,6 +54,8 @@ class ClipPlayerSheet extends StatefulWidget {
     required this.clipPath,
     required this.title,
     required this.eventSeconds,
+    this.onMarkNotSnore,
+    this.onUndoNotSnore,
   });
 
   final EventPlayer player;
@@ -60,6 +66,12 @@ class ClipPlayerSheet extends StatefulWidget {
 
   /// **事件**的时长（秒）。用来解释片段为什么比它短。
   final double eventSeconds;
+
+  /// 听完后把这段标记为「不是鼾声」；只对模型判成鼾声的事件提供。
+  final VoidCallback? onMarkNotSnore;
+
+  /// 撤销「不是鼾声」的标记。
+  final VoidCallback? onUndoNotSnore;
 
   @override
   State<ClipPlayerSheet> createState() => _ClipPlayerSheetState();
@@ -245,6 +257,32 @@ class _ClipPlayerSheetState extends State<ClipPlayerSheet> {
                     _clipDuration.inSeconds,
                   ),
                   style: dim?.copyWith(height: 1.5),
+                ),
+              ],
+              if (widget.onMarkNotSnore != null ||
+                  widget.onUndoNotSnore != null) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      final action =
+                          widget.onMarkNotSnore ?? widget.onUndoNotSnore;
+                      action?.call();
+                      Navigator.of(context).pop();
+                    },
+                    icon: Icon(
+                      widget.onUndoNotSnore != null
+                          ? Icons.undo
+                          : Icons.thumb_down_alt_outlined,
+                      size: 18,
+                    ),
+                    label: Text(
+                      widget.onUndoNotSnore != null
+                          ? context.l10n.clipPlayerUndoNotSnore
+                          : context.l10n.clipPlayerNotSnore,
+                    ),
+                  ),
                 ),
               ],
             ],
