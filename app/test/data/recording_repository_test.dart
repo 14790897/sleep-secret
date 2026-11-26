@@ -616,6 +616,36 @@ void main() {
       await second.dispose();
     });
 
+    test('诊断片段长度与每晚上限可配置，默认无上限', () async {
+      final first = buildRepo(fileDb);
+      await first.start();
+      expect(first.diagnosticClipSeconds, isNull);
+      expect(first.diagnosticClipNightCapMb, isNull);
+
+      await first.setDiagnosticClipSeconds(300);
+      await first.setDiagnosticClipNightCapMb(500);
+      await first.stop();
+      await first.dispose();
+
+      final second = buildRepo(fileDb);
+      await second.start();
+      expect(second.diagnosticClipSeconds, 300);
+      expect(second.diagnosticClipNightCapMb, 500);
+
+      // 0 表示无上限，要能清回去
+      await second.setDiagnosticClipSeconds(0);
+      await second.setDiagnosticClipNightCapMb(0);
+      await second.stop();
+      await second.dispose();
+
+      final third = buildRepo(fileDb);
+      await third.start();
+      expect(third.diagnosticClipSeconds, isNull);
+      expect(third.diagnosticClipNightCapMb, isNull);
+      await third.stop();
+      await third.dispose();
+    });
+
     test('默认不筛：没设置过的时候门槛是 0', () async {
       final repo = buildRepo(fileDb);
       await repo.start();

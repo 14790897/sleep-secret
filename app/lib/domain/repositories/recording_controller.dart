@@ -48,6 +48,16 @@ abstract interface class RecordingController {
 
   Future<void> setRecordDiagnosticClips(bool enabled);
 
+  /// 每段诊断片段最长秒数；null = 无上限。
+  int? get diagnosticClipSeconds;
+
+  Future<void> setDiagnosticClipSeconds(int? seconds);
+
+  /// 每晚诊断片段上限（MB）；null = 无上限。
+  int? get diagnosticClipNightCapMb;
+
+  Future<void> setDiagnosticClipNightCapMb(int? mb);
+
   Future<void> setRecordClips(bool enabled);
 
   /// 是否启用能量门控：安静窗口直接跳过，不送进模型。

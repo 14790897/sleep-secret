@@ -900,6 +900,40 @@ class _ClipRecordingCard extends StatelessWidget {
                 ),
               ),
             ),
+          if (enabled && viewModel.recordDiagnosticClips) ...[
+            const SizedBox(height: 8),
+            _DiagnosticLimitRow(
+              label: context.l10n.clipDiagnosticMaxLength,
+              value: viewModel.diagnosticClipSeconds ?? 0,
+              options: const [0, 60, 300, 1200, 3600],
+              labelBuilder: (v) => v == 0
+                  ? context.l10n.clipDiagnosticUnlimited
+                  : context.l10n.clipDiagnosticMinutes(v ~/ 60),
+              onChanged: (v) =>
+                  viewModel.setDiagnosticClipSeconds(v == 0 ? null : v),
+            ),
+            _DiagnosticLimitRow(
+              label: context.l10n.clipDiagnosticNightCap,
+              value: viewModel.diagnosticClipNightCapMb ?? 0,
+              options: const [0, 100, 200, 500, 1024, 2048],
+              labelBuilder: (v) => v == 0
+                  ? context.l10n.clipDiagnosticUnlimited
+                  : '$v MB',
+              onChanged: (v) =>
+                  viewModel.setDiagnosticClipNightCapMb(v == 0 ? null : v),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                context.l10n.clipDiagnosticUnlimitedNote,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.textDim,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           Text(
             enabled ? context.l10n.clipOnBody : context.l10n.clipOffBody,
@@ -910,6 +944,48 @@ class _ClipRecordingCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 诊断片段的一行「标签 + 下拉选项」。
+class _DiagnosticLimitRow extends StatelessWidget {
+  const _DiagnosticLimitRow({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.labelBuilder,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final List<int> options;
+  final String Function(int) labelBuilder;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(label, style: theme.textTheme.bodySmall),
+        ),
+        DropdownButton<int>(
+          value: value,
+          items: [
+            for (final option in options)
+              DropdownMenuItem<int>(
+                value: option,
+                child: Text(labelBuilder(option)),
+              ),
+          ],
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ],
     );
   }
 }

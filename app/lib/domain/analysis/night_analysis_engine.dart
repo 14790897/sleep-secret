@@ -51,6 +51,8 @@ class NightAnalysisEngine {
         _accumulator = EventAccumulator(config: config),
         recordClips = config.recordClips,
         recordDiagnosticClips = config.recordDiagnosticClips,
+        diagnosticClipSeconds = config.diagnosticClipSeconds,
+        diagnosticClipNightCapBytes = config.diagnosticClipNightCapBytes,
         vadEnabled = config.vadEnabled {
     if (config.recordClips && !config.clipBufferIsAdequate) {
       throw ArgumentError(
@@ -109,8 +111,14 @@ class NightAnalysisEngine {
   /// 保持到事件定案为止——不然下一窗又会开一个新文件、从声音中间接上。
   bool _audioOptOut = false;
 
-  /// 已经写进当前片段的采样点数。用来卡 [AnalysisConfig.maxEventClipSeconds]。
+  /// 已经写进当前片段的采样点数。用来卡每段上限。
   int _writerSamples = 0;
+
+  /// 当前片段最多写多少采样点；null = 不设上限（诊断片段可配无上限）。
+  int? _writerMaxSamples;
+
+  /// 当前 writer 是否属于诊断片段（用于按写盘进度扣每晚上限）。
+  bool _writerIsDiagnostic = false;
 
   /// 正在写盘的片段。finish() 要等它们全部落盘，否则会话落库时还没拿到路径。
   final List<Future<void>> _pendingClips = [];
@@ -139,29 +147,27 @@ class NightAnalysisEngine {
 
   /// 是否也为**非鼾声事件**保留诊断片段。**默认关闭**，可运行时切换。
   ///
-  /// 打开后，环境噪音/呼吸声/咳嗽等事件会保留
-  /// [AnalysisConfig.diagnosticClipSeconds] 秒的样本，便于确认误判。
+  /// 打开后，环境噪音/呼吸声/咳嗽等事件会按 [diagnosticClipSeconds]
+  /// 和 [diagnosticClipNightCapBytes] 保留样本，便于确认误判。
   /// 鼾声和高危信号的整段保留不受影响。
   bool recordDiagnosticClips;
 
-  /// 当前诊断事件里「最响窗口结尾 N 秒」的候选。
-  ///
-  /// 只在事件开着时被 [_trackDiagnosticAudio] 更新，定案时一次性落盘。
-  /// 用环形缓冲切，不额外开文件——诊断片段只保留一小段，没必要边录边写。
-  Float32List? _diagBest;
-  double _diagBestStartSeconds = 0;
-  double _diagBestPeak = 0;
+  /// 每段诊断片段最长秒数；**null = 无上限（保留整段事件）**。
+  int? diagnosticClipSeconds;
 
-  /// 诊断候选属于哪个事件（事件起点，秒）。事件变了就重置。
-  double? _diagEventStart;
+  /// 每晚诊断片段累计 PCM 字节上限；**null = 无上限**。
+  int? diagnosticClipNightCapBytes;
 
-  /// 本晚诊断片段已经用掉的 PCM 字节数（不含 WAV 头）。
+  /// 本晚诊断片段已经保留的 PCM 字节数（不含 WAV 头）。
   int _diagSavedBytes = 0;
 
   int _diagnosticCapHits = 0;
 
   /// 因每晚上限而没保存的诊断片段数。
   int get diagnosticClipCapHits => _diagnosticCapHits;
+
+  /// 本晚诊断片段已占用的 PCM 字节数（含正在写的片段）。
+  int get diagnosticClipBytesSaved => _diagSavedBytes;
 
   /// 能量门控是否启用。**可运行时切换**，和 [recordClips] 一个道理：
   /// 「关于」页上有这个开关，拨了就该立刻生效，而不是等下次录音。
@@ -260,37 +266,28 @@ class NightAnalysisEngine {
   /// 一段事件结束：决定它的音频留下还是删掉。
   ///
   /// 整段音频是边录边写盘的（见 [_followEventAudio]），这里只做决定：
-  /// 是鼾声或高危信号就落定，否则把临时文件删掉。非鼾声事件如果开了
-  /// 诊断片段，走没有 writer 的那条路，另存最多 60 秒的样本。
+  /// 鼾声/高危信号、以及用户开启的诊断片段就落定，否则删掉临时文件。
   Future<void> _finishEventAudio(int index, SoundEvent event) async {
     final writer = _writer;
+    final writtenSamples = _writerSamples;
+    final diagnostic = _isDiagnosticEvent(event);
     _writer = null;
+    _writerMaxSamples = null;
+    _writerIsDiagnostic = false;
     final optedOut = _audioOptOut;
     _audioOptOut = false;
     _writerSamples = 0;
 
-    // writer 为空有两种情况：从来没开成（磁盘满、开头补不回来），
-    // 或者中途被关掉了片段开关。前者要计数——"想存但没存成"是用户
-    // 可能需要知道的事，不能静默咽掉。
+    // writer 为空有两种情况：从来没开成（磁盘满、开头补不回来、
+    // 诊断片段已经触到每晚上限），或者中途被关掉了片段开关。
     if (writer == null) {
-      if (optedOut) {
-        _clipsSkipped++;
-      } else {
-        await _finishDiagnosticAudio(index, event);
-      }
+      if (optedOut) _clipsSkipped++;
       return;
     }
 
-    // 只留鼾声、高危信号，以及**用户显式开启**的梦话。
-    //
-    // 高危信号必须留：用户要的就是把那几声倒吸气翻出来听。它们靠
-    // [AnalysisConfig.keepsEvent] 豁免最短时长，不然一两秒的声音
-    // 连事件都成立不了，更别提片段。
-    //
-    // 梦话默认不录：它是说话内容，隐私含义和鼾声不同（见 [recordVocalClips]）。
-    final keep = _canKeepClip(event) && config.keepsEvent(event);
-
+    final keep = _shouldWriteClip(event) && config.keepsEvent(event);
     if (!keep || optedOut) {
+      if (diagnostic) _diagSavedBytes -= writtenSamples * 2;
       await writer.release();
       if (optedOut) _clipsSkipped++;
       return;
@@ -301,6 +298,7 @@ class NightAnalysisEngine {
       _accumulator.attachClip(index, path);
       _clipsSaved++;
     } else {
+      if (diagnostic) _diagSavedBytes -= writtenSamples * 2;
       _clipsSkipped++;
     }
   }
@@ -313,92 +311,22 @@ class NightAnalysisEngine {
       event.isSignal ||
       (recordVocalClips && event.label == SleepCategory.vocal);
 
+  /// 这个事件是不是「非鼾声/非信号/非梦话」，即诊断片段的对象。
+  bool _isDiagnosticEvent(SoundEvent event) =>
+      !event.isSnore &&
+      !event.isSignal &&
+      event.label != SleepCategory.vocal;
+
   /// 这个事件能不能留诊断片段。
   ///
   /// 梦话**永远排除**，不管 [recordVocalClips] 开没开：诊断样本也是说话内容，
   /// 用户关掉梦话片段却因为诊断开关又把语音录下来，那是个隐私漏洞。
   bool _canKeepDiagnosticClip(SoundEvent event) =>
-      recordDiagnosticClips &&
-      !event.isSnore &&
-      !event.isSignal &&
-      event.label != SleepCategory.vocal;
+      recordDiagnosticClips && _isDiagnosticEvent(event);
 
-  /// 跟着非鼾声事件，保留「最响窗口结尾 N 秒」的候选。
-  ///
-  /// 从现有的 60 秒环形缓冲里切，不另开文件：诊断样本有上限，定案时一次性
-  /// 落盘就够了。只在候选变长或明显更响时更新，避免每 3 秒复制一次缓冲。
-  void _trackDiagnosticAudio(AudioWindow window, SoundEvent open) {
-    if (!recordClips || !_canKeepDiagnosticClip(open)) return;
-
-    if (_diagEventStart != open.startSeconds) {
-      _diagBest = null;
-      _diagBestPeak = 0;
-      _diagEventStart = open.startSeconds;
-    }
-
-    var peak = 0.0;
-    for (final sample in window.samples) {
-      final value = sample.abs();
-      if (value > peak) peak = value;
-    }
-
-    final want = (config.diagnosticClipSeconds * config.sampleRate).round();
-    final end = window.startSample + window.samples.length;
-    var start = end - want;
-    if (start < _ring.oldestSample) start = _ring.oldestSample;
-    if (start < 0) start = 0;
-    if (end <= start) return;
-
-    final longer = _diagBest == null || (end - start) > _diagBest!.length;
-    final louder = _diagBest == null || peak > _diagBestPeak * 1.12;
-    if (!longer && !louder) return;
-
-    final slice = _ring.slice(start, end);
-    if (slice == null || slice.isEmpty) return;
-
-    _diagBest = slice;
-    _diagBestStartSeconds = start / config.sampleRate;
-    if (peak > _diagBestPeak) _diagBestPeak = peak;
-  }
-
-  /// 定案时把诊断候选写盘，并回填路径。
-  Future<void> _finishDiagnosticAudio(int index, SoundEvent event) async {
-    final best = _diagBest;
-    final start = _diagBestStartSeconds;
-    _diagBest = null;
-    _diagBestPeak = 0;
-    _diagEventStart = null;
-
-    if (best == null || best.isEmpty) return;
-    if (!_canKeepDiagnosticClip(event) || !config.keepsEvent(event)) return;
-
-    final bytes = best.length * 2;
-    if (_diagSavedBytes + bytes > config.diagnosticClipNightCapBytes) {
-      _diagnosticCapHits++;
-      _clipsSkipped++;
-      return;
-    }
-
-    final store = _clipStore;
-    if (store == null) {
-      _clipsSkipped++;
-      return;
-    }
-
-    final path = await store.save(
-      sessionStartedAt: _startedAt ?? DateTime.now(),
-      startSeconds: start,
-      samples: best,
-      sampleRate: config.sampleRate,
-    );
-    if (path == null) {
-      _clipsSkipped++;
-      return;
-    }
-    _accumulator.attachClip(index, path);
-    _clipsSaved++;
-    _diagSavedBytes += bytes;
-  }
+  /// 这个事件需不需要开 writer（整段保留或诊断样本）。
+  bool _shouldWriteClip(SoundEvent event) =>
+      _canKeepClip(event) || _canKeepDiagnosticClip(event);
 
   /// 跟着当前事件，把音频写到盘上。
   ///
@@ -415,7 +343,10 @@ class NightAnalysisEngine {
       // 隐私开关是实时的：用户中途关掉，正在录的那段也立刻停止落盘
       final writer = _writer;
       if (writer != null) {
+        if (_writerIsDiagnostic) _diagSavedBytes -= _writerSamples * 2;
         _writer = null;
+        _writerMaxSamples = null;
+        _writerIsDiagnostic = false;
         _writerSamples = 0;
         await writer.release();
       }
@@ -426,18 +357,59 @@ class NightAnalysisEngine {
     // 没有开着的事件，或者这一段已经放弃（见下面的 _audioOptOut）
     if (open == null || _audioOptOut) return;
 
-    _trackDiagnosticAudio(window, open);
+    // 诊断开关中途关掉：正在写的诊断片段立刻停，和主开关的隐私语义一致。
+    if (_writerIsDiagnostic && !recordDiagnosticClips) {
+      final writer = _writer;
+      _diagSavedBytes -= _writerSamples * 2;
+      _writer = null;
+      _writerMaxSamples = null;
+      _writerIsDiagnostic = false;
+      _writerSamples = 0;
+      _audioOptOut = true;
+      await writer?.release();
+      return;
+    }
 
-    // ⚠️ 不可能留下片段的类别（梦话未开启、咳嗽等）**连 .part 都不开**。
-    // 否则事件开着的时候音频已经写到盘上了，进程被杀就永久残留——
-    // 对"梦话默认不录"这个承诺来说，这是漏洞。定案时再删已经来不及。
-    if (!_canKeepClip(open)) return;
+    // 不能留片段的类别连 `.part` 都不开（梦话未开启、诊断未开启等）。
+    if (!_shouldWriteClip(open)) return;
 
     final store = _clipStore;
     if (store == null) return;
 
+    final diagnostic = _isDiagnosticEvent(open);
+
     // ---- 新的一段：开文件，并把"头"从环形缓冲里补回来 ----
     if (_writer == null) {
+      int? maxSamples;
+      if (diagnostic) {
+        final seconds = diagnosticClipSeconds;
+        if (seconds != null && seconds > 0) {
+          maxSamples = seconds * config.sampleRate;
+        }
+        final cap = diagnosticClipNightCapBytes;
+        if (cap != null) {
+          final remainingBytes = cap - _diagSavedBytes;
+          // 剩不到 5 秒就不值得再开一段；否则会写出几秒的残片。
+          final minRemainingBytes = config.sampleRate * 5 * 2;
+          if (remainingBytes < minRemainingBytes) {
+            _diagnosticCapHits++;
+            _audioOptOut = true;
+            return;
+          }
+          final capSamples = remainingBytes ~/ 2;
+          if (maxSamples == null || capSamples < maxSamples) {
+            maxSamples = capSamples;
+          }
+        }
+      } else {
+        maxSamples = (config.maxEventClipSeconds * config.sampleRate).round();
+      }
+      if (maxSamples != null && maxSamples <= 0) {
+        _diagnosticCapHits++;
+        _audioOptOut = true;
+        return;
+      }
+
       final headStart = config.clipStartFor(open.startSeconds);
 
       final writer = await store.begin(
@@ -461,7 +433,7 @@ class NightAnalysisEngine {
       final headEnd =
           ((window.startSeconds + window.durationSeconds) * config.sampleRate)
               .round();
-      final head = _ring.slice(
+      var head = _ring.slice(
         (headStart * config.sampleRate).round(),
         headEnd,
       );
@@ -470,23 +442,35 @@ class NightAnalysisEngine {
         _audioOptOut = true;
         return;
       }
+      if (maxSamples != null && head.length > maxSamples) {
+        head = head.sublist(0, maxSamples);
+      }
 
       _writer = writer;
+      _writerMaxSamples = maxSamples;
+      _writerIsDiagnostic = diagnostic;
       await writer.append(head);
-      _writerSamples += head.length;
+      _writerSamples = head.length;
+      if (diagnostic) _diagSavedBytes += head.length * 2;
       return; // 头里已经含当前窗口，不能再补一次
     }
 
     // ---- 已经开着：接着写这一窗 ----
-    final capSamples = config.maxEventClipSeconds * config.sampleRate;
-    if (_writerSamples >= capSamples) {
-      // 触顶（正常不该发生，见 maxEventClipSeconds）。停止续写但保留已写的——
-      // 播放面板显示的是音频自己的长度，事件更长时还会说明，所以截断看得见。
+    final max = _writerMaxSamples;
+    if (max != null && _writerSamples >= max) {
+      // 触顶：停止续写但保留已写的。播放面板显示的是音频自己的长度，
+      // 事件更长时还会说明，所以截断看得见。
       return;
     }
 
-    await _writer!.append(window.samples);
-    _writerSamples += window.samples.length;
+    var samples = window.samples;
+    if (max != null && _writerSamples + samples.length > max) {
+      samples = samples.sublist(0, max - _writerSamples);
+    }
+    if (samples.isEmpty) return;
+    await _writer!.append(samples);
+    _writerSamples += samples.length;
+    if (diagnostic) _diagSavedBytes += samples.length * 2;
   }
 
   Future<void> _processWindow(AudioWindow window) async {
@@ -609,6 +593,8 @@ class NightAnalysisEngine {
     // 这条是防呆：留着会是一个永远不落定、也不删的 .part 文件。
     unawaited(_writer?.release());
     _writer = null;
+    _writerMaxSamples = null;
+    _writerIsDiagnostic = false;
     _audioOptOut = false;
     _writerSamples = 0;
 
@@ -623,10 +609,6 @@ class NightAnalysisEngine {
     _peakRms = 0;
     _clipsSaved = 0;
     _clipsSkipped = 0;
-    _diagBest = null;
-    _diagBestPeak = 0;
-    _diagBestStartSeconds = 0;
-    _diagEventStart = null;
     _diagSavedBytes = 0;
     _diagnosticCapHits = 0;
     _startedAt = null;
