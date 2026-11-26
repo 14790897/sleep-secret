@@ -157,6 +157,7 @@ List<SleepNight> groupSessionsIntoNights(
 
 /// 把事件的开始时间从「相对本段」平移到「相对整夜」。
 SoundEvent _shift(SoundEvent event, double seconds) => SoundEvent(
+      id: event.id,
       label: event.label,
       startSeconds: event.startSeconds + seconds,
       durationSeconds: event.durationSeconds,
@@ -167,4 +168,5 @@ SoundEvent _shift(SoundEvent event, double seconds) => SoundEvent(
       clipPath: event.clipPath,
       peakRms: event.peakRms,
       signal: event.signal,
+      userLabel: event.userLabel,
     );

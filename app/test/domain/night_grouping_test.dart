@@ -5,12 +5,15 @@ import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 
 SoundEvent snore({
+  int? id,
   required double start,
   double duration = 12,
   double? active,
   String? clip,
+  EventUserLabel? userLabel,
 }) =>
     SoundEvent(
+      id: id,
       label: SleepCategory.snore,
       startSeconds: start,
       durationSeconds: duration,
@@ -19,6 +22,7 @@ SoundEvent snore({
       snoreProbability: 0.9,
       windowCount: (duration / 3).round(),
       clipPath: clip,
+      userLabel: userLabel,
     );
 
 RecordingSession session({
@@ -167,6 +171,39 @@ void main() {
       // 第二段从 01:10 开始（相对整夜 +2h10m = 7800s），事件在段内 50s，
       // 合并后应当是 7850s——不平移的话会跑到夜里开头。
       expect(merged.events.map((e) => e.startSeconds), [100, 7850]);
+    });
+
+    test('合并夜保留事件 id 和用户标注，统计按标注排除', () {
+      final first = session(
+        id: 1,
+        start: DateTime(2026, 11, 12, 23),
+        duration: const Duration(hours: 2),
+        analyzedSeconds: 3600,
+        events: [
+          snore(
+            id: 11,
+            start: 100,
+            duration: 30,
+            active: 30,
+            userLabel: EventUserLabel.notSnore,
+          ),
+        ],
+      );
+      final second = session(
+        id: 2,
+        start: DateTime(2026, 11, 13, 1, 10),
+        duration: const Duration(hours: 6),
+        analyzedSeconds: 1800,
+        events: [snore(id: 12, start: 50, duration: 60, active: 60)],
+      );
+
+      final merged = SleepNight([first, second]).merged;
+
+      expect(merged.events.map((e) => e.id), [11, 12]);
+      expect(merged.events.first.userLabel, EventUserLabel.notSnore);
+      expect(merged.stats.snoreEventCount, 1,
+          reason: '被用户撤销的那段不计入鼾声统计');
+      expect(merged.stats.snoreSeconds, 60);
     });
 
     test('单段录音就是它自己，没有空档', () {
