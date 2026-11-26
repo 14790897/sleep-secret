@@ -77,15 +77,20 @@ hardware and extend "hearing the night" into "sensing the night":
   modules also report heart rate and body position.
 - **BLE pulse oximeter** (finger clip or ring): overnight SpO₂ and pulse rate,
   used to confirm whether a breathing pause came with a ≥3% desaturation.
-- **Posture sensing**: multi-antenna radar or a belt IMU, giving a supine/lateral
-  timeline to assess positional risk (whether it is worse on your back).
+- **Posture sensing**: multi-antenna radar or a chest-strap IMU, giving a
+  supine/lateral timeline to assess positional risk (whether it is worse on
+  your back).
 
-> **Status (2026-11-16)**: none of the three is connected to the app yet. The
-> chest-strap IMU behind "posture sensing" is a separate project in progress —
-> the ESP32-C3 + BMI270 carrier board (TP4056 charger + TPS63031 regulator) is
-> designed with manufacturing files ready, but **has not been fabricated,
-> assembled or validated**; radar and the oximeter have not started. This
-> section is a plan, not a shipped feature.
+> **Status (2026-11-26)**: none of the three is connected to the app yet. The
+> chest-strap IMU behind "posture sensing" now has a first board — ESP32-C3 +
+> BMI220, 50 Hz sampling, 25 Hz BLE streaming, four postures plus
+> moving/unknown, and a live Web Bluetooth 3D demo; Gerber / BOM / CPL are ready
+> to order. It is **not integrated into the app**, and charging, enclosure and
+> all-night stability are not yet validated; radar and the oximeter have not
+> started. This section is a plan, not a shipped feature. See
+> [Posture belt](https://mygithub.sixiangjia.de/sleep-secret/en/posture-belt/).
+
+<a href="https://mygithub.sixiangjia.de/sleep-secret/en/posture-belt/"><img src="docs/assets/images/posture-belt/web-app.png" width="420" alt="SleepPosture 3D posture visualizer"></a>
 
 With every channel aligned on one timeline, the report could add a **body
 position timeline** and **candidate breathing events** — always worded as
