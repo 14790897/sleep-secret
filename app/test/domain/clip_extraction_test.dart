@@ -357,10 +357,11 @@ void main() {
           }),
         );
 
-    AnalysisConfig diagnosticConfig({int cap = 200 * 1024 * 1024}) =>
+    AnalysisConfig diagnosticConfig({int? seconds, int? capBytes}) =>
         testConfig.copyWith(
           recordDiagnosticClips: true,
-          diagnosticClipNightCapBytes: cap,
+          diagnosticClipSeconds: seconds,
+          diagnosticClipNightCapBytes: capBytes,
         );
 
     test('默认关闭：非鼾声事件不落盘', () async {
@@ -392,7 +393,7 @@ void main() {
       expect(engine.clipsSaved, 1);
     });
 
-    test('长事件只留最响窗口结尾的 60 秒', () async {
+    test('默认无上限：整段事件都保留', () async {
       final engine = engineWith(
         analyzer: ambientAnalyzer(),
         // 关掉 VAD，否则中间那段安静会被跳过、事件断开
@@ -403,21 +404,36 @@ void main() {
       );
       engine.start(DateTime(2026, 10, 6, 23));
 
-      // 先开一个事件，中间长时间安静（仍属于这段），
-      // 最后来一段更响的——样本应该以它结尾。
       await engine.feedSamples(tone(amplitude: 0.2, length: 16000 * 3));
       await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 70));
       await engine.feedSamples(tone(amplitude: 0.8, length: 16000 * 3));
       final outcome = await engine.finish();
 
       final saved = store.saved.values.single;
-      expect(saved.length / 16000, closeTo(60, 1));
-      var peak = 0.0;
-      for (final v in saved) {
-        if (v.abs() > peak) peak = v.abs();
-      }
-      expect(peak, closeTo(0.8, 0.05),
-          reason: '样本必须包含事件里最响的那一段，否则诊断没有意义');
+      expect(saved.length / 16000, closeTo(76, 1),
+          reason: '默认无上限，诊断片段应该覆盖整段事件');
+      expect(outcome.events.first.clipPath, isNotNull);
+    });
+
+    test('设置每段上限后，按事件开头截断', () async {
+      final engine = engineWith(
+        analyzer: ambientAnalyzer(),
+        config: testConfig.copyWith(
+          recordDiagnosticClips: true,
+          vadEnabled: false,
+          diagnosticClipSeconds: 60,
+        ),
+      );
+      engine.start(DateTime(2026, 10, 6, 23));
+
+      await engine.feedSamples(tone(amplitude: 0.2, length: 16000 * 3));
+      await engine.feedSamples(tone(amplitude: quiet, length: 16000 * 70));
+      await engine.feedSamples(tone(amplitude: 0.8, length: 16000 * 3));
+      final outcome = await engine.finish();
+
+      final saved = store.saved.values.single;
+      expect(saved.length / 16000, closeTo(60, 1),
+          reason: '用户设了 60 秒，就从事件开头保留 60 秒');
       expect(outcome.events.first.clipPath, isNotNull);
     });
 
@@ -435,7 +451,7 @@ void main() {
                 }),
         ),
         // 6 秒片段约 192 KB；上限只够一段
-        config: diagnosticConfig(cap: 250 * 1024),
+        config: diagnosticConfig(capBytes: 250 * 1024),
       );
       engine.start(DateTime(2026, 10, 6, 23));
 

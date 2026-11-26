@@ -74,6 +74,8 @@ class RecordingRepository implements RecordingController {
   static const String _kRecordClips = 'record_clips';
   static const String _kRecordVocalClips = 'record_vocal_clips';
   static const String _kRecordDiagnosticClips = 'record_diagnostic_clips';
+  static const String _kDiagnosticClipSeconds = 'diagnostic_clip_seconds';
+  static const String _kDiagnosticClipNightCapMb = 'diagnostic_clip_night_cap_mb';
   static const String _kVadEnabled = 'vad_enabled';
   static const String _kVadThresholdDb = 'vad_threshold_db';
   static const String _kSnoreThresholdPercent = 'snore_threshold_percent';
@@ -90,6 +92,8 @@ class RecordingRepository implements RecordingController {
 
   /// 非鼾声事件的诊断片段。默认关闭。
   bool _recordDiagnosticClips = false;
+  int? _diagnosticClipSeconds;
+  int? _diagnosticClipNightCapBytes;
 
   /// 能量门控。没拨过时用 [AnalysisConfig.vadEnabled] 的默认值。
   bool _vadEnabled = false;
@@ -320,6 +324,38 @@ class RecordingRepository implements RecordingController {
   }
 
   @override
+  int? get diagnosticClipSeconds => _diagnosticClipSeconds;
+
+  @override
+  Future<void> setDiagnosticClipSeconds(int? seconds) async {
+    final clamped = (seconds == null || seconds <= 0)
+        ? null
+        : seconds.clamp(1, 86400);
+    _diagnosticClipSeconds = clamped;
+    _engine.diagnosticClipSeconds = clamped;
+    await _database.open();
+    await _database.writeStringSetting(_kDiagnosticClipSeconds, '${clamped ?? 0}');
+  }
+
+  @override
+  int? get diagnosticClipNightCapMb => _diagnosticClipNightCapBytes == null
+      ? null
+      : _diagnosticClipNightCapBytes! ~/ (1024 * 1024);
+
+  @override
+  Future<void> setDiagnosticClipNightCapMb(int? mb) async {
+    final clamped = (mb == null || mb <= 0) ? null : mb.clamp(1, 20480);
+    _diagnosticClipNightCapBytes =
+        clamped == null ? null : clamped * 1024 * 1024;
+    _engine.diagnosticClipNightCapBytes = _diagnosticClipNightCapBytes;
+    await _database.open();
+    await _database.writeStringSetting(
+      _kDiagnosticClipNightCapMb,
+      '${clamped ?? 0}',
+    );
+  }
+
+  @override
   bool get vadEnabled => _vadEnabled;
 
   @override
@@ -378,6 +414,19 @@ class RecordingRepository implements RecordingController {
       fallback: false,
     );
     _engine.recordDiagnosticClips = _recordDiagnosticClips;
+
+    final storedDiagnosticSeconds =
+        await _database.readStringSetting(_kDiagnosticClipSeconds);
+    final diagnosticSeconds = int.tryParse(storedDiagnosticSeconds ?? '') ?? 0;
+    _diagnosticClipSeconds = diagnosticSeconds > 0 ? diagnosticSeconds : null;
+    _engine.diagnosticClipSeconds = _diagnosticClipSeconds;
+
+    final storedCapMb =
+        await _database.readStringSetting(_kDiagnosticClipNightCapMb);
+    final capMb = int.tryParse(storedCapMb ?? '') ?? 0;
+    _diagnosticClipNightCapBytes =
+        capMb > 0 ? capMb * 1024 * 1024 : null;
+    _engine.diagnosticClipNightCapBytes = _diagnosticClipNightCapBytes;
     _vadEnabled =
         await _database.readBoolSetting(_kVadEnabled, fallback: _vadDefault);
     _engine.vadEnabled = _vadEnabled;

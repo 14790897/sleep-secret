@@ -29,6 +29,7 @@ class FakeRecordingController implements RecordingController {
   bool clipRecording = true;
   bool vocalClipRecording = true;
   bool diagnosticClipRecording = false;
+  int? diagnosticClipSecondsValue;
   bool vad = false;
   int vadDb = 54;
   int snorePercent = kSnoreThresholdPercentDefault;
@@ -73,6 +74,24 @@ class FakeRecordingController implements RecordingController {
   @override
   Future<void> setRecordDiagnosticClips(bool enabled) async {
     diagnosticClipRecording = enabled;
+  }
+
+  @override
+  int? get diagnosticClipSeconds => diagnosticClipSecondsValue;
+
+  @override
+  Future<void> setDiagnosticClipSeconds(int? seconds) async {
+    diagnosticClipSecondsValue = seconds;
+  }
+
+  @override
+  int? get diagnosticClipNightCapMb => diagnosticClipNightCapMbValue;
+
+  int? diagnosticClipNightCapMbValue;
+
+  @override
+  Future<void> setDiagnosticClipNightCapMb(int? mb) async {
+    diagnosticClipNightCapMbValue = mb;
   }
 
   @override

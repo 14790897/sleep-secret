@@ -136,7 +136,9 @@ class ReportView extends StatelessWidget {
               // 没打鼾的一晚整张卡不出现——否则列表里会多出一段空白。
               // 高危信号不算「鼾声」：它们有自己那张卡。
               if (session.events.any(
-                (e) => !e.isSignal && (e.hasClip || e.isSnore),
+                (e) =>
+                    !e.isSignal &&
+                    ((e.hasClip && e.keepsFullClip) || e.isSnore),
               )) ...[
                 const SizedBox(height: 12),
                 _ClipListCard(viewModel: viewModel),
@@ -653,8 +655,12 @@ class _ClipListCard extends StatelessWidget {
     final clipIndexes = <int>[
       for (var i = 0; i < events.length; i++)
         // 高危信号有自己的那张卡（[_ApneaSignalCard]），不在这儿重复。
-        // 这张卡标题是「鼾声录音」，里面列出「倒吸气」会被当成写错了。
-        if (events[i].hasClip && !events[i].isSignal) i,
+        // 诊断片段（非鼾声/非梦话）只在事件明细里试听，不混进「录音片段」卡：
+        // 它们的长度由用户设置决定，这张卡的「可听 X」按事件时长汇总会失真。
+        if (events[i].hasClip &&
+            !events[i].isSignal &&
+            events[i].keepsFullClip)
+          i,
     ];
 
     if (clipIndexes.isEmpty) {
@@ -676,11 +682,10 @@ class _ClipListCard extends StatelessWidget {
       );
     }
 
-    // 鼾声/高危信号/梦话是整段；其余类别是诊断样本，最多 60 秒。
-    // 汇总必须用**实际能听的时长**，不能拿事件时长代替。
+    // 这张卡只列整段保留的片段（鼾声/梦话），总和就是能听到的总长。
     final totalSeconds = clipIndexes.fold<double>(
       0,
-      (sum, i) => sum + _audibleClipSeconds(events[i]),
+      (sum, i) => sum + events[i].durationSeconds,
     );
 
     return SectionCard(
@@ -703,7 +708,7 @@ class _ClipListCard extends StatelessWidget {
               event: events[i],
               // 这张卡是「能听的录音」：显示的应该是音频长度，
               // 和副标题「可听 X」同一口径。
-              seconds: _audibleClipSeconds(events[i]),
+              seconds: events[i].durationSeconds,
               startedAt: viewModel.session.startedAt,
               isPlaying: viewModel.isPlaying(i),
               isLoading: viewModel.isLoading(i),
@@ -791,17 +796,6 @@ abstract final class ReportKeys {
   /// 「疑似呼吸暂停的信号」卡里第 i 个事件的那一行。
   /// **i 同样是事件在会话里的原始下标**，和别处指的是同一条。
   static ValueKey<String> signalRow(int i) => ValueKey('signal-row-$i');
-}
-
-/// 这个事件实际能听多久。
-///
-/// 鼾声/高危信号/梦话整段保留；其余类别只有诊断样本，上限
-/// [kDiagnosticClipSeconds]。汇总时长和行内秒数都用它。
-double _audibleClipSeconds(SoundEvent event) {
-  if (event.keepsFullClip) return event.durationSeconds;
-  return event.durationSeconds < kDiagnosticClipSeconds
-      ? event.durationSeconds
-      : kDiagnosticClipSeconds;
 }
 
 /// 片段总时长。

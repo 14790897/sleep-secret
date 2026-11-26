@@ -608,6 +608,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.diagnosticClipRecording, isTrue);
+
+    // 默认无上限，两个下拉都可改
+    expect(controller.diagnosticClipSecondsValue, isNull);
+    expect(controller.diagnosticClipNightCapMbValue, isNull);
+    expect(find.text('每段最长'), findsOneWidget);
+    expect(find.text('每晚最多'), findsOneWidget);
+    expect(find.text('无上限'), findsNWidgets(2));
+
+    final dropdowns = find.byType(DropdownButton<int>);
+    await tester.tap(dropdowns.first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 分钟').last);
+    await tester.pumpAndSettle();
+    expect(controller.diagnosticClipSecondsValue, 60);
+
+    await tester.tap(dropdowns.last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('500 MB').last);
+    await tester.pumpAndSettle();
+    expect(controller.diagnosticClipNightCapMbValue, 500);
   });
 
   testWidgets('关于页按设置/关于/数据与工具分组，高级默认收起', (tester) async {

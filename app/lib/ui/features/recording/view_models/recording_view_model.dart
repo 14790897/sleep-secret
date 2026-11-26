@@ -109,6 +109,22 @@ class RecordingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 每段诊断片段最长秒数；null = 无上限。
+  int? get diagnosticClipSeconds => _controller.diagnosticClipSeconds;
+
+  Future<void> setDiagnosticClipSeconds(int? seconds) async {
+    await _controller.setDiagnosticClipSeconds(seconds);
+    notifyListeners();
+  }
+
+  /// 每晚诊断片段上限（MB）；null = 无上限。
+  int? get diagnosticClipNightCapMb => _controller.diagnosticClipNightCapMb;
+
+  Future<void> setDiagnosticClipNightCapMb(int? mb) async {
+    await _controller.setDiagnosticClipNightCapMb(mb);
+    notifyListeners();
+  }
+
   /// 是否启用能量门控（安静段跳过）。
   bool get vadEnabled => _controller.vadEnabled;
 
