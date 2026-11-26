@@ -140,7 +140,8 @@ class RecordingSession {
 
   bool get isFinished => endedAt != null;
 
-  List<SoundEvent> get snoreEvents => events.where((e) => e.isSnore).toList();
+  List<SoundEvent> get snoreEvents =>
+      events.where((e) => e.countsAsSnore).toList();
 
   RecordingSession copyWith({
     int? id,

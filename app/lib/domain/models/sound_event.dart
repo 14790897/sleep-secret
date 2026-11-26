@@ -1,11 +1,21 @@
 import 'sleep_category.dart';
 
+/// 用户对单个事件的手动标注。
+///
+/// 目前只有「这不是鼾声」：模型把呼吸/环境声判成鼾声时，用户听完可以撤销。
+/// 存枚举名（`.name`），导出时也用这个名字；界面文案在 l10n 层。
+enum EventUserLabel {
+  /// 用户听完后认定这段不是鼾声。
+  notSnore,
+}
+
 /// 一次检出的声音事件。
 ///
 /// 由若干相邻的同类窗口合并而成，是 UI 时间线上的基本单元，
 /// 也是「回放这段声音」的锚点。
 class SoundEvent {
   const SoundEvent({
+    this.id,
     required this.label,
     required this.startSeconds,
     required this.durationSeconds,
@@ -16,7 +26,13 @@ class SoundEvent {
     this.clipPath,
     this.peakRms,
     this.signal,
+    this.userLabel,
   }) : activeSeconds = activeSeconds ?? durationSeconds;
+
+  /// 数据库主键。分析中的事件还没有 id；从库里读出来的事件有。
+  ///
+  /// 用户标注（「这不是鼾声」）要靠它定位，所以报告页打开的事件必须带 id。
+  final int? id;
 
   final SleepCategory label;
   final double startSeconds;
@@ -81,6 +97,9 @@ class SoundEvent {
   /// 老记录没有这一项（null）——那时候的引擎不收集它。
   final String? signal;
 
+  /// 用户对这段事件的手动标注；null = 没有标注，以模型结果为准。
+  final EventUserLabel? userLabel;
+
   /// 有没有电平数据。老记录没有，界面上要能区分「没记」和「很安静」。
   bool get hasLevel => peakRms != null;
 
@@ -90,6 +109,13 @@ class SoundEvent {
   double get endSeconds => startSeconds + durationSeconds;
 
   bool get isSnore => label == SleepCategory.snore;
+
+  /// 用户听完后明确撤销了这段的鼾声判决。
+  bool get isUserRejectedSnore =>
+      isSnore && userLabel == EventUserLabel.notSnore;
+
+  /// **统计和评分**用这个，不要直接判 [isSnore]。
+  bool get countsAsSnore => isSnore && !isUserRejectedSnore;
 
   /// 这个类别的片段是**整段保留**的（鼾声、高危信号、梦话）。
   ///
@@ -103,6 +129,7 @@ class SoundEvent {
 
   /// 补上片段路径。片段是在事件定案后才写盘的，所以事件本身先于片段存在。
   SoundEvent withClip(String? path) => SoundEvent(
+        id: id,
         label: label,
         startSeconds: startSeconds,
         durationSeconds: durationSeconds,
@@ -116,6 +143,23 @@ class SoundEvent {
         clipPath: path,
         peakRms: peakRms,
         signal: signal,
+        userLabel: userLabel,
+      );
+
+  /// 改用户标注，其余字段原样保留。
+  SoundEvent withUserLabel(EventUserLabel? userLabel) => SoundEvent(
+        id: id,
+        label: label,
+        startSeconds: startSeconds,
+        durationSeconds: durationSeconds,
+        activeSeconds: activeSeconds,
+        confidence: confidence,
+        snoreProbability: snoreProbability,
+        windowCount: windowCount,
+        clipPath: clipPath,
+        peakRms: peakRms,
+        signal: signal,
+        userLabel: userLabel,
       );
 
   SoundEvent mergedWith(SoundEvent other) {
@@ -124,6 +168,7 @@ class SoundEvent {
     final start = startSeconds < other.startSeconds ? startSeconds : other.startSeconds;
     final end = endSeconds > other.endSeconds ? endSeconds : other.endSeconds;
     return SoundEvent(
+      id: id ?? other.id,
       label: label,
       startSeconds: start,
       durationSeconds: end - start,
@@ -139,6 +184,7 @@ class SoundEvent {
       // 不能拿 0 当"没有"，那会在界面上显示成静音。
       peakRms: _maxOrNull(peakRms, other.peakRms),
       signal: signal,
+      userLabel: userLabel ?? other.userLabel,
     );
   }
 

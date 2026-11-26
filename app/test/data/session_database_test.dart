@@ -37,6 +37,7 @@ SoundEvent snoreEvent({
   double snoreProbability = 0.77,
   int windowCount = 60,
   String? clipPath,
+  EventUserLabel? userLabel,
 }) =>
     SoundEvent(
       label: SleepCategory.snore,
@@ -46,6 +47,7 @@ SoundEvent snoreEvent({
       snoreProbability: snoreProbability,
       windowCount: windowCount,
       clipPath: clipPath,
+      userLabel: userLabel,
     );
 
 void main() {
@@ -207,6 +209,24 @@ void main() {
         expect(s.events, hasLength(1));
         expect(s.stats.snoreEventCount, 1);
       }
+    });
+
+    test('用户标注「不是鼾声」能持久化、参与统计、也能撤销', () async {
+      await db.insertSession(
+        session(events: [snoreEvent(userLabel: EventUserLabel.notSnore)]),
+      );
+      final id = (await db.listSessions()).single.id!;
+
+      var full = await db.loadSession(id);
+      expect(full!.events.single.userLabel, EventUserLabel.notSnore);
+      expect(full.events.single.id, isNotNull, reason: '标注要靠 id 定位');
+      expect(full.stats.snoreEventCount, 0,
+          reason: '用户撤销过的段不计入鼾声统计');
+
+      await db.updateEventUserLabel(full.events.single.id!, null);
+      full = await db.loadSession(id);
+      expect(full!.events.single.userLabel, isNull);
+      expect(full.stats.snoreEventCount, 1);
     });
 
     test('列表带上事件（列表卡片的评分要用）', () async {

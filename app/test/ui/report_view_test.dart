@@ -19,6 +19,7 @@ import 'package:sleep_secret/ui/features/report/views/report_view.dart';
 import '../helpers/fake_clip_services.dart';
 
 SoundEvent event({
+  int? id,
   required SleepCategory label,
   required double start,
   required double duration,
@@ -28,8 +29,10 @@ SoundEvent event({
   String? clipPath,
   double? peakRms,
   String? signal,
+  EventUserLabel? userLabel,
 }) =>
     SoundEvent(
+      id: id,
       label: label,
       startSeconds: start,
       durationSeconds: duration,
@@ -40,6 +43,7 @@ SoundEvent event({
       clipPath: clipPath,
       peakRms: peakRms,
       signal: signal,
+      userLabel: userLabel,
     );
 
 RecordingSession buildSession({
@@ -1277,6 +1281,52 @@ void main() {
       final opened = await vm.openClip(0);
       expect(opened, isNotNull);
       expect(opened!.eventSeconds, 90);
+    });
+  });
+
+  group('用户撤销鼾声判决', () {
+    testWidgets('被撤销的鼾声显示标记和计分说明', (tester) async {
+      await pumpReport(
+        tester,
+        buildSession(events: [
+          event(
+            id: 42,
+            label: SleepCategory.snore,
+            start: 100,
+            duration: 60,
+            userLabel: EventUserLabel.notSnore,
+          ),
+        ]),
+      );
+
+      expect(find.textContaining('已标记：不是鼾声'), findsWidgets);
+      expect(find.textContaining('已由你标记为不是鼾声'), findsOneWidget);
+    });
+
+    test('标记后不计入鼾声统计，撤销后恢复', () async {
+      final settings = FakeRecordingController();
+      final vm = buildVm(
+        buildSession(events: [
+          event(id: 42, label: SleepCategory.snore, start: 100, duration: 60),
+        ]),
+        settings: settings,
+      );
+
+      await vm.setUserLabelForEvent(
+        vm.session.events.first,
+        EventUserLabel.notSnore,
+      );
+
+      expect(settings.userLabelUpdates, [(42, EventUserLabel.notSnore)]);
+      expect(vm.session.events.first.userLabel, EventUserLabel.notSnore);
+      expect(vm.session.stats.snoreEventCount, 0);
+      expect(vm.session.stats.snoreSeconds, 0);
+
+      await vm.setUserLabelForEvent(vm.session.events.first, null);
+
+      expect(vm.session.events.first.userLabel, isNull);
+      expect(vm.session.stats.snoreEventCount, 1);
+      expect(vm.session.stats.snoreSeconds, 60);
     });
   });
 }

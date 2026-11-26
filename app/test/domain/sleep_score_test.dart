@@ -5,7 +5,7 @@ import 'package:sleep_secret/domain/models/sleep_category.dart';
 import 'package:sleep_secret/domain/models/sound_event.dart';
 
 SoundEvent ev(SleepCategory label, double start, double duration,
-        {double? active}) =>
+        {double? active, EventUserLabel? userLabel}) =>
     SoundEvent(
       label: label,
       startSeconds: start,
@@ -14,15 +14,16 @@ SoundEvent ev(SleepCategory label, double start, double duration,
       confidence: 0.7,
       snoreProbability: label == SleepCategory.snore ? 0.8 : 0.0,
       windowCount: (duration / 3).round(),
+      userLabel: userLabel,
     );
 
 /// 构造一晚：事件列表 + 分析时长，鼾声时长从事件里算出来。
 RecordingSession night(List<SoundEvent> events, {double hours = 8}) {
   final analyzed = hours * 3600;
   final snoreSeconds = events
-      .where((e) => e.isSnore)
+      .where((e) => e.countsAsSnore)
       .fold<double>(0, (s, e) => s + e.activeSeconds);
-  final snoreCount = events.where((e) => e.isSnore).length;
+  final snoreCount = events.where((e) => e.countsAsSnore).length;
   return RecordingSession(
     id: 1,
     startedAt: DateTime(2026, 10, 6, 23),
@@ -74,6 +75,20 @@ void main() {
       final heavy = scoreSession(night([ev(SleepCategory.snore, 100, 7200)]))!;
 
       expect(light.total, greaterThan(heavy.total));
+    });
+
+    test('用户标记「不是鼾声」的段不计入鼾声占比和连续性', () {
+      final s = scoreSession(night([
+        ev(
+          SleepCategory.snore,
+          100,
+          7200,
+          userLabel: EventUserLabel.notSnore,
+        ),
+      ]))!;
+
+      expect(pick(s, DeductionKind.snoreRatio).points, 0);
+      expect(pick(s, DeductionKind.snoreContinuity).points, 0);
     });
 
     test('鼾声占到 25% 时扣满该项', () {

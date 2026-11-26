@@ -16,7 +16,7 @@ class SessionDatabase {
   SessionDatabase({DatabaseFactory? factory, this.databasePath})
       : _factory = factory ?? databaseFactory;
 
-  static const int schemaVersion = 6;
+  static const int schemaVersion = 7;
   static const String _dbName = 'sleep_secret.db';
 
   final DatabaseFactory _factory;
@@ -90,6 +90,9 @@ class SessionDatabase {
         -- 存名字不存索引：和 label 同一个道理，名字是 AudioSet 给的标识，
         -- 换个模型重编索引不会让历史数据读错。
         signal TEXT,
+        -- 用户手动标注（目前只有「不是鼾声」）。存枚举名，不存中文。
+        -- NULL = 没标注，统计和评分仍按模型结果算。
+        user_label TEXT,
         FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
       )
     ''');
@@ -154,6 +157,16 @@ class SessionDatabase {
         'UPDATE events SET active_seconds = window_count * $kDefaultWindowSeconds '
         'WHERE active_seconds IS NULL',
       );
+    }
+    if (from < 7) {
+      // v6 没有用户标注（「这不是鼾声」）。老记录保留 NULL = 没标注。
+      // 和 v6 一样用 PRAGMA 守卫：半完成的迁移重跑时不能报 duplicate column。
+      final columns = await db.rawQuery('PRAGMA table_info(events)');
+      final hasUserLabel =
+          columns.any((row) => row['name'] == 'user_label');
+      if (!hasUserLabel) {
+        await db.execute('ALTER TABLE events ADD COLUMN user_label TEXT');
+      }
     }
   }
 
@@ -229,6 +242,7 @@ class SessionDatabase {
           'clip_path': event.clipPath,
           'peak_rms': event.peakRms,
           'signal': event.signal,
+          'user_label': event.userLabel?.name,
         });
       }
       return id;
@@ -287,9 +301,12 @@ class SessionDatabase {
       whereArgs: [id],
       orderBy: 'start_seconds ASC',
     );
-    return _sessionFromRow(
-      rows.first,
-      events: eventRows.map(_eventFromRow).toList(growable: false),
+    return applySnoreThreshold(
+      _sessionFromRow(
+        rows.first,
+        events: eventRows.map(_eventFromRow).toList(growable: false),
+      ),
+      0,
     );
   }
 
@@ -321,6 +338,23 @@ class SessionDatabase {
       'events',
       {'clip_path': null},
       where: 'clip_path IS NOT NULL',
+    );
+  }
+
+  /// 设置/清除单个事件的用户标注（「这不是鼾声」）。
+  ///
+  /// 只动这一列；评分所需的统计在读取时按事件重算，避免会话汇总列
+  /// 和事件行各说一套。
+  Future<void> updateEventUserLabel(
+    int eventId,
+    EventUserLabel? label,
+  ) async {
+    final db = await open();
+    await db.update(
+      'events',
+      {'user_label': label?.name},
+      where: 'id = ?',
+      whereArgs: [eventId],
     );
   }
 
@@ -356,7 +390,7 @@ class SessionDatabase {
     var snoreCount = 0;
     var snoreSeconds = 0.0;
     for (final event in events) {
-      if (event.isSnore) {
+      if (event.countsAsSnore) {
         snoreCount++;
         snoreSeconds += event.activeSeconds;
       }
@@ -406,6 +440,7 @@ class SessionDatabase {
   }
 
   SoundEvent _eventFromRow(Map<String, Object?> row) => SoundEvent(
+        id: row['id'] as int?,
         label: _categoryFromName(row['label']! as String),
         startSeconds: (row['start_seconds'] as num).toDouble(),
         durationSeconds: (row['duration_seconds'] as num).toDouble(),
@@ -417,7 +452,18 @@ class SessionDatabase {
         clipPath: row['clip_path'] as String?,
         peakRms: row['peak_rms'] as double?,
         signal: row['signal'] as String?,
+        userLabel: _userLabelFromName(row['user_label'] as String?),
       );
+
+  /// 用户标注只认已知枚举名；未知值按「没标注」处理——
+  /// 一个坏字段不该让整晚报告打不开。
+  static EventUserLabel? _userLabelFromName(String? name) {
+    if (name == null) return null;
+    for (final label in EventUserLabel.values) {
+      if (label.name == name) return label;
+    }
+    return null;
+  }
 
   /// 存的是枚举名而不是中文标签——中文改了不影响历史数据可读性。
   static SleepCategory _categoryFromName(String name) {

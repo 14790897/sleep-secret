@@ -112,6 +112,8 @@ Map<String, Object?> _encodeEvent(SoundEvent e) => {
       // ——新版本读旧文件得到 null（= 没记，不是"没有"），旧版本读新文件会
       // 按名字取键，多出来的键直接忽略。版本号是为**读不了**的变化留的。
       'signal': e.signal,
+      // 用户标注（「这不是鼾声」）。可选字段：旧文件没有 → null = 没标注。
+      'userLabel': e.userLabel?.name,
     };
 
 List<SoundEvent> _decodeEvents(Object? raw) {
@@ -139,6 +141,7 @@ List<SoundEvent> _decodeEvents(Object? raw) {
           peakRms: (item['peakRms'] as num?)?.toDouble(),
           // 同上，老文件没有高危信号这一项
           signal: item['signal'] as String?,
+          userLabel: _userLabelFromName(item['userLabel'] as String?),
         ),
   ];
 }
@@ -181,6 +184,15 @@ SleepCategory _category(Object? raw) {
     if (c.name == raw) return c;
   }
   throw FormatException('未知类别 $raw');
+}
+
+/// 用户标注只认已知枚举名；未知值当「没标注」，不毁整份文件。
+EventUserLabel? _userLabelFromName(String? name) {
+  if (name == null) return null;
+  for (final label in EventUserLabel.values) {
+    if (label.name == name) return label;
+  }
+  return null;
 }
 
 int _int(Object? v, String field) {

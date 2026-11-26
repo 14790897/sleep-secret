@@ -6,6 +6,7 @@ import '../../domain/analysis/decibel.dart';
 import '../../domain/analysis/night_analysis_engine.dart';
 import '../../domain/models/recording_session.dart';
 import '../../domain/models/recording_state.dart';
+import '../../domain/models/sound_event.dart';
 import '../../domain/repositories/audio_clip_store.dart';
 import '../../l10n/app_strings.dart';
 import '../../domain/repositories/recording_controller.dart';
@@ -498,6 +499,15 @@ class RecordingRepository implements RecordingController {
   @override
   Future<int> totalClipBytes() async {
     return await _clipStore?.totalBytes() ?? 0;
+  }
+
+  @override
+  Future<void> updateEventUserLabel(
+    int eventId,
+    EventUserLabel? label,
+  ) async {
+    await _database.open();
+    await _database.updateEventUserLabel(eventId, label);
   }
 
   @override

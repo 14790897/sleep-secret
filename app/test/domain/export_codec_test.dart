@@ -182,6 +182,27 @@ void main() {
       expect(round.stats.rawLabelCounts, isEmpty);
     });
 
+    test('用户标注随文件往返；老文件没有它读成「没标注」', () {
+      final base = buildSession();
+      final labeled = base.copyWith(events: [
+        base.events.first.withUserLabel(EventUserLabel.notSnore),
+        base.events.last,
+      ]);
+
+      final round = decodeSession(encodeSession(labeled));
+      expect(round.events.first.userLabel, EventUserLabel.notSnore);
+      expect(round.events.last.userLabel, isNull);
+
+      final old =
+          jsonDecode(encodeSession(labeled)) as Map<String, dynamic>;
+      final session = old['session'] as Map<String, dynamic>;
+      for (final e in session['events'] as List) {
+        (e as Map<String, dynamic>).remove('userLabel');
+      }
+      final oldRound = decodeSession(jsonEncode(old));
+      expect(oldRound.events.every((e) => e.userLabel == null), isTrue);
+    });
+
     test('老文件没有 activeSeconds：按 windowCount 推算，和 DB 迁移同口径', () {
       final old = jsonDecode(encodeSession(buildSession())) as Map<String, dynamic>;
       final session = old['session'] as Map<String, dynamic>;
