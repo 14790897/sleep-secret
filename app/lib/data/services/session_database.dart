@@ -390,7 +390,7 @@ class SessionDatabase {
     var snoreCount = 0;
     var snoreSeconds = 0.0;
     for (final event in events) {
-      if (event.isSnore) {
+      if (event.countsAsSnore) {
         snoreCount++;
         snoreSeconds += event.activeSeconds;
       }
