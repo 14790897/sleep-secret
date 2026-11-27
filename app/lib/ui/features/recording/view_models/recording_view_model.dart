@@ -40,6 +40,9 @@ class RecordingViewModel extends ChangeNotifier {
   /// 全局的鼾声展示门槛（百分比）。列表统计和详情页用的是同一个值。
   int get snoreThresholdPercent => _controller.snoreThresholdPercent;
 
+  /// 全局的环境声展示门槛（百分比）。列表统计同样按它筛。
+  int get ambientThresholdPercent => _controller.ambientThresholdPercent;
+
   /// 刚刚停止录音产生的那一晚。
   ///
   /// 停止后外壳要自动跳到这一晚的报告（睡醒了第一眼就该看到结果），

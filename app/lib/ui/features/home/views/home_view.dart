@@ -273,6 +273,21 @@ class _ReportListViewState extends State<_ReportListView> {
                             ),
                       ),
                     ),
+                  // 环境声门槛同样会改变下面的统计（事件数、评分），
+                  // 原因也得写在数字旁边。
+                  if (vm.ambientThresholdPercent > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        context.l10n.reportListAmbientFilterNote(
+                          vm.ambientThresholdPercent,
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textDim,
+                              height: 1.5,
+                            ),
+                      ),
+                    ),
                   // 趋势放在最上面：只有一晚时它自己会退化成一句提示。
                   // 传合并后的夜，趋势才是一晚一个点。
                   TrendCard(sessions: [for (final n in nights) n.merged]),

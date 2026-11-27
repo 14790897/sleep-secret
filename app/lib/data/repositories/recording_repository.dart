@@ -80,6 +80,7 @@ class RecordingRepository implements RecordingController {
   static const String _kVadEnabled = 'vad_enabled';
   static const String _kVadThresholdDb = 'vad_threshold_db';
   static const String _kSnoreThresholdPercent = 'snore_threshold_percent';
+  static const String _kAmbientThresholdPercent = 'ambient_threshold_percent';
 
   /// 通知权限被拒时给用户看的话。
   ///
@@ -108,6 +109,7 @@ class RecordingRepository implements RecordingController {
   /// 报告页的鼾声展示门槛（百分比，0 = 不筛）。默认 0，不动它的人和
   /// 没有这个功能完全一样。
   int _snoreThresholdPercent = kSnoreThresholdPercentDefault;
+  int _ambientThresholdPercent = 0;
 
   bool _settingsLoaded = false;
 
@@ -399,6 +401,21 @@ class RecordingRepository implements RecordingController {
     await _database.writeStringSetting(_kSnoreThresholdPercent, '$clamped');
   }
 
+  @override
+  int get ambientThresholdPercent => _ambientThresholdPercent;
+
+  @override
+  Future<void> setAmbientThresholdPercent(int percent) async {
+    final clamped =
+        percent.clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
+    _ambientThresholdPercent = clamped;
+    await _database.open();
+    await _database.writeStringSetting(
+      _kAmbientThresholdPercent,
+      '$clamped',
+    );
+  }
+
   /// 读一次设置。放在 start() 里做，避免构造时就碰数据库。
   Future<void> _ensureSettingsLoaded() async {
     if (_settingsLoaded) return;
@@ -442,6 +459,12 @@ class RecordingRepository implements RecordingController {
     _snoreThresholdPercent =
         (int.tryParse(storedPercent ?? '') ?? kSnoreThresholdPercentDefault)
             .clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
+
+    final storedAmbient =
+        await _database.readStringSetting(_kAmbientThresholdPercent);
+    _ambientThresholdPercent =
+        (int.tryParse(storedAmbient ?? '') ?? 0)
+            .clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
   }
 
   @override
@@ -452,6 +475,7 @@ class RecordingRepository implements RecordingController {
     await _database.open();
     return _database.listSessions(
       snoreThresholdPercent: _snoreThresholdPercent,
+      ambientThresholdPercent: _ambientThresholdPercent,
     );
   }
 

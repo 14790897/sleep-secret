@@ -226,6 +226,22 @@ void main() {
     expect(find.textContaining('鼾声展示门槛'), findsNothing);
   });
 
+  testWidgets('环境声门槛生效时，列表顶部也写明', (tester) async {
+    useTallViewport(tester);
+    controller.ambientPercent = 40;
+    controller.sessions = [
+      night(id: 1, startedAt: DateTime(2026, 10, 6, 23), snoreSeconds: 240),
+    ];
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('报告'));
+    await tester.pumpAndSettle();
+
+    // 环境声门槛同样改变列表的统计和评分，原因也得出现在数字旁边。
+    expect(find.textContaining('环境声展示门槛 ≥40%'), findsOneWidget);
+  });
+
   testWidgets('列表卡片显示评分，和详情页是同一个数', (tester) async {
     // 这条防的是用户报的「列表和详情页分数不一致」：列表圆环原来显示
     // 鼾声指数，详情页大环显示评分，两个数根本不是一回事。

@@ -1,28 +1,39 @@
 import '../models/recording_session.dart';
+import '../models/sleep_category.dart';
 import '../models/sound_event.dart';
 
-/// 按「鼾声展示门槛」筛出用于**显示**的会话。
+/// 按「鼾声展示门槛」筛出用于**显示**的会话（兼容旧调用）。
+RecordingSession applySnoreThreshold(RecordingSession session, int percent) =>
+    applyDisplayFilters(session, snorePercent: percent);
+
+/// 按展示门槛筛出用于**显示**的会话。
 ///
-/// 只筛鼾声：别的类别不会因为这个门槛消失。门槛 <= 0 时保留全部事件，
-/// 但仍会按用户标注重算统计（「这不是鼾声」的段不计入鼾声）。
+/// - [snorePercent]：鼾声置信度低于它的不显示（用户撤销过的始终显示）；
+/// - [ambientPercent]：环境噪音置信度低于它的不显示。
 ///
-/// 详情页和报告列表共用它：同一晚在两处必须是同一个数，否则用户会把
-/// 两个数字当成 bug（原来列表读存库统计、详情重算，就对不上）。
-RecordingSession applySnoreThreshold(RecordingSession session, int percent) {
+/// 只影响显示和派生的展示统计；录音、分析、导出都不经过这里。
+/// 详情页和报告列表共用它：同一晚在两处必须是同一个数。
+RecordingSession applyDisplayFilters(
+  RecordingSession session, {
+  int snorePercent = 0,
+  int ambientPercent = 0,
+}) {
   final hasUserLabels =
       session.events.any((e) => e.userLabel != null);
-  // 没门槛、也没用户标注：和以前一样原样返回，不重算统计。
-  // 用户标注过的会话必须重算，否则「不是鼾声」不计入评分这条不生效。
-  if (percent <= 0 && !hasUserLabels) return session;
+  // 没有门槛、也没用户标注：和以前一样原样返回，不重算统计。
+  if (snorePercent <= 0 && ambientPercent <= 0 && !hasUserLabels) {
+    return session;
+  }
 
   final kept = [
     for (final e in session.events)
-      // 用户撤销过的鼾声始终保留可见，门槛不再把它藏起来；
-      // 它只是不再计入鼾声统计。
-      if (!e.isSnore ||
-          e.isUserRejectedSnore ||
-          percent <= 0 ||
-          e.confidence * 100 >= percent)
+      if ((!e.isSnore ||
+              e.isUserRejectedSnore ||
+              snorePercent <= 0 ||
+              e.confidence * 100 >= snorePercent) &&
+          (e.label != SleepCategory.ambient ||
+              ambientPercent <= 0 ||
+              e.confidence * 100 >= ambientPercent))
         e,
   ];
   return session.copyWith(

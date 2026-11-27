@@ -37,6 +37,7 @@ class FakeRecordingController implements RecordingController {
   bool vad = false;
   int vadDb = 54;
   int snorePercent = kSnoreThresholdPercentDefault;
+  int ambientPercent = 0;
 
   /// 让 listSessions 挂起，用来观察"加载中"的界面。
   Completer<void>? blockList;
@@ -112,6 +113,14 @@ class FakeRecordingController implements RecordingController {
   @override
   Future<void> setSnoreThresholdPercent(int percent) async {
     snorePercent = percent;
+  }
+
+  @override
+  int get ambientThresholdPercent => ambientPercent;
+
+  @override
+  Future<void> setAmbientThresholdPercent(int percent) async {
+    ambientPercent = percent;
   }
 
   @override

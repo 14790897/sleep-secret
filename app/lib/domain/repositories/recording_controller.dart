@@ -89,6 +89,11 @@ abstract interface class RecordingController {
 
   Future<void> setSnoreThresholdPercent(int percent);
 
+  /// 报告页的「环境声展示门槛」：低于它的环境噪音不显示。0 = 全部显示。
+  int get ambientThresholdPercent;
+
+  Future<void> setAmbientThresholdPercent(int percent);
+
   /// 开始整夜录音。已在进行中时是空操作。
   ///
   /// 不接收时间参数：会话起始时间应当是**音频真正开始采集的时刻**，

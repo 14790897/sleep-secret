@@ -6,6 +6,7 @@ import '../../../../data/services/event_player.dart';
 import '../../../../domain/analysis/night_grouping.dart';
 import '../../../../domain/analysis/snore_display_filter.dart';
 import '../../../../domain/models/recording_session.dart';
+import '../../../../domain/models/sleep_category.dart';
 import '../../../../domain/models/sound_event.dart';
 import '../../../../domain/models/ui_message.dart';
 import '../../../../domain/repositories/audio_clip_store.dart';
@@ -90,18 +91,38 @@ class ReportViewModel extends ChangeNotifier {
   /// 而看不出这份干净是筛出来的。
   int get allSnoreCount => _session.stats.snoreEventCount;
 
+  /// 环境声展示门槛（百分比）。**0 表示不筛**，全部显示——默认值。
+  int get ambientThresholdPercent => _settings.ambientThresholdPercent;
+
+  Future<void> setAmbientThresholdPercent(int percent) async {
+    if (percent == ambientThresholdPercent) return;
+    await stopPlayback();
+    await _settings.setAmbientThresholdPercent(percent);
+    _visible = null;
+    notifyListeners();
+  }
+
+  /// 这一夜一共有多少条环境噪音（**未筛**）。
+  int get allAmbientCount =>
+      _session.events.where((e) => e.label == SleepCategory.ambient).length;
+
+  /// 筛过之后还剩多少条环境噪音。
+  int get visibleAmbientCount =>
+      session.events.where((e) => e.label == SleepCategory.ambient).length;
+
   /// 筛过之后的会话。**报告页整页都读它**（[ReportView] 里所有 `session.*`
   /// 都是这一个），所以门槛一改整页跟着变——事件列表、时间线、鼾声时长、
   /// 鼾声指数、类别分布、每小时分布全都是从 `events` 现算的，不必逐处改。
   ///
-  /// **只筛鼾声**：别的类别不会因为这个门槛消失。
+  /// 鼾声和环境声各有一个展示门槛；别的类别不受影响。
   RecordingSession get session => _visible ??= _filtered();
 
   RecordingSession? _visible;
 
-  RecordingSession _filtered() => applySnoreThreshold(
+  RecordingSession _filtered() => applyDisplayFilters(
         _session,
-        snoreThresholdPercent,
+        snorePercent: snoreThresholdPercent,
+        ambientPercent: ambientThresholdPercent,
       );
 
   /// 正在播放的事件下标，-1 表示没有。

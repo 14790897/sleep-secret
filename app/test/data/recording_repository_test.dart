@@ -554,6 +554,18 @@ void main() {
       await second.dispose();
     });
 
+    test('环境声门槛能存下来，换个实例读同一个库还在', () async {
+      final first = buildRepo(fileDb);
+      await cycle(first, () => first.setAmbientThresholdPercent(45));
+      await first.dispose();
+
+      final second = buildRepo(fileDb);
+      await second.start();
+      expect(second.ambientThresholdPercent, 45);
+      await second.stop();
+      await second.dispose();
+    });
+
     test('能量门控门槛也能存下来（这条原来一直没有）', () async {
       final first = buildRepo(fileDb);
       await cycle(first, () => first.setVadThresholdDb(41));
@@ -776,6 +788,59 @@ void main() {
       expect(list.single.stats.snoreEventCount, 1);
       expect(list.single.stats.snoreSeconds, 100);
       await second.dispose();
+    });
+
+    test('环境声门槛：低把握环境声从列表消失，鼾声不受影响', () async {
+      await fileDb.open();
+      await fileDb.insertSession(
+        RecordingSession(
+          id: null,
+          startedAt: DateTime(2026, 11, 27, 23),
+          endedAt: DateTime(2026, 11, 28, 7),
+          stats: const SessionStats.empty(),
+          events: const [
+            SoundEvent(
+              label: SleepCategory.snore,
+              startSeconds: 10,
+              durationSeconds: 60,
+              confidence: 0.90,
+              snoreProbability: 0.90,
+              windowCount: 1,
+            ),
+            SoundEvent(
+              label: SleepCategory.ambient,
+              startSeconds: 200,
+              durationSeconds: 30,
+              confidence: 0.70,
+              snoreProbability: 0,
+              windowCount: 1,
+            ),
+            SoundEvent(
+              label: SleepCategory.ambient,
+              startSeconds: 500,
+              durationSeconds: 30,
+              confidence: 0.25,
+              snoreProbability: 0,
+              windowCount: 1,
+            ),
+          ],
+        ),
+      );
+      final repo = buildRepo(fileDb);
+      await repo.setAmbientThresholdPercent(50);
+
+      final list = await repo.listSessions();
+      final labels = list.single.events.map((e) => e.label).toList();
+
+      expect(
+        labels.where((l) => l == SleepCategory.ambient).length,
+        1,
+        reason: '0.70 那条留下，0.25 那条被筛掉',
+      );
+      expect(labels, contains(SleepCategory.snore),
+          reason: '环境声门槛不该带走鼾声');
+      expect(list.single.stats.eventCount, 2);
+      await repo.dispose();
     });
 
     test('列表和详情页算出的评分一致（用户看到的「分数不一致」）', () async {
