@@ -2,7 +2,7 @@
 
 Sleep Secret currently has only a microphone: it can tell you how noisy a night was, but not whether you were on your back or your side. **SleepPosture** is a companion hardware prototype — an IMU worn on the sternum that streams four sleep postures over BLE.
 
-![SleepPosture 3D visualizer](assets/images/posture-belt/web-app.png)
+![SleepPosture 3D visualizer](https://mygithub.sixiangjia.de/sleep-secret/assets/images/posture-belt/web-app.png)
 
 ## Why posture
 
@@ -21,8 +21,8 @@ This is not a diagnosis. Positional OSA needs sleep monitoring (airflow, oxygen 
 | Carrier board | 30.7 × 50.8 mm, 1.0 mm two-layer PCB, four M2 mounting holes |
 | Wearing | 35–40 mm elastic chest strap, component side facing out, `TOP` silkscreen towards the head |
 
-![PCB](assets/images/posture-belt/pcb.jpg)
-![Enclosure](assets/images/posture-belt/enclosure.jpg)
+![PCB](https://mygithub.sixiangjia.de/sleep-secret/assets/images/posture-belt/pcb.jpg)
+![Enclosure](https://mygithub.sixiangjia.de/sleep-secret/assets/images/posture-belt/enclosure.jpg)
 
 ## Posture classes
 
