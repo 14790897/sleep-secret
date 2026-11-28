@@ -54,6 +54,19 @@ void main() {
               '${en.difference(zh)}');
       expect(zh, isNotEmpty, reason: '一个 key 都没有，多半是路径读错了');
     });
+
+    test('俄语没有漏翻，也没有多出来', () {
+      final zh = keysOf('lib/l10n/app_zh.arb');
+      final ru = keysOf('lib/l10n/app_ru.arb');
+
+      expect(zh.difference(ru), isEmpty,
+          reason: '这些 key 只有中文、没有俄语，俄语用户会看到中文：'
+              '${zh.difference(ru)}');
+      expect(ru.difference(zh), isEmpty,
+          reason: '这些 key 只在俄语里有，中文那份缺了（模板是中文）：'
+              '${ru.difference(zh)}');
+      expect(ru, isNotEmpty, reason: '一个 key 都没有，多半是路径读错了');
+    });
   });
 
   group('渲染', () {
@@ -143,12 +156,20 @@ void main() {
           reason: '切到英文了，中文那份不该还在');
     });
 
+    testWidgets('俄语环境下底部导航是俄语', (tester) async {
+      await pumpAbout(tester, 'ru');
+
+      expect(navLabels(tester), containsAll(['Сон', 'Отчёты', 'О приложении']));
+      expect(navLabels(tester).any((t) => t == '睡眠'), isFalse,
+          reason: '切到俄语了，中文那份不该还在');
+    });
+
     testWidgets('系统语言不在支持列表里时，回退到英文', (tester) async {
-      // ⚠️ supportedLocales 的顺序是**代码生成时按 arb 文件名排的**（en, zh），
+      // ⚠️ supportedLocales 的顺序是**代码生成时按 arb 文件名排的**（en, ru, zh），
       // 不是我们定的。但落点正好是对的：中文用户匹配 zh，其余语言落到 en
       // ——那正是这个 App 想要的国际回退。
       //
-      // 这条断言把它钉住：哪天加了第三种语言、生成顺序变了，
+      // 这条断言把它钉住：哪天加了新语言、生成顺序变了，
       // 会有人立刻发现，而不是等一个德国用户来报「界面怎么变中文了」。
       await pumpAbout(tester, 'de');
 
@@ -178,6 +199,20 @@ void main() {
 
       // 先确认子树真的建出来了 —— 空集合上做 isEmpty 永远是 true，
       // 那就是一条永远绿、也永远没用的断言
+      expect(aboutTexts(tester), isNotEmpty,
+          reason: '关于页的子树是空的，这条断言会假绿');
+
+      expect(offenders, isEmpty, reason: _cjkReport('关于页', offenders));
+    });
+
+    testWidgets('俄语渲染下，关于页不该残留任何中文', (tester) async {
+      await pumpAbout(tester, 'ru');
+
+      final cjk = RegExp('[一-鿿]');
+      final offenders = aboutTexts(tester)
+          .where((t) => cjk.hasMatch(t) && !intentionallyChinese.contains(t))
+          .toList();
+
       expect(aboutTexts(tester), isNotEmpty,
           reason: '关于页的子树是空的，这条断言会假绿');
 
@@ -283,6 +318,14 @@ void main() {
       expect(find.text('Sleep'), findsOneWidget,
           reason: '选了 English 之后底部导航该是英文——那根线没接上的话这里会红');
       expect(find.text('睡眠'), findsNothing);
+
+      // 再选 Русский，同一个控制器，切换应当同样立刻生效
+      await tester.tap(find.text('Русский'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Сон'), findsOneWidget,
+          reason: '选了 Русский 之后底部导航该是俄语');
+      expect(find.text('Sleep'), findsNothing);
     });
   });
 }

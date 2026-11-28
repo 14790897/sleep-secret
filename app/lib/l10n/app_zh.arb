@@ -952,6 +952,7 @@
   "languageSystem": "跟随系统",
   "languageChinese": "简体中文",
   "languageEnglish": "English",
+  "languageRussian": "Русский",
   "levelApproxNote": "分贝是估算的：手机麦克风没有校准过，误差可能有 ±10 分贝。它适合拿来比较「今晚比昨晚吵」或者「这一声比那一声响」，不适合当作声级计的读数。",
   "categoryDeviceNoise": "设备噪音",
   "categorySneeze": "喷嚏"
