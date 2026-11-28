@@ -80,6 +80,7 @@ class RecordingRepository implements RecordingController {
   static const String _kVadEnabled = 'vad_enabled';
   static const String _kVadThresholdDb = 'vad_threshold_db';
   static const String _kSnoreThresholdPercent = 'snore_threshold_percent';
+  static const String _kAmbientThresholdPercent = 'ambient_threshold_percent';
 
   /// 通知权限被拒时给用户看的话。
   ///
@@ -108,6 +109,7 @@ class RecordingRepository implements RecordingController {
   /// 报告页的鼾声展示门槛（百分比，0 = 不筛）。默认 0，不动它的人和
   /// 没有这个功能完全一样。
   int _snoreThresholdPercent = kSnoreThresholdPercentDefault;
+  int _ambientThresholdPercent = 0;
 
   bool _settingsLoaded = false;
 
@@ -399,6 +401,23 @@ class RecordingRepository implements RecordingController {
     await _database.writeStringSetting(_kSnoreThresholdPercent, '$clamped');
   }
 
+  @override
+  int get ambientThresholdPercent => _ambientThresholdPercent;
+
+  @override
+  Future<void> setAmbientThresholdPercent(int percent) async {
+    final clamped =
+        percent.clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
+    await _database.open();
+    // 先落库再改内存值：写失败时保持旧值，用户重试同一个数字才会真正重试，
+    // 而不是被「和内存里的值相同」提前挡回去。
+    await _database.writeStringSetting(
+      _kAmbientThresholdPercent,
+      '$clamped',
+    );
+    _ambientThresholdPercent = clamped;
+  }
+
   /// 读一次设置。放在 start() 里做，避免构造时就碰数据库。
   Future<void> _ensureSettingsLoaded() async {
     if (_settingsLoaded) return;
@@ -442,6 +461,12 @@ class RecordingRepository implements RecordingController {
     _snoreThresholdPercent =
         (int.tryParse(storedPercent ?? '') ?? kSnoreThresholdPercentDefault)
             .clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
+
+    final storedAmbient =
+        await _database.readStringSetting(_kAmbientThresholdPercent);
+    _ambientThresholdPercent =
+        (int.tryParse(storedAmbient ?? '') ?? 0)
+            .clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
   }
 
   @override
@@ -452,6 +477,7 @@ class RecordingRepository implements RecordingController {
     await _database.open();
     return _database.listSessions(
       snoreThresholdPercent: _snoreThresholdPercent,
+      ambientThresholdPercent: _ambientThresholdPercent,
     );
   }
 

@@ -251,14 +251,16 @@ class SessionDatabase {
 
   /// 按开始时间倒序列出全部会话（含事件）。
   ///
-  /// [snoreThresholdPercent] 就是报告页的「鼾声展示门槛」：列表和详情页
-  /// 必须显示同一组数，所以这里直接用同一个筛选函数（[applySnoreThreshold]）。
+  /// [snoreThresholdPercent] / [ambientThresholdPercent] 就是报告页的两个
+  /// 展示门槛：列表和详情页必须显示同一组数，所以这里直接用同一个筛选函数
+  /// （[applyDisplayFilters]）。
   ///
   /// 列表卡片要显示**评分**，而评分用到了事件（连续时长、干扰次数、环境声），
   /// 只靠 sessions 表的汇总列算不出来——所以事件要一起读。每夜的事件只有
   /// 几十条，一次查完比按会话逐个 loadSession 省得多。
   Future<List<RecordingSession>> listSessions({
     int snoreThresholdPercent = 0,
+    int ambientThresholdPercent = 0,
   }) async {
     final db = await open();
     final rows = await db.query('sessions', orderBy: 'started_at DESC');
@@ -274,12 +276,13 @@ class SessionDatabase {
 
     return [
       for (final row in rows)
-        applySnoreThreshold(
+        applyDisplayFilters(
           _sessionFromRow(
             row,
             events: eventsBySession[row['id'] as int] ?? const [],
           ),
-          snoreThresholdPercent,
+          snorePercent: snoreThresholdPercent,
+          ambientPercent: ambientThresholdPercent,
         ),
     ];
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -1281,6 +1282,186 @@ void main() {
       final opened = await vm.openClip(0);
       expect(opened, isNotNull);
       expect(opened!.eventSeconds, 90);
+    });
+  });
+
+  group('环境声展示门槛', () {
+    RecordingSession nightWithAmbient() => buildSession(
+          events: [
+            event(
+                label: SleepCategory.ambient,
+                start: 100,
+                duration: 30,
+                confidence: 0.70),
+            event(
+                label: SleepCategory.ambient,
+                start: 300,
+                duration: 30,
+                confidence: 0.20),
+            event(
+                label: SleepCategory.ambient,
+                start: 600,
+                duration: 30,
+                confidence: 0.45),
+            event(
+                label: SleepCategory.snore,
+                start: 1000,
+                duration: 60,
+                confidence: 0.30,
+                snore: 0.30),
+            event(label: SleepCategory.cough, start: 2000, duration: 12,
+                confidence: 0.10),
+          ],
+        );
+
+    test('默认 0：全部显示，环境声一条不少', () {
+      final vm = buildVm(nightWithAmbient());
+      expect(vm.ambientThresholdPercent, 0);
+      expect(vm.session.events.length, 5);
+      expect(vm.allAmbientCount, 3);
+      expect(vm.visibleAmbientCount, 3);
+    });
+
+    test('只筛低把握的环境声，鼾声和咳嗽不受影响', () async {
+      final vm = buildVm(nightWithAmbient());
+      await vm.setAmbientThresholdPercent(50);
+
+      final labels = vm.session.events.map((e) => e.label).toList();
+      expect(labels.where((l) => l == SleepCategory.ambient).length, 1,
+          reason: '0.70 那条留下，0.20 / 0.45 被筛掉');
+      expect(labels, contains(SleepCategory.snore),
+          reason: '环境声门槛不该带走鼾声——哪怕它只有 0.30');
+      expect(labels, contains(SleepCategory.cough),
+          reason: '别的类别同样不受影响');
+      expect(vm.session.stats.eventCount, 3);
+      expect(vm.session.stats.snoreEventCount, 1);
+    });
+
+    test('「还有几条没显示」数得出来', () async {
+      final vm = buildVm(nightWithAmbient());
+      await vm.setAmbientThresholdPercent(50);
+
+      expect(vm.allAmbientCount, 3, reason: '总数不受筛选影响');
+      expect(vm.visibleAmbientCount, 1);
+      expect(vm.allAmbientCount - vm.visibleAmbientCount, 2);
+    });
+
+    test('设置会写进仓库', () async {
+      final settings = FakeRecordingController();
+      final vm = buildVm(nightWithAmbient(), settings: settings);
+      await vm.setAmbientThresholdPercent(60);
+      expect(settings.ambientPercent, 60);
+    });
+
+    test('解析路径期间改了门槛，这条不再起播', () async {
+      // 点播放 → 路径还没解析出来 → 改了门槛（筛后下标已经指到别的
+      // 事件上）。没有这道守卫的话，面板会播出另一段声音。
+      clipStore.saved['sess/100000.wav'] = Float32List(16000);
+      clipStore.blockResolve = Completer<void>();
+      final vm = buildVm(buildSession(events: [
+        event(
+            label: SleepCategory.ambient,
+            start: 100,
+            duration: 30,
+            confidence: 0.60,
+            clipPath: 'sess/100000.wav'),
+      ]));
+
+      final opening = vm.openClip(0);
+      expect(vm.loadingIndex, 0, reason: '已经进入解析阶段');
+
+      await vm.setAmbientThresholdPercent(50); // 改门槛会先停播
+      clipStore.blockResolve!.complete();
+
+      expect(await opening, isNull, reason: '停过播了，这条不该再响');
+      expect(vm.playingIndex, -1);
+    });
+
+    test('解析路径期间页面销毁，这条不再起播', () async {
+      clipStore.saved['sess/100000.wav'] = Float32List(16000);
+      clipStore.blockResolve = Completer<void>();
+      final vm = buildVm(buildSession(events: [
+        event(
+            label: SleepCategory.snore,
+            start: 100,
+            duration: 30,
+            clipPath: 'sess/100000.wav'),
+      ]));
+
+      final opening = vm.openClip(0);
+      vm.dispose();
+      clipStore.blockResolve!.complete();
+
+      expect(await opening, isNull);
+    });
+
+    test('写门槛期间点播的片段，落定后会被停掉', () async {
+      // 写库是异步的。这期间界面还拿着旧会话，用户可能点播了马上要
+      // 被筛掉的片段；落定后必须再停一次，否则它会一直响。
+      clipStore.saved['sess/100000.wav'] = Float32List(16000);
+      final settings = FakeRecordingController();
+      settings.blockAmbientSave = Completer<void>();
+      final vm = buildVm(
+        buildSession(events: [
+          event(
+              label: SleepCategory.ambient,
+              start: 100,
+              duration: 30,
+              confidence: 0.20,
+              clipPath: 'sess/100000.wav'),
+        ]),
+        settings: settings,
+      );
+
+      final saving = vm.setAmbientThresholdPercent(50); // 卡在写库
+      final opened = await vm.openClip(0);
+      expect(opened, isNotNull, reason: '旧会话里这条还在，能播');
+      expect(vm.playingIndex, 0);
+
+      settings.blockAmbientSave!.complete();
+      await saving;
+
+      expect(vm.playingIndex, -1, reason: '这条马上被筛掉，不能继续响');
+      expect(vm.session.events, isEmpty);
+    });
+
+    test('拨回 0，全部回来', () async {
+      final vm = buildVm(nightWithAmbient());
+      await vm.setAmbientThresholdPercent(50);
+      expect(vm.session.events.length, 3);
+
+      await vm.setAmbientThresholdPercent(0);
+      expect(vm.session.events.length, 5, reason: '数据一直都在，只是刚才没显示');
+    });
+
+    testWidgets('有环境声时显示这张卡，滑块能改门槛并说出隐藏了多少条', (tester) async {
+      final settings = FakeRecordingController();
+      final vm = buildVm(nightWithAmbient(), settings: settings);
+      tester.view.physicalSize = const Size(900, 4200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(localizedApp(home: ReportView(viewModel: vm)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('显示哪些环境声'), findsOneWidget);
+      final slider = find.descendant(
+        of: find.byKey(ReportKeys.ambientFilter),
+        matching: find.byType(Slider),
+      );
+      expect(slider, findsOneWidget);
+
+      await tester.drag(slider, const Offset(250, 0));
+      await tester.pumpAndSettle();
+
+      expect(settings.ambientPercent, greaterThan(0));
+      expect(find.textContaining('环境声没有显示'), findsOneWidget,
+          reason: '筛掉了多少必须说出来，不能只给一份「变干净了」的报告');
+    });
+
+    testWidgets('一条环境声都没有的夜晚不显示这张卡', (tester) async {
+      // 默认 fixture 是鼾声/咳嗽/梦话/呼吸，没有环境声。
+      await pumpReport(tester, buildSession());
+      expect(find.byKey(ReportKeys.ambientFilter), findsNothing);
     });
   });
 

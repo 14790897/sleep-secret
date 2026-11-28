@@ -112,6 +112,10 @@ class ReportView extends StatelessWidget {
             children: [
               _OverviewCard(session: session),
               _SnoreFilterCard(viewModel: viewModel),
+              // 一条环境声都没有的夜晚不摆这张卡——没有可筛的东西，
+              // 一根拨了也不动的滑块只会添乱。
+              if (viewModel.allAmbientCount > 0)
+                _AmbientFilterCard(viewModel: viewModel),
               // 放在概览之后、图表之前：有问题时用户应当**在按错误的理解
               // 读完一整页图表之前**就看到它。没有问题时整张卡不出现。
               if (diagnoses.isNotEmpty) ...[
@@ -244,6 +248,88 @@ class _SnoreFilterCardState extends State<_SnoreFilterCard> {
               hidden > 0
                   ? context.l10n.reportFilterHidden(hidden)
                   : context.l10n.reportFilterNothingHidden,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: hidden > 0 ? AppColors.statusWarning : AppColors.textDim,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 报告页的环境声展示门槛。
+///
+/// 同 [_SnoreFilterCard]：**只影响显示**，被筛掉的环境声仍在库里。
+/// 存在的理由：房间里的持续底噪（风扇、白噪声、远处的车流）会被认成一整晚
+/// 的环境声，时间线上的绿色条把真正值得看的部分淹掉；门槛把它们暂时藏起来。
+class _AmbientFilterCard extends StatefulWidget {
+  const _AmbientFilterCard({required this.viewModel});
+
+  final ReportViewModel viewModel;
+
+  @override
+  State<_AmbientFilterCard> createState() => _AmbientFilterCardState();
+}
+
+class _AmbientFilterCardState extends State<_AmbientFilterCard> {
+  /// 拖动时的临时值，松手才落定——不能每帧写库。
+  int? _drag;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final vm = widget.viewModel;
+    final shown = _drag ?? vm.ambientThresholdPercent;
+    final hidden = vm.allAmbientCount - vm.visibleAmbientCount;
+
+    return Card(
+      key: ReportKeys.ambientFilter,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.reportAmbientFilterTitle,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                Text(
+                  shown <= 0
+                      ? context.l10n.reportFilterAll
+                      : context.l10n.reportFilterValue(shown),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: shown
+                  .toDouble()
+                  .clamp(0, kSnoreThresholdPercentMax.toDouble()),
+              max: kSnoreThresholdPercentMax.toDouble(),
+              divisions: kSnoreThresholdPercentMax,
+              onChanged: (v) => setState(() => _drag = v.round()),
+              onChangeEnd: (v) {
+                setState(() => _drag = null);
+                vm.setAmbientThresholdPercent(v.round());
+              },
+            ),
+            // 和鼾声卡片同一条原则：筛掉了多少必须说出来。
+            Text(
+              hidden > 0
+                  ? context.l10n.reportAmbientFilterHidden(hidden)
+                  : context.l10n.reportAmbientFilterNothingHidden,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: hidden > 0 ? AppColors.statusWarning : AppColors.textDim,
                 height: 1.5,
@@ -789,6 +875,10 @@ class _ClipListCard extends StatelessWidget {
 abstract final class ReportKeys {
   /// 「鼾声录音」卡。
   static const ValueKey<String> snoreClips = ValueKey('section-snore-clips');
+
+  /// 「环境声展示门槛」卡。
+  static const ValueKey<String> ambientFilter =
+      ValueKey('section-ambient-filter');
 
   /// 「事件明细」卡。
   static const ValueKey<String> eventDetail = ValueKey('section-event-detail');

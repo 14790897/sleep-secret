@@ -190,9 +190,29 @@
     }
   },
   "reportFilterNothingHidden": "没有藏起来的鼾声",
+  "reportAmbientFilterTitle": "显示哪些环境声",
+  "reportAmbientFilterHidden": "还有 {count} 条更低把握的环境声没有显示",
+  "@reportAmbientFilterHidden": {
+    "description": "同 reportFilterHidden：不写这句，用户会以为环境声真的少了，而不是被筛掉了。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reportAmbientFilterNothingHidden": "没有藏起来的环境声",
   "reportListFilterNote": "鼾声展示门槛 ≥{percent}%：以下统计已按此筛选，在报告页可调",
   "@reportListFilterNote": {
     "description": "列表页顶部。列表的统计和详情页一样按这个门槛筛，原因要写在数字旁边。",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "reportListAmbientFilterNote": "环境声展示门槛 ≥{percent}%：更低把握的环境声已按此筛选，在报告页可调",
+  "@reportListAmbientFilterNote": {
+    "description": "同上，但针对环境声门槛——两个门槛同时生效时两行都要能各自说明。",
     "placeholders": {
       "percent": {
         "type": "int"

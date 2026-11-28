@@ -6,6 +6,7 @@ import '../../../../data/services/event_player.dart';
 import '../../../../domain/analysis/night_grouping.dart';
 import '../../../../domain/analysis/snore_display_filter.dart';
 import '../../../../domain/models/recording_session.dart';
+import '../../../../domain/models/sleep_category.dart';
 import '../../../../domain/models/sound_event.dart';
 import '../../../../domain/models/ui_message.dart';
 import '../../../../domain/repositories/audio_clip_store.dart';
@@ -70,6 +71,11 @@ class ReportViewModel extends ChangeNotifier {
   int _loadingIndex = -1;
   UiMessage? _error;
 
+  /// 每次停止播放就加一。正在解析路径的 [openClip] 在 await 之后对比它，
+  /// 变了就放弃起播——否则「点了播放、解析还没回来就改了门槛/关了面板」
+  /// 会让面板播出的片段和列表里那一条对不上。
+  int _playGeneration = 0;
+
   /// 鼾声展示门槛（百分比）。**0 表示不筛**，全部显示——这也是默认值。
   int get snoreThresholdPercent => _settings.snoreThresholdPercent;
 
@@ -79,6 +85,9 @@ class ReportViewModel extends ChangeNotifier {
     // 不停的话面板还在响，而它对应的已经不是同一段声音。
     await stopPlayback();
     await _settings.setSnoreThresholdPercent(percent);
+    // 写库期间界面还拿着旧会话，用户可能点播了马上要被筛掉的片段。
+    // 落定之后再停一次，别让它继续响。
+    await stopPlayback();
     _visible = null;
     notifyListeners();
   }
@@ -90,18 +99,40 @@ class ReportViewModel extends ChangeNotifier {
   /// 而看不出这份干净是筛出来的。
   int get allSnoreCount => _session.stats.snoreEventCount;
 
+  /// 环境声展示门槛（百分比）。**0 表示不筛**，全部显示——默认值。
+  int get ambientThresholdPercent => _settings.ambientThresholdPercent;
+
+  Future<void> setAmbientThresholdPercent(int percent) async {
+    if (percent == ambientThresholdPercent) return;
+    await stopPlayback();
+    await _settings.setAmbientThresholdPercent(percent);
+    // 同 setSnoreThresholdPercent：写库期间可能已经点播了要被筛掉的片段。
+    await stopPlayback();
+    _visible = null;
+    notifyListeners();
+  }
+
+  /// 这一夜一共有多少条环境噪音（**未筛**）。
+  int get allAmbientCount =>
+      _session.events.where((e) => e.label == SleepCategory.ambient).length;
+
+  /// 筛过之后还剩多少条环境噪音。
+  int get visibleAmbientCount =>
+      session.events.where((e) => e.label == SleepCategory.ambient).length;
+
   /// 筛过之后的会话。**报告页整页都读它**（[ReportView] 里所有 `session.*`
   /// 都是这一个），所以门槛一改整页跟着变——事件列表、时间线、鼾声时长、
   /// 鼾声指数、类别分布、每小时分布全都是从 `events` 现算的，不必逐处改。
   ///
-  /// **只筛鼾声**：别的类别不会因为这个门槛消失。
+  /// 鼾声和环境声各有一个展示门槛；别的类别不受影响。
   RecordingSession get session => _visible ??= _filtered();
 
   RecordingSession? _visible;
 
-  RecordingSession _filtered() => applySnoreThreshold(
+  RecordingSession _filtered() => applyDisplayFilters(
         _session,
-        snoreThresholdPercent,
+        snorePercent: snoreThresholdPercent,
+        ambientPercent: ambientThresholdPercent,
       );
 
   /// 正在播放的事件下标，-1 表示没有。
@@ -140,7 +171,10 @@ class ReportViewModel extends ChangeNotifier {
     _loadingIndex = index;
     notifyListeners();
 
+    final generation = _playGeneration;
     final absolute = await _clipStore.resolve(relative);
+    // 解析期间被停播（改门槛、关页面都会停）：这条已经不该响了。
+    if (generation != _playGeneration) return null;
     if (absolute == null) {
       // 文件被清理掉了（用户删过、或系统清过缓存）。说清楚原因，
       // 不要只是"点了没反应"。
@@ -162,6 +196,7 @@ class ReportViewModel extends ChangeNotifier {
   }
 
   Future<void> stopPlayback() async {
+    _playGeneration++;
     await _player?.stop();
     _playingIndex = -1;
     _loadingIndex = -1;
@@ -216,6 +251,8 @@ class ReportViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    // 先作废在途的 openClip：页面都销毁了，解析完也不该再起播。
+    _playGeneration++;
     _sub?.cancel();
     // 视图销毁时把声音停掉——报告页退出了还在响会很突兀
     _player?.stop();
