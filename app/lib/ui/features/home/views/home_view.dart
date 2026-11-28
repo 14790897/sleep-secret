@@ -1185,34 +1185,40 @@ class _LanguageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // RadioListTile 的 groupValue 用 languageCode 比较，
-    // null（跟随系统）单独用一个哨兵值，免得和"没选中"撞上。
+    // 「跟随系统」在控制器里存的是 null，下拉框需要一个非空值当哨兵。
     const system = 'system';
     final current = controller.locale?.languageCode ?? system;
-
-    Widget option(String value, String label) => RadioListTile<String>(
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      value: value,
-      title: Text(label, style: theme.textTheme.bodyMedium),
-    );
 
     return SectionCard(
       title: context.l10n.languageTitle,
       subtitle: context.l10n.languageSubtitle,
-      child: RadioGroup<String>(
-        groupValue: current,
-        onChanged: (v) =>
-            controller.setLocale(v == null || v == system ? null : Locale(v)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            option(system, context.l10n.languageSystem),
-            option('zh', context.l10n.languageChinese),
-            option('en', context.l10n.languageEnglish),
-            option('ru', context.l10n.languageRussian),
+      // 单行下拉，而不是每种语言各占一行：语言是偶尔改一次的设置，
+      // 四行单选会把关于页首屏吃掉一大块。样式和诊断片段的下拉一致。
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: DropdownButton<String>(
+          value: current,
+          items: [
+            DropdownMenuItem(
+              value: system,
+              child: Text(context.l10n.languageSystem),
+            ),
+            DropdownMenuItem(
+              value: 'zh',
+              child: Text(context.l10n.languageChinese),
+            ),
+            DropdownMenuItem(
+              value: 'en',
+              child: Text(context.l10n.languageEnglish),
+            ),
+            DropdownMenuItem(
+              value: 'ru',
+              child: Text(context.l10n.languageRussian),
+            ),
           ],
+          onChanged: (v) => controller.setLocale(
+            v == null || v == system ? null : Locale(v),
+          ),
         ),
       ),
     );
