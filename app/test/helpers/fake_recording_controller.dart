@@ -118,8 +118,12 @@ class FakeRecordingController implements RecordingController {
   @override
   int get ambientThresholdPercent => ambientPercent;
 
+  /// 挂起环境声门槛的写库，用来观察「写库还没落定」那段窗口。
+  Completer<void>? blockAmbientSave;
+
   @override
   Future<void> setAmbientThresholdPercent(int percent) async {
+    if (blockAmbientSave != null) await blockAmbientSave!.future;
     ambientPercent = percent;
   }
 

@@ -1377,6 +1377,54 @@ void main() {
       expect(vm.playingIndex, -1);
     });
 
+    test('解析路径期间页面销毁，这条不再起播', () async {
+      clipStore.saved['sess/100000.wav'] = Float32List(16000);
+      clipStore.blockResolve = Completer<void>();
+      final vm = buildVm(buildSession(events: [
+        event(
+            label: SleepCategory.snore,
+            start: 100,
+            duration: 30,
+            clipPath: 'sess/100000.wav'),
+      ]));
+
+      final opening = vm.openClip(0);
+      vm.dispose();
+      clipStore.blockResolve!.complete();
+
+      expect(await opening, isNull);
+    });
+
+    test('写门槛期间点播的片段，落定后会被停掉', () async {
+      // 写库是异步的。这期间界面还拿着旧会话，用户可能点播了马上要
+      // 被筛掉的片段；落定后必须再停一次，否则它会一直响。
+      clipStore.saved['sess/100000.wav'] = Float32List(16000);
+      final settings = FakeRecordingController();
+      settings.blockAmbientSave = Completer<void>();
+      final vm = buildVm(
+        buildSession(events: [
+          event(
+              label: SleepCategory.ambient,
+              start: 100,
+              duration: 30,
+              confidence: 0.20,
+              clipPath: 'sess/100000.wav'),
+        ]),
+        settings: settings,
+      );
+
+      final saving = vm.setAmbientThresholdPercent(50); // 卡在写库
+      final opened = await vm.openClip(0);
+      expect(opened, isNotNull, reason: '旧会话里这条还在，能播');
+      expect(vm.playingIndex, 0);
+
+      settings.blockAmbientSave!.complete();
+      await saving;
+
+      expect(vm.playingIndex, -1, reason: '这条马上被筛掉，不能继续响');
+      expect(vm.session.events, isEmpty);
+    });
+
     test('拨回 0，全部回来', () async {
       final vm = buildVm(nightWithAmbient());
       await vm.setAmbientThresholdPercent(50);

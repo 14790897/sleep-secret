@@ -85,6 +85,9 @@ class ReportViewModel extends ChangeNotifier {
     // 不停的话面板还在响，而它对应的已经不是同一段声音。
     await stopPlayback();
     await _settings.setSnoreThresholdPercent(percent);
+    // 写库期间界面还拿着旧会话，用户可能点播了马上要被筛掉的片段。
+    // 落定之后再停一次，别让它继续响。
+    await stopPlayback();
     _visible = null;
     notifyListeners();
   }
@@ -103,6 +106,8 @@ class ReportViewModel extends ChangeNotifier {
     if (percent == ambientThresholdPercent) return;
     await stopPlayback();
     await _settings.setAmbientThresholdPercent(percent);
+    // 同 setSnoreThresholdPercent：写库期间可能已经点播了要被筛掉的片段。
+    await stopPlayback();
     _visible = null;
     notifyListeners();
   }
@@ -246,6 +251,8 @@ class ReportViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    // 先作废在途的 openClip：页面都销毁了，解析完也不该再起播。
+    _playGeneration++;
     _sub?.cancel();
     // 视图销毁时把声音停掉——报告页退出了还在响会很突兀
     _player?.stop();
