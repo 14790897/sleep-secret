@@ -1211,6 +1211,7 @@ class _LanguageCard extends StatelessWidget {
             option(system, context.l10n.languageSystem),
             option('zh', context.l10n.languageChinese),
             option('en', context.l10n.languageEnglish),
+            option('ru', context.l10n.languageRussian),
           ],
         ),
       ),

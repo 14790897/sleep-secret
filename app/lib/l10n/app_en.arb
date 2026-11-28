@@ -281,7 +281,7 @@
   "reportNoDeduction": "none",
   "reportHundredPoints": "100 points, item by item",
   "reportClipsTitle": "Audio clips",
-  "reportClipsNone": "No audio was kept for this night — either clips were off while recording, or you deleted them. Turn on “Keep snore and airway-signal clips” on the About tab and future nights will keep them — coughing is never kept; sleep talking is kept by default like the rest.",
+  "reportClipsNone": "No audio was kept for this night — either clips were off while recording, or you deleted them. Turn on “Keep snore and airway-signal clips” on the About tab and future nights will keep them — coughing is not kept by default (diagnostic clips keep a short sample); sleep talking is kept by default like the rest.",
   "deleteClipsAction": "Delete these clips (keep the report)",
   "deleteClipsConfirmTitle": "Delete the clips for this night?",
   "deleteClipsConfirmBody": "You won't be able to listen to this night again, but the events, timeline and statistics are kept. This cannot be undone.",
@@ -342,6 +342,7 @@
   "languageSystem": "System default",
   "languageChinese": "简体中文",
   "languageEnglish": "English",
+  "languageRussian": "Русский",
   "levelApproxNote": "Decibels here are estimated: a phone microphone is never calibrated, so the error can be ±10 dB. They are fine for comparing nights or telling one snore from another — not for reading as a sound level meter.",
   "categoryDeviceNoise": "Appliance noise",
   "categorySneeze": "Sneezing"
