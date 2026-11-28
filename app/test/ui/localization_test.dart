@@ -164,15 +164,21 @@ void main() {
           reason: '切到俄语了，中文那份不该还在');
     });
 
-    testWidgets('语言是单行下拉，四种语言不各占一行', (tester) async {
+    testWidgets('语言是单行下拉，未展开时只显示当前选择', (tester) async {
       await pumpAbout(tester, 'zh');
 
-      // 只有一个下拉框；没展开时，未选中的语言文案不该在树里。
+      // 只有一个下拉框；按钮上显示的是当前选择。
       expect(find.byType(DropdownButton<String>), findsOneWidget);
-      expect(find.text('跟随系统'), findsOneWidget,
-          reason: '按钮上显示的是当前选择');
+      expect(find.text('跟随系统'), findsOneWidget);
+
+      // ⚠️ DropdownButton 会把所有选项挂在按钮内部的 IndexedStack 里
+      // （只是 offstage），所以能断言的是「看不见」，不是「不在树里」。
+      // 用 skipOffstage: false 反过来钉住它们确实还挂着——哪天被误删，
+      // 展开菜单就空了，这条会先红。
       expect(find.text('English'), findsNothing);
       expect(find.text('Русский'), findsNothing);
+      expect(find.text('English', skipOffstage: false), findsOneWidget);
+      expect(find.text('Русский', skipOffstage: false), findsOneWidget);
     });
 
     testWidgets('系统语言不在支持列表里时，回退到英文', (tester) async {
