@@ -164,6 +164,23 @@ void main() {
           reason: '切到俄语了，中文那份不该还在');
     });
 
+    testWidgets('语言是单行下拉，未展开时只显示当前选择', (tester) async {
+      await pumpAbout(tester, 'zh');
+
+      // 只有一个下拉框；按钮上显示的是当前选择。
+      expect(find.byType(DropdownButton<String>), findsOneWidget);
+      expect(find.text('跟随系统'), findsOneWidget);
+
+      // ⚠️ DropdownButton 会把所有选项挂在按钮内部的 IndexedStack 里
+      // （只是 offstage），所以能断言的是「看不见」，不是「不在树里」。
+      // 用 skipOffstage: false 反过来钉住它们确实还挂着——哪天被误删，
+      // 展开菜单就空了，这条会先红。
+      expect(find.text('English'), findsNothing);
+      expect(find.text('Русский'), findsNothing);
+      expect(find.text('English', skipOffstage: false), findsOneWidget);
+      expect(find.text('Русский', skipOffstage: false), findsOneWidget);
+    });
+
     testWidgets('系统语言不在支持列表里时，回退到英文', (tester) async {
       // ⚠️ supportedLocales 的顺序是**代码生成时按 arb 文件名排的**（en, ru, zh），
       // 不是我们定的。但落点正好是对的：中文用户匹配 zh，其余语言落到 en
@@ -312,16 +329,24 @@ void main() {
       // 进关于页，选 English
       await tester.tap(find.byIcon(Icons.info_outline));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('English'));
-      await tester.pumpAndSettle();
+
+      // 语言是单行下拉：先展开，再点菜单里的那一项。菜单和按钮是两棵
+      // 子树，同一个文案可能出现两次，取后出现的那个（弹出的菜单）。
+      Future<void> pickLanguage(String label) async {
+        await tester.tap(find.byType(DropdownButton<String>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(label).last);
+        await tester.pumpAndSettle();
+      }
+
+      await pickLanguage('English');
 
       expect(find.text('Sleep'), findsOneWidget,
           reason: '选了 English 之后底部导航该是英文——那根线没接上的话这里会红');
       expect(find.text('睡眠'), findsNothing);
 
       // 再选 Русский，同一个控制器，切换应当同样立刻生效
-      await tester.tap(find.text('Русский'));
-      await tester.pumpAndSettle();
+      await pickLanguage('Русский');
 
       expect(find.text('Сон'), findsOneWidget,
           reason: '选了 Русский 之后底部导航该是俄语');
