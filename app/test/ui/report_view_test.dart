@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -1350,6 +1351,30 @@ void main() {
       final vm = buildVm(nightWithAmbient(), settings: settings);
       await vm.setAmbientThresholdPercent(60);
       expect(settings.ambientPercent, 60);
+    });
+
+    test('解析路径期间改了门槛，这条不再起播', () async {
+      // 点播放 → 路径还没解析出来 → 改了门槛（筛后下标已经指到别的
+      // 事件上）。没有这道守卫的话，面板会播出另一段声音。
+      clipStore.saved['sess/100000.wav'] = Float32List(16000);
+      clipStore.blockResolve = Completer<void>();
+      final vm = buildVm(buildSession(events: [
+        event(
+            label: SleepCategory.ambient,
+            start: 100,
+            duration: 30,
+            confidence: 0.60,
+            clipPath: 'sess/100000.wav'),
+      ]));
+
+      final opening = vm.openClip(0);
+      expect(vm.loadingIndex, 0, reason: '已经进入解析阶段');
+
+      await vm.setAmbientThresholdPercent(50); // 改门槛会先停播
+      clipStore.blockResolve!.complete();
+
+      expect(await opening, isNull, reason: '停过播了，这条不该再响');
+      expect(vm.playingIndex, -1);
     });
 
     test('拨回 0，全部回来', () async {

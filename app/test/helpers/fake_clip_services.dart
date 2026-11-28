@@ -12,6 +12,9 @@ class FakeAudioClipStore implements AudioClipStore {
   /// 这些路径 resolve 时返回 null，模拟文件已被清理。
   final Set<String> missingFiles = {};
 
+  /// 挂起 resolve，用来观察「解析还没回来时发生的事」。
+  Completer<void>? blockResolve;
+
   /// 记录每次 save 的会话目录，用来验证按会话删除。
   final List<DateTime> savedSessions = [];
   final List<DateTime> deletedSessions = [];
@@ -84,6 +87,7 @@ class FakeAudioClipStore implements AudioClipStore {
 
   @override
   Future<String?> resolve(String relativePath) async {
+    if (blockResolve != null) await blockResolve!.future;
     if (missingFiles.contains(relativePath)) return null;
     if (!saved.containsKey(relativePath)) return null;
     return '/fake/clips/$relativePath';

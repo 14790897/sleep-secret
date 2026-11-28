@@ -71,6 +71,11 @@ class ReportViewModel extends ChangeNotifier {
   int _loadingIndex = -1;
   UiMessage? _error;
 
+  /// 每次停止播放就加一。正在解析路径的 [openClip] 在 await 之后对比它，
+  /// 变了就放弃起播——否则「点了播放、解析还没回来就改了门槛/关了面板」
+  /// 会让面板播出的片段和列表里那一条对不上。
+  int _playGeneration = 0;
+
   /// 鼾声展示门槛（百分比）。**0 表示不筛**，全部显示——这也是默认值。
   int get snoreThresholdPercent => _settings.snoreThresholdPercent;
 
@@ -161,7 +166,10 @@ class ReportViewModel extends ChangeNotifier {
     _loadingIndex = index;
     notifyListeners();
 
+    final generation = _playGeneration;
     final absolute = await _clipStore.resolve(relative);
+    // 解析期间被停播（改门槛、关页面都会停）：这条已经不该响了。
+    if (generation != _playGeneration) return null;
     if (absolute == null) {
       // 文件被清理掉了（用户删过、或系统清过缓存）。说清楚原因，
       // 不要只是"点了没反应"。
@@ -183,6 +191,7 @@ class ReportViewModel extends ChangeNotifier {
   }
 
   Future<void> stopPlayback() async {
+    _playGeneration++;
     await _player?.stop();
     _playingIndex = -1;
     _loadingIndex = -1;

@@ -408,12 +408,14 @@ class RecordingRepository implements RecordingController {
   Future<void> setAmbientThresholdPercent(int percent) async {
     final clamped =
         percent.clamp(kSnoreThresholdPercentMin, kSnoreThresholdPercentMax);
-    _ambientThresholdPercent = clamped;
     await _database.open();
+    // 先落库再改内存值：写失败时保持旧值，用户重试同一个数字才会真正重试，
+    // 而不是被「和内存里的值相同」提前挡回去。
     await _database.writeStringSetting(
       _kAmbientThresholdPercent,
       '$clamped',
     );
+    _ambientThresholdPercent = clamped;
   }
 
   /// 读一次设置。放在 start() 里做，避免构造时就碰数据库。
